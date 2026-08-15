@@ -23,6 +23,7 @@
 #include <QJsonArray>
 #include <QEventLoop>
 #include <QWebEngineProfile>
+#include <QWebEngineSettings>
 
 XPathFeedParser::XPathFeedParser(QObject *parent)
   : QObject(parent)

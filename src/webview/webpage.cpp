@@ -27,6 +27,7 @@
 #include <QWebEngineUrlRequestInfo>
 #include <QWebEngineCertificateError>
 #include <QWebEngineProfile>
+#include <QWebEngineSettings>
 
 QList<WebPage*> WebPage::livingPages_;
 

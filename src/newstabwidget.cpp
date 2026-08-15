@@ -29,6 +29,7 @@
 #include <QPointer>
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
+#include <QWebEngineSettings>
 
 #if defined(Q_OS_WIN)
 #include <qt_windows.h>
