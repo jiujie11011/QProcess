@@ -42,12 +42,24 @@ QToolTip {
     background: #2A2A2E;
 }
 
-#feedsView_::item:selected, #newsView_::item:selected {
+#feedsView_::item:selected, #newsView_::item:selected,
+#newsCategoriesTree_::item:selected, #categoriesTree::item:selected,
+#fontTree::item:selected, #languageFileList_::item:selected,
+#filtersTree::item:selected, #shortcutTree::item:selected,
+#labelsTree_::item:selected, #colorsTree_::item:selected,
+#foldersTree_::item:selected, #feedsTreeFR::item:selected,
+#feedsTreeNotify_::item:selected {
     background: #1F3D75;
     color: #F0F0F2;
 }
 
-#feedsView_::item:selected:active, #newsView_::item:selected:active {
+#feedsView_::item:selected:active, #newsView_::item:selected:active,
+#newsCategoriesTree_::item:selected:active, #categoriesTree::item:selected:active,
+#fontTree::item:selected:active, #languageFileList_::item:selected:active,
+#filtersTree::item:selected:active, #shortcutTree::item:selected:active,
+#labelsTree_::item:selected:active, #colorsTree_::item:selected:active,
+#foldersTree_::item:selected:active, #feedsTreeFR::item:selected:active,
+#feedsTreeNotify_::item:selected:active {
     background: #2B5292;
 }
 

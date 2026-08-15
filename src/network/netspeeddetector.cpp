@@ -162,7 +162,7 @@ void NetworkSpeedDetector::finishDetection(bool success)
   if (success)
     suggestedConcurrency_ = concurrencyFromSpeed(latencyMs_, bandwidthMbps_);
   else
-    suggestedConcurrency_ = 5; // safe default
+    suggestedConcurrency_ = 8; // safe default (do not stall feed refresh)
 
   emit signalDetectionFinished(success, latencyMs_,
                                bandwidthMbps_, suggestedConcurrency_);
@@ -191,14 +191,17 @@ int NetworkSpeedDetector::suggestedConcurrency() const
 // ----------------------------------------------------------------------------
 int NetworkSpeedDetector::concurrencyFromSpeed(int latencyMs, double bandwidthMbps)
 {
-  // Same thresholds as MrRSS's detector, scaled to QuiteRSS's pool cap (10):
-  // slow   (latency > 300 ms or bandwidth < 2  Mbps) -> 3 concurrent
-  // medium (latency > 100 ms or bandwidth < 20 Mbps) -> 6 concurrent
+  // Same thresholds as MrRSS's detector, scaled to QuiteRSS's pool cap (10).
+  // The floor is kept at 6 so a misjudged "slow" link (or a short feed that
+  // makes the bandwidth probe read low) cannot throttle feed refreshes
+  // to 3 parallel requests.
+  // slow   (latency > 300 ms or bandwidth < 2  Mbps) -> 6 concurrent
+  // medium (latency > 100 ms or bandwidth < 20 Mbps) -> 8 concurrent
   // fast                                              -> 10 concurrent
   if (latencyMs > 300 || bandwidthMbps < 2.0)
-    return 3;
-  if (latencyMs > 100 || bandwidthMbps < 20.0)
     return 6;
+  if (latencyMs > 100 || bandwidthMbps < 20.0)
+    return 8;
   return 10;
 }
 // ----------------------------------------------------------------------------

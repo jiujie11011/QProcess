@@ -139,6 +139,28 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-ChildItem release/target | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Output
 
+      - name: Generate and package translation files
+        shell: pwsh
+        run: |
+          $langDir = "release/target/lang"
+          New-Item -ItemType Directory -Force $langDir | Out-Null
+
+          # Compile the application translations (.ts -> .qm). lrelease puts
+          # the .qm files next to their .ts sources, then we copy them into
+          # the distribution next to QuiteRSS.exe so that
+          # MainApplication::setTranslateApplication() can find them at
+          # "<exe dir>/lang/quiterss_<lang>.qm".
+          lrelease.exe lang/quiterss_*.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item lang/quiterss_*.qm $langDir
+
+          # Copy Qt's own translations (standard buttons, dialogs) from the
+          # windeployqt output into lang/ as well.
+          if (Test-Path "release/target/translations/qtbase_zh_CN.qm") {
+            Copy-Item release/target/translations/qtbase_*.qm $langDir
+          }
+          Get-ChildItem $langDir | Select-Object Name | Format-Table -AutoSize | Out-String | Write-Output
+
       - name: Package Windows distribution
         shell: pwsh
         run: |

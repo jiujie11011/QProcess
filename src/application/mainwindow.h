@@ -834,6 +834,7 @@ private:
   bool recountCategoryCountsOn_;
 
   OptionsDialog *optionsDialog_;
+  QString optionsDialogLanguage_;
 
   AdBlockIcon* adblockIcon_;
 

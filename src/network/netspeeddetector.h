@@ -35,7 +35,7 @@ class QTimer;
  *  Phase 2 (bandwidth): downloads the first user feed URL (when available)
  *  and measures the achieved throughput.
  *
- *  The result is mapped to a concurrency value: slow -> 3, medium -> 6,
+ *  The result is mapped to a concurrency value: slow -> 6, medium -> 8,
  *  fast -> 10 (QuiteRSS caps the download pool at 10).
  *----------------------------------------------------------------------------*/
 class NetworkSpeedDetector : public QObject

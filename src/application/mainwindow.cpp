@@ -3618,8 +3618,15 @@ void MainWindow::showOptionDlg(int index)
   // Reuse the dialog across opens. Constructing all 14 settings pages every
   // time is expensive and makes opening the dialog feel laggy; the per-open
   // state refresh below (setChecked/setValue/setText ...) runs each time.
+  // Once the UI language is switched the dialog's tr() texts go stale, so
+  // rebuild it (once) when the language differs from when it was created.
+  if (optionsDialog_ && (optionsDialogLanguage_ != mainApp->language())) {
+    delete optionsDialog_;
+    optionsDialog_ = 0;
+  }
   if (!optionsDialog_) {
     optionsDialog_ = new OptionsDialog(this);
+    optionsDialogLanguage_ = mainApp->language();
 
     connect(optionsDialog_->undoMarkButton_, SIGNAL(clicked()),
             this, SLOT(slotUndoLastMark()));

@@ -206,30 +206,47 @@ void RequestFeed::getQueuedUrl()
 
   if (!feedsQueue_.isEmpty()) {
     getUrlTimer_->start();
-    QString feedUrl = feedsQueue_.head();
 
-    if (hostList_.contains(QUrl(feedUrl).host())) {
-      foreach (QString url, currentFeeds_) {
-        if (QUrl(url).host() == QUrl(feedUrl).host()) {
-          return;
+    // Scan the queue for the first entry that can be sent right now.
+    // A single host in hostList_ that still has an in-flight request must
+    // not stall the whole queue, so blocked entries are skipped here and
+    // retried on the next timer tick.
+    int index = 0;
+    while (index < feedsQueue_.count()) {
+      QString feedUrl = feedsQueue_.at(index);
+      if (hostList_.contains(QUrl(feedUrl).host())) {
+        bool hostBusy = false;
+        foreach (QString url, currentFeeds_) {
+          if (QUrl(url).host() == QUrl(feedUrl).host()) {
+            hostBusy = true;
+            break;
+          }
+        }
+        if (hostBusy) {
+          ++index;
+          continue;
         }
       }
+      break;
     }
-    int feedId = idsQueue_.dequeue();
-    feedUrl = feedsQueue_.dequeue();
+
+    if (index >= feedsQueue_.count())
+      return;  // everything remaining is blocked behind active requests
+
+    int feedId = idsQueue_.takeAt(index);
+    QString feedUrl = feedsQueue_.takeAt(index);
+    QString userInfo = userInfo_.takeAt(index);
+    QString proxyUrl = proxyQueue_.takeAt(index);
+    QDateTime currentDate = dateQueue_.takeAt(index);
 
     emit setStatusFeed(feedId, "1 Update");
 
     QUrl getUrl = QUrl::fromEncoded(feedUrl.toUtf8());
-    QString userInfo = userInfo_.dequeue();
     if (!userInfo.isEmpty()) {
       getUrl.setUserInfo(userInfo);
-//      getUrl.addQueryItem("auth", getUrl.scheme());
     }
-    QString proxyUrl = proxyQueue_.dequeue();
 
     qDebug() << "getQueuedUrl() >>" << feedUrl << "countQueue=" << feedsQueue_.count();
-    QDateTime currentDate = dateQueue_.dequeue();
     if (currentDate.isValid())
       emit signalHead(getUrl, feedId, feedUrl, currentDate, 0, proxyUrl);
     else
@@ -270,7 +287,7 @@ void RequestFeed::sendRequest(const QUrl &getUrl, int id, const QString &feedUrl
     ? getNetworkManager(proxyUrl)->head(request)
     : getNetworkManager(proxyUrl)->get(request);
   reply->setProperty("feedReply", QVariant(true));
-  requestUrl_.append(reply->url());
+  requestUrl_.append(reply->request().url());
   networkReply_.append(reply);
   emitTaskStats();
 }
@@ -295,7 +312,10 @@ void RequestFeed::slotGet(const QUrl &getUrl, const int &id, const QString &feed
  *----------------------------------------------------------------------------*/
 void RequestFeed::finished(QNetworkReply *reply)
 {
-  QUrl replyUrl = reply->url();
+  // Use the *request* URL for matching below: reply->url() can differ after
+  // an automatically followed redirect, which would leave the entry stuck
+  // in the pool until its 15-second timeout.
+  QUrl replyUrl = reply->request().url();
 
   qDebug() << "reply.finished():" << replyUrl.toString();
   qDebug() << reply->header(QNetworkRequest::ContentTypeHeader);
@@ -449,14 +469,23 @@ void RequestFeed::slotRequestTimeout()
   for (int i = currentTime_.count() - 1; i >= 0; i--) {
     int time = currentTime_.at(i) - 1;
     if (time <= 0) {
-      QUrl url = currentUrls_.takeAt(i);
-      int feedId    = currentIds_.takeAt(i);
-      QString feedUrl = currentFeeds_.takeAt(i);
-      QDateTime feedDate = currentDates_.takeAt(i);
-      int count = currentCount_.takeAt(i) + 1;
+      // Read all values first, then remove them: consecutive takeAt(i)
+      // calls would shift the lists and mix up feed id/url/proxy.
+      QUrl url = currentUrls_.at(i);
+      int feedId    = currentIds_.at(i);
+      QString feedUrl = currentFeeds_.at(i);
+      QDateTime feedDate = currentDates_.at(i);
+      int count = currentCount_.at(i) + 1;
+      QString proxyUrl = currentProxy_.at(i);
+
+      currentUrls_.removeAt(i);
+      currentIds_.removeAt(i);
+      currentFeeds_.removeAt(i);
+      currentDates_.removeAt(i);
+      currentCount_.removeAt(i);
       currentTime_.removeAt(i);
       currentHead_.removeAt(i);
-      QString proxyUrl = currentProxy_.takeAt(i);
+      currentProxy_.removeAt(i);
 
       int replyIndex = requestUrl_.indexOf(url);
       if (replyIndex >= 0) {
