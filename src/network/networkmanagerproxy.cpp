@@ -73,9 +73,10 @@ QNetworkReply* NetworkManagerProxy::createRequest(QNetworkAccessManager::Operati
                                                   QIODevice* outgoingData)
 {
   if (page_) {
-    QNetworkRequest pageRequest = request;
-    page_->populateNetworkRequest(pageRequest);
-    return mainApp->networkManager()->createRequest(op, pageRequest, outgoingData);
+    // WebPage::populateNetworkRequest takes QWebEngineUrlRequestInfo in
+    // Qt 5.15 and is a no-op (interception is done elsewhere), so forward
+    // the request unchanged.
+    return mainApp->networkManager()->createRequest(op, request, outgoingData);
   }
   return QNetworkAccessManager::createRequest(op, request, outgoingData);
 }

@@ -19,6 +19,7 @@
 #define WEBPAGE_H
 
 #include <QWebEnginePage>
+#include <QWebEngineUrlRequestInfo>
 #include <QSslCertificate>
 
 class AdBlockRule;
