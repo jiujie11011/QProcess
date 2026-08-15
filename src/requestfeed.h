@@ -65,6 +65,7 @@ signals:
                  const QString &proxyUrl = QString());
   void setStatusFeed(int feedId, QString status);
   void signalTaskStats(int queued, int running, int done, int failed);
+  void signalCurrentFeed(int feedId, QString feedUrl);
 
 private slots:
   void getQueuedUrl();

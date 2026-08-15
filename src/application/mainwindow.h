@@ -342,6 +342,7 @@ public slots:
   void showMessageStatusBar(QString message, int timeout = 0);
   void slotCountsStatusBar(int unreadCount, int allCount);
   void slotTaskStats(int queued, int running, int done, int failed);
+  void slotCurrentFeed(int feedId, QString feedUrl);
   void slotPlaySound(const QString &path);
   void slotAddColorList(int id, const QString &color);
   void showOptionDlg(int index = -1);
@@ -734,6 +735,12 @@ private:
   QLabel *statusUnread_;
   QLabel *statusAll_;
   QLabel *statusUpdating_;
+  int currentUpdatingFeedId_;
+  QString currentUpdatingFeedName_;
+  int updateQueueCount_;
+  int updateRunningCount_;
+  int updateDoneCount_;
+  int updateFailedCount_;
 
   QPushButton *pushButtonNull_;
 

@@ -77,6 +77,8 @@ UpdateFeeds::UpdateFeeds(QObject *parent, bool addFeed)
             updateObject_, SLOT(getUrlDone(int,int,QString,QString,QByteArray,QDateTime,QString)));
     connect(requestFeed_, SIGNAL(setStatusFeed(int,QString)),
             parent, SLOT(setStatusFeed(int,QString)));
+    connect(requestFeed_, SIGNAL(signalCurrentFeed(int,QString)),
+            parent, SLOT(slotCurrentFeed(int,QString)));
     connect(requestFeed_, SIGNAL(signalTaskStats(int,int,int,int)),
             parent, SLOT(slotTaskStats(int,int,int,int)));
     connect(parent, SIGNAL(signalStopUpdate()),

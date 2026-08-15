@@ -240,6 +240,7 @@ void RequestFeed::getQueuedUrl()
     QDateTime currentDate = dateQueue_.takeAt(index);
 
     emit setStatusFeed(feedId, "1 Update");
+    emit signalCurrentFeed(feedId, feedUrl);
 
     QUrl getUrl = QUrl::fromEncoded(feedUrl.toUtf8());
     if (!userInfo.isEmpty()) {

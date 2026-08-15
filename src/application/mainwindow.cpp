@@ -75,6 +75,11 @@ MainWindow::MainWindow(QWidget *parent)
   , isStartImportFeed_(false)
   , recountCategoryCountsOn_(false)
   , optionsDialog_(NULL)
+  , currentUpdatingFeedId_(-1)
+  , updateQueueCount_(0)
+  , updateRunningCount_(0)
+  , updateDoneCount_(0)
+  , updateFailedCount_(0)
 {
   setObjectName("mainWindow");
   setWindowTitle("QuiteRSS");
@@ -615,9 +620,9 @@ void MainWindow::createStatusBar()
 
   progressBar_ = new QProgressBar(this);
   progressBar_->setObjectName("progressBar_");
-  progressBar_->setFormat("%p%");
+  progressBar_->setFormat("%v/%m (%p%)");
   progressBar_->setAlignment(Qt::AlignCenter);
-  progressBar_->setFixedWidth(100);
+  progressBar_->setFixedWidth(130);
   progressBar_->setFixedHeight(15);
   progressBar_->setMinimum(0);
   progressBar_->setMaximum(0);
@@ -4637,15 +4642,48 @@ void MainWindow::slotCountsStatusBar(int unreadCount, int allCount)
   statusAll_->setText(QString(" " + tr("All: %1") + " ").arg(allCount));
 }
 // ----------------------------------------------------------------------------
+void MainWindow::slotCurrentFeed(int feedId, QString feedUrl)
+{
+  Q_UNUSED(feedUrl)
+  currentUpdatingFeedId_ = feedId;
+  currentUpdatingFeedName_.clear();
+  QModelIndex index = feedsModel_->indexById(feedId);
+  if (index.isValid())
+    currentUpdatingFeedName_ = feedsModel_->dataField(index, "text").toString();
+
+  // Refresh the status text only while an update is actually in progress.
+  if (statusUpdating_->isVisible())
+    slotTaskStats(updateQueueCount_, updateRunningCount_,
+                  updateDoneCount_, updateFailedCount_);
+}
+
+// ----------------------------------------------------------------------------
 void MainWindow::slotTaskStats(int queued, int running, int done, int failed)
 {
+  updateQueueCount_ = queued;
+  updateRunningCount_ = running;
+  updateDoneCount_ = done;
+  updateFailedCount_ = failed;
+
   if ((running == 0) && (queued == 0)) {
     statusUpdating_->hide();
+    currentUpdatingFeedId_ = -1;
+    currentUpdatingFeedName_.clear();
     return;
   }
-  QString text = tr("Updating: %1 queued, %2 downloading, %3 done, %4 failed");
-  statusUpdating_->setText(QString(" " + text + " ").
-                           arg(queued).arg(running).arg(done).arg(failed));
+
+  // Build a friendly progress line: "Refreshing: X queued, Y downloading,
+  // Z done, W failed" plus the name of the feed currently being downloaded.
+  QString text = tr("Refreshing: %1 queued, %2 downloading, %3 done, %4 failed");
+  QString statusText = QString(" " + text + " ").
+                       arg(queued).arg(running).arg(done).arg(failed);
+  if (!currentUpdatingFeedName_.isEmpty()) {
+    QString feedName = currentUpdatingFeedName_;
+    if (feedName.length() > 24)
+      feedName = feedName.left(22) + "...";
+    statusText += QString(" [%1]").arg(feedName);
+  }
+  statusUpdating_->setText(statusText);
   statusUpdating_->show();
 }
 // ----------------------------------------------------------------------------
