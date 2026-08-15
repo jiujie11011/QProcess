@@ -1,0 +1,14 @@
+PATH: D:\Qt\5.14.2\mingw73_64\bin;C:\Windows\System32;C:\Windows
+
+Running qmake...
+STDOUT:
+
+STDERR:
+Project ERROR: Cannot run compiler 'g++'. Output:
+===================
+===================
+Maybe you forgot to setup the environment?
+
+Return code: 3
+
+=== qmake failed! ===

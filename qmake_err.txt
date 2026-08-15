@@ -1,0 +1,4 @@
+Project ERROR: Cannot run compiler 'g++'. Output:
+===================
+===================
+Maybe you forgot to setup the environment?
