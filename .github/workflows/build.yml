@@ -47,13 +47,9 @@ jobs:
           if-no-files-found: warn
 
   build-windows:
-    runs-on: windows-2022
+    runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      - uses: actions/checkout@v4
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -74,7 +70,11 @@ jobs:
           qmake QuiteRSS.pro -spec win32-msvc "CONFIG+=release"
         shell: cmd
 
-      - name: Build
+  build-ubuntu:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
         run: |
           nmake
         shell: cmd
