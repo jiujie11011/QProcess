@@ -329,6 +329,7 @@ public slots:
   void slotUndoLastMark();
   void slotShowStatistics();
   void slotShowAIDialog();
+  void slotShowGroupSummary();
   void slotSaveProgress();
   void slotCheckDiskSpace();
   void slotFeedClicked(QModelIndex index);

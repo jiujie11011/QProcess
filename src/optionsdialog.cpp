@@ -131,6 +131,7 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   createCleanupWidget();
 
   createAIWidget();
+  loadAiSettings();
 
   contentStack_ = new QStackedWidget();
   contentStack_->setObjectName("contentStack_");
@@ -225,6 +226,7 @@ void OptionsDialog::acceptDialog()
   applyLabels();
   applyNotifier();
   applyPass();
+  saveAiSettings();
   accept();
 }
 
@@ -2137,6 +2139,75 @@ void OptionsDialog::createAIWidget()
 }
 
 //----------------------------------------------------------------------------
+void OptionsDialog::loadAiSettings()
+{
+  Settings settings;
+  aiEnabled_->setChecked(settings.value("AI/aiEnabled", false).toBool());
+  aiApiKey_->setText(settings.value("AI/apiKey").toString());
+  aiBaseUrl_->setText(settings.value("AI/baseUrl").toString());
+  aiModel_->setEditText(settings.value("AI/model").toString());
+  aiSummaryLength_->setValue(settings.value("AI/summaryLength", 200).toInt());
+  aiMaxTokens_->setValue(settings.value("AI/maxTokens", 0).toInt());
+  int retentionIndex = aiHistoryRetention_->findData(
+        settings.value("AI/historyRetention", 50).toInt());
+  aiHistoryRetention_->setCurrentIndex(retentionIndex < 0 ? 0 : retentionIndex);
+  aiOfflineCache_->setChecked(settings.value("AI/offlineCache", false).toBool());
+  aiAutoTranslate_->setChecked(settings.value("AI/autoTranslate", false).toBool());
+  int langIndex = aiTranslateLang_->findData(
+        settings.value("AI/translateLang", "zh").toString());
+  aiTranslateLang_->setCurrentIndex(langIndex < 0 ? 0 : langIndex);
+  int engineIndex = aiTranslationEngine_->findData(
+        settings.value("AI/translationEngine", "google").toString());
+  aiTranslationEngine_->setCurrentIndex(engineIndex < 0 ? 0 : engineIndex);
+  aiDeeplKey_->setText(settings.value("AI/deeplKey").toString());
+  aiBaiduAppId_->setText(settings.value("AI/baiduAppId").toString());
+  aiBaiduKey_->setText(settings.value("AI/baiduKey").toString());
+  aiAutoSummary_->setChecked(settings.value("AI/autoSummary", false).toBool());
+  aiAutoRecommend_->setChecked(settings.value("AI/autoRecommend", false).toBool());
+
+  // Set provider last; block the signal so the preset filling in
+  // aiProviderChanged() does not overwrite the stored baseUrl/model.
+  int providerIndex = aiProvider_->findData(
+        settings.value("AI/provider", "openai").toString());
+  if (providerIndex < 0)
+    providerIndex = aiProvider_->findData("custom");
+  if (providerIndex < 0)
+    providerIndex = 0;
+  QSignalBlocker blocker(aiProvider_);
+  aiProvider_->setCurrentIndex(providerIndex);
+
+  aiAutoTranslateToggled(aiAutoTranslate_->isChecked());
+  slotTranslationEngineChanged(aiTranslationEngine_->currentIndex());
+}
+
+//----------------------------------------------------------------------------
+void OptionsDialog::saveAiSettings()
+{
+  Settings settings;
+  settings.setValue("AI/aiEnabled", aiEnabled_->isChecked());
+  settings.setValue("AI/provider",
+                    aiProvider_->itemData(aiProvider_->currentIndex()).toString());
+  settings.setValue("AI/apiKey", aiApiKey_->text());
+  settings.setValue("AI/baseUrl", aiBaseUrl_->text());
+  settings.setValue("AI/model", aiModel_->currentText());
+  settings.setValue("AI/summaryLength", aiSummaryLength_->value());
+  settings.setValue("AI/maxTokens", aiMaxTokens_->value());
+  settings.setValue("AI/historyRetention",
+                    aiHistoryRetention_->itemData(aiHistoryRetention_->currentIndex()).toInt());
+  settings.setValue("AI/offlineCache", aiOfflineCache_->isChecked());
+  settings.setValue("AI/autoTranslate", aiAutoTranslate_->isChecked());
+  settings.setValue("AI/translateLang",
+                    aiTranslateLang_->itemData(aiTranslateLang_->currentIndex()).toString());
+  settings.setValue("AI/translationEngine",
+                    aiTranslationEngine_->itemData(aiTranslationEngine_->currentIndex()).toString());
+  settings.setValue("AI/deeplKey", aiDeeplKey_->text());
+  settings.setValue("AI/baiduAppId", aiBaiduAppId_->text());
+  settings.setValue("AI/baiduKey", aiBaiduKey_->text());
+  settings.setValue("AI/autoSummary", aiAutoSummary_->isChecked());
+  settings.setValue("AI/autoRecommend", aiAutoRecommend_->isChecked());
+}
+
+//----------------------------------------------------------------------------
 void OptionsDialog::aiProviderChanged(int index)
 {
   QString provider = aiProvider_->itemData(index).toString();
@@ -2158,7 +2229,9 @@ void OptionsDialog::aiProviderChanged(int index)
   } else if (provider == "qwen") {
     aiBaseUrl_->setText("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions");
     aiModel_->setEditText("qwen-turbo");
-  } else { // openai / custom
+  } else if (provider == "custom") {
+    // keep whatever the user already typed for a custom endpoint
+  } else { // openai
     aiBaseUrl_->setText("https://api.openai.com/v1/chat/completions");
     aiModel_->setEditText("gpt-4o-mini");
   }

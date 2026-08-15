@@ -121,6 +121,7 @@ HEADERS += \
     src/progress/progressservice.h \
     src/ai/aiassistant.h \
     src/ai/aidialog.h \
+    src/ai/groupsummarydialog.h \
     src/ai/localsummary.h \
     src/ai/translationservice.h \
     src/common/dialog.h \
@@ -147,6 +148,7 @@ SOURCES += \
     src/statistics/statisticsdialog.cpp \
     src/ai/aiassistant.cpp \
     src/ai/aidialog.cpp \
+    src/ai/groupsummarydialog.cpp \
     src/ai/localsummary.cpp \
     src/ai/translationservice.cpp \
     src/newsview/newsheader.cpp \

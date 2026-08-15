@@ -308,6 +308,9 @@ private slots:
 private:
   void showEvent(QShowEvent*);
 
+  void loadAiSettings();
+  void saveAiSettings();
+
   QSqlDatabase db_;
 
   QLabel *contentLabel_;

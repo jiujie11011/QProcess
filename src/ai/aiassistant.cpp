@@ -53,6 +53,13 @@ AIAssistant::AIAssistant(QObject *parent)
 // ----------------------------------------------------------------------------
 bool AIAssistant::isConfigured() const
 {
+  Settings settings;
+  // The "Enable AI assistant" master switch in Settings -> AI must be on.
+  if (!settings.value("AI/aiEnabled", false).toBool())
+    return false;
+  // Ollama runs locally and needs no API key.
+  if (settings.value("AI/provider", "openai").toString() == "ollama")
+    return !baseUrl().isEmpty();
   return !apiKey().isEmpty();
 }
 

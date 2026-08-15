@@ -35,6 +35,7 @@
 #include "intelligentrefreshcalculator.h"
 #include "statisticsdialog.h"
 #include "aidialog.h"
+#include "groupsummarydialog.h"
 #include "webpage.h"
 #include "settings.h"
 
@@ -3089,6 +3090,35 @@ void MainWindow::slotShowAIDialog()
 }
 
 // ----------------------------------------------------------------------------
+void MainWindow::slotShowGroupSummary()
+{
+  if (!aiAssistant_) return;
+
+  QModelIndex index = feedsProxyModel_->mapToSource(feedsView_->currentIndex());
+  if (!index.isValid())
+    return;
+
+  int id = feedsModel_->dataField(index, "id").toInt();
+  QString name = feedsModel_->dataField(index, "text").toString();
+  if (id <= 0) return;
+
+  QList<int> feedIds;
+  if (feedsModel_->isFolder(index)) {
+    feedIds = UpdateObject::getIdFeedsInList(db_, id);
+  } else {
+    feedIds << id;
+  }
+  if (feedIds.isEmpty()) {
+    QMessageBox::information(this, tr("AI summary"),
+                             tr("No feeds in this group."));
+    return;
+  }
+
+  GroupSummaryDialog dialog(this, aiAssistant_, feedIds, name);
+  dialog.exec();
+}
+
+// ----------------------------------------------------------------------------
 void MainWindow::slotSaveProgress()
 {
   if (progressService_)
@@ -5130,6 +5160,10 @@ void MainWindow::showContextMenuFeed(const QPoint &pos)
       menu.addSeparator();
       menu.addAction(setFilterNewsAct_);
       menu.addAction(feedProperties_);
+      menu.addSeparator();
+      QAction *aiSummaryAct = menu.addAction(tr("AI summarize this group"));
+      connect(aiSummaryAct, SIGNAL(triggered()),
+              this, SLOT(slotShowGroupSummary()));
 
       menu.exec(feedsView_->viewport()->mapToGlobal(pos));
     }
