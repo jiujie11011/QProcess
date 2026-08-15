@@ -2,89 +2,55 @@ name: Build QuiteRSS
 
 on:
   push:
-    branches: [master, main]
-  pull_request:
-    branches: [master, main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install Qt5 and dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            qtbase5-dev \
-            libqt5webkit5-dev \
-            libqt5multimediawidgets5 \
-            qtmultimedia5-dev \
-            libqt5xml5 \
-            libqt5sql5 \
-            libqt5network5 \
-            libqt5printsupport5 \
-            qttools5-dev \
-            libgl1-mesa-dev
-
-      - name: Run qmake
-        run: |
-          qmake QuiteRSS.pro CONFIG+=release
-
-      - name: Build
-        run: |
-          make -j$(nproc)
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: QuiteRSS-linux
-          path: release/target/QuiteRSS
-          if-no-files-found: warn
-
   build-windows:
-    runs-on: windows-2022
+    runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+      - name: 安装 Qt
+        uses: jurplel/install-qt-action@v3
         with:
           version: '5.15.2'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_mingw81'
-          modules: 'qtwebengine'
-          tools: 'tools_mingw81'
-          cache: true
+          modules: 'qtwebengine qtwebkit'
 
-      - name: Set up MSVC environment (fallback for WebKit)
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: amd64
-
-      - name: Run qmake
-        run: |
-          qmake QuiteRSS.pro -spec win32-g++ "CONFIG+=release"
+      - name: 编译
         shell: cmd
-
-      - name: Build
         run: |
+          qmake quiterss.pro
           mingw32-make -j4
-        shell: cmd
 
-      - name: Upload artifact
+      - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: QuiteRSS-windows
-          path: |
-            release/target/QuiteRSS.exe
-            release/target/*.dll
-          if-no-files-found: warn
+          name: QuiteRSS-Windows
+          path: release/
+
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: |
+          sudo apt update
+          sudo apt install -y qt5-default qtwebengine5-dev libqt5webkit5-dev build-essential
+
+      - name: 编译
+        run: |
+          qmake quiterss.pro
+          make -j4
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuiteRSS-Linux
+          path: release/
