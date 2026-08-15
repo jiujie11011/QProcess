@@ -18,9 +18,6 @@
 #include "globals.h"
 #include "mainapplication.h"
 #include "logfile.h"
-#if defined(Q_OS_WIN)
-#include <windows.h>
-#endif
 
 int main(int argc, char **argv)
 {
@@ -32,11 +29,6 @@ int main(int argc, char **argv)
 #endif
   }
 
-#ifdef Q_OS_WIN
-#if _WIN32_WINNT >= 0x0600
-  SetProcessDPIAware();
-#endif
-#endif
 #if QT_VERSION >= 0x050600
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #elif QT_VERSION >= 0x050400

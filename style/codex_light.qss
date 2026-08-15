@@ -5,7 +5,7 @@
 
 /* ---- Global base ---- */
 QMainWindow, QDialog, QWidget {
-    font-size: 13px;
+    font-size: 14px;
 }
 
 QToolTip {

@@ -32,6 +32,7 @@
 #include <QWebEngineProfile>
 #include <QWebEngineScript>
 #include <QWebEngineSettings>
+#include <QFile>
 
 MainApplication::MainApplication(int &argc, char **argv)
   : QtSingleApplication(argc, argv)
@@ -190,7 +191,16 @@ void MainApplication::createSettings()
     }
   }
   if (!findLang) strLang = "en";
-  langFileName_ = settings.value("langFileName", strLang).toString();
+  // A previously stored language may point to a .qm file that no longer
+  // exists (e.g. it was saved while the lang/ dir was missing), which would
+  // permanently override the locale auto-detection above. Validate the
+  // stored value and fall back to the detected locale if it is unusable.
+  QString storedLang = settings.value("langFileName", QString()).toString();
+  if (storedLang.isEmpty() ||
+      !QFile::exists(resourcesDir() + "/lang/quiterss_" + storedLang + ".qm")) {
+    storedLang = strLang;
+  }
+  langFileName_ = storedLang;
 
   settings.endGroup();
 

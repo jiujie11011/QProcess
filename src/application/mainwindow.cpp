@@ -3615,15 +3615,15 @@ void MainWindow::showOptionDlg(int index)
 
   if (index != -1) pageIndex = index;
 
-  if (optionsDialog_) {
-    optionsDialog_->activateWindow();
-    return;
+  // Reuse the dialog across opens. Constructing all 14 settings pages every
+  // time is expensive and makes opening the dialog feel laggy; the per-open
+  // state refresh below (setChecked/setValue/setText ...) runs each time.
+  if (!optionsDialog_) {
+    optionsDialog_ = new OptionsDialog(this);
+
+    connect(optionsDialog_->undoMarkButton_, SIGNAL(clicked()),
+            this, SLOT(slotUndoLastMark()));
   }
-
-  optionsDialog_ = new OptionsDialog(this);
-
-  connect(optionsDialog_->undoMarkButton_, SIGNAL(clicked()),
-          this, SLOT(slotUndoLastMark()));
 
   settings.beginGroup("Settings");
   bool updateFeedsStartUp = settings.value("autoUpdatefeedsStartUp", false).toBool();
@@ -4008,8 +4008,7 @@ void MainWindow::showOptionDlg(int index)
   pageIndex = optionsDialog_->currentIndex();
 
   if (result == QDialog::Rejected) {
-    delete optionsDialog_;
-    optionsDialog_ = NULL;
+    optionsDialog_->hide();
     return;
   }
 
@@ -4417,8 +4416,7 @@ void MainWindow::showOptionDlg(int index)
   notifierTextColor_ = optionsDialog_->colorsTree_->topLevelItem(21)->text(1);
   notifierBackgroundColor_ = optionsDialog_->colorsTree_->topLevelItem(22)->text(1);
 
-  delete optionsDialog_;
-  optionsDialog_ = NULL;
+  optionsDialog_->hide();
 
   settings.beginGroup("Settings");
   settings.setValue("autoUpdatefeedsStartUp", updateFeedsStartUp);
