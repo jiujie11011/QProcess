@@ -21,6 +21,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QEventLoop>
 #include <QWebEngineProfile>
 
 XPathFeedParser::XPathFeedParser(QObject *parent)
@@ -41,27 +42,12 @@ static QString jsString(const QString &s)
       trimmed().mid(1).chopped(1);
 }
 
-void XPathFeedParser::parseAsync(const QString &html, const QString &fetchRule)
+QString XPathFeedParser::buildScript() const
 {
-  fetchRule_ = fetchRule;
-  connect(page_, &QWebEnginePage::loadFinished, this, &XPathFeedParser::onHtmlLoaded, Qt::UniqueConnection);
-  page_->setHtml(html);
-}
-
-void XPathFeedParser::onHtmlLoaded(bool ok)
-{
-  disconnect(page_, &QWebEnginePage::loadFinished, this, &XPathFeedParser::onHtmlLoaded);
-  if (!ok) {
-    emit parseFinished(QList<XPathNewsItem>());
-    return;
-  }
-
   QJsonParseError parseError;
   QJsonDocument doc = QJsonDocument::fromJson(fetchRule_.toUtf8(), &parseError);
-  if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-    emit parseFinished(QList<XPathNewsItem>());
-    return;
-  }
+  if (parseError.error != QJsonParseError::NoError || !doc.isObject())
+    return QString();
 
   QJsonObject rule = doc.object();
   QString itemExpr = rule.value("item").toString();
@@ -71,12 +57,10 @@ void XPathFeedParser::onHtmlLoaded(bool ok)
   QString dateExpr = rule.value("date").toString();
   QString authorExpr = rule.value("author").toString();
 
-  if (itemExpr.isEmpty()) {
-    emit parseFinished(QList<XPathNewsItem>());
-    return;
-  }
+  if (itemExpr.isEmpty())
+    return QString();
 
-  QString js = QString(
+  return QString(
     "(function() {"
     "  var itemExpr = %1;"
     "  var titleExpr = %2;"
@@ -123,21 +107,83 @@ void XPathFeedParser::onHtmlLoaded(bool ok)
     "})();"
   ).arg(jsString(itemExpr), jsString(titleExpr), jsString(linkExpr),
         jsString(descExpr), jsString(dateExpr), jsString(authorExpr));
+}
+
+QList<XPathNewsItem> XPathFeedParser::decodeResult(const QVariant &result)
+{
+  QList<XPathNewsItem> items;
+  QJsonDocument doc = QJsonDocument::fromJson(result.toString().toUtf8());
+  QJsonArray arr = doc.array();
+  for (int i = 0; i < arr.count(); ++i) {
+    QJsonObject obj = arr.at(i).toObject();
+    XPathNewsItem item;
+    item.title = obj.value("title").toString().trimmed();
+    item.link = obj.value("link").toString().trimmed();
+    item.description = obj.value("description").toString().trimmed();
+    item.date = obj.value("date").toString().trimmed();
+    item.author = obj.value("author").toString().trimmed();
+    items.append(item);
+  }
+  return items;
+}
+
+QList<XPathNewsItem> XPathFeedParser::parse(const QString &html, const QString &fetchRule)
+{
+  QList<XPathNewsItem> items;
+  fetchRule_ = fetchRule;
+
+  QString js = buildScript();
+  if (js.isEmpty())
+    return items;
+
+  QEventLoop loop;
+
+  bool loaded = false;
+  connect(page_, &QWebEnginePage::loadFinished, &loop, [&](bool ok) {
+    loaded = ok;
+    loop.quit();
+  });
+  page_->setHtml(html);
+  loop.exec();
+  disconnect(page_, &QWebEnginePage::loadFinished, &loop, nullptr);
+
+  if (!loaded)
+    return items;
+
+  bool done = false;
+  page_->runJavaScript(js, [&](const QVariant &result) {
+    items = decodeResult(result);
+    done = true;
+    loop.quit();
+  });
+  if (!done)
+    loop.exec();
+
+  return items;
+}
+
+void XPathFeedParser::parseAsync(const QString &html, const QString &fetchRule)
+{
+  fetchRule_ = fetchRule;
+  connect(page_, &QWebEnginePage::loadFinished, this, &XPathFeedParser::onHtmlLoaded, Qt::UniqueConnection);
+  page_->setHtml(html);
+}
+
+void XPathFeedParser::onHtmlLoaded(bool ok)
+{
+  disconnect(page_, &QWebEnginePage::loadFinished, this, &XPathFeedParser::onHtmlLoaded);
+  if (!ok) {
+    emit parseFinished(QList<XPathNewsItem>());
+    return;
+  }
+
+  QString js = buildScript();
+  if (js.isEmpty()) {
+    emit parseFinished(QList<XPathNewsItem>());
+    return;
+  }
 
   page_->runJavaScript(js, [this](const QVariant& result) {
-    QList<XPathNewsItem> items;
-    QJsonDocument doc = QJsonDocument::fromJson(result.toString().toUtf8());
-    QJsonArray arr = doc.array();
-    for (int i = 0; i < arr.count(); ++i) {
-      QJsonObject obj = arr.at(i).toObject();
-      XPathNewsItem item;
-      item.title = obj.value("title").toString().trimmed();
-      item.link = obj.value("link").toString().trimmed();
-      item.description = obj.value("description").toString().trimmed();
-      item.date = obj.value("date").toString().trimmed();
-      item.author = obj.value("author").toString().trimmed();
-      items.append(item);
-    }
-    emit parseFinished(items);
+    emit parseFinished(decodeResult(result));
   });
 }

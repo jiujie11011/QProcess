@@ -79,7 +79,7 @@ private:
   void cleanBlockedObjectsJavaScript();
 
   // WebEngine specific: certificate error handling
-  void certificateError(const QWebEngineCertificateError &error);
+  bool certificateError(const QWebEngineCertificateError &error);
 };
 
 #endif // WEBPAGE_H

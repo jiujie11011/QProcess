@@ -223,10 +223,10 @@ bool WebPage::containsRejectedCerts(const QList<QSslCertificate> &certs)
   return false;
 }
 
-void WebPage::certificateError(const QWebEngineCertificateError &error)
+bool WebPage::certificateError(const QWebEngineCertificateError &error)
 {
   Q_UNUSED(error)
-  // Certificate errors are handled by NetworkManagerProxy
-  // Override to ignore or handle as needed
-  // error.ignoreCertificateError(); // Uncomment to accept all certificates
+  // Certificate errors are handled by NetworkManagerProxy.
+  // Return true to accept the certificate and continue loading.
+  return true;
 }

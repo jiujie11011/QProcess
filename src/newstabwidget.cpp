@@ -459,9 +459,6 @@ void NewsTabWidget::createWebWidget()
   webWidget_->setMinimumWidth(400);
   webWidget_->setMinimumHeight(100);
 
-  webView_->page()->action(QWebEnginePage::OpenLink)->disconnect();
-  webView_->page()->action(QWebEnginePage::OpenLinkInNewWindow)->disconnect();
-
   urlExternalBrowserAct_ = new QAction(this);
   urlExternalBrowserAct_->setIcon(QIcon(":/images/openBrowser"));
 
@@ -482,10 +479,6 @@ void NewsTabWidget::createWebWidget()
 
   connect(webView_, SIGNAL(titleChanged(QString)),
           this, SLOT(webTitleChanged(QString)));
-  connect(webView_->page()->action(QWebEnginePage::OpenLink), SIGNAL(triggered()),
-          this, SLOT(openLink()));
-  connect(webView_->page()->action(QWebEnginePage::OpenLinkInNewWindow), SIGNAL(triggered()),
-          this, SLOT(openLinkInNewTab()));
 
   connect(webView_, SIGNAL(showContextMenu(QPoint)),
           this, SLOT(showContextWebPage(QPoint)), Qt::QueuedConnection);
@@ -1465,9 +1458,8 @@ void NewsTabWidget::updateWebView(QModelIndex index)
       locationBar_->setText(newsUrl.toString());
       setWebToolbarVisible(true, false);
 
-      webView_->history()->setMaximumItemCount(0);
+      webView_->history()->clear();
       webView_->load(newsUrl);
-      webView_->history()->setMaximumItemCount(100);
     } else {
       openUrl(newsUrl);
     }
@@ -2095,9 +2087,8 @@ void NewsTabWidget::loadNewspaper(int refresh)
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::slotSetHtmlWebView(const QString &html)
 {
-  webView_->history()->setMaximumItemCount(0);
+  webView_->history()->clear();
   webView_->setHtml(html);
-  webView_->history()->setMaximumItemCount(100);
 }
 
 void NewsTabWidget::hideWebContent()
@@ -2541,8 +2532,6 @@ void NewsTabWidget::showContextWebPage(const QPoint &p)
   if (pageMenu) {
     menu.addActions(pageMenu->actions());
 
-    webView_->page()->action(QWebEnginePage::OpenLink)->setText(tr("Open Link"));
-    webView_->page()->action(QWebEnginePage::OpenLinkInNewWindow)->setText(tr("Open in New Tab"));
     webView_->page()->action(QWebEnginePage::DownloadLinkToDisk)->setText(tr("Save Link..."));
     webView_->page()->action(QWebEnginePage::DownloadImageToDisk)->setText(tr("Save Image..."));
     webView_->page()->action(QWebEnginePage::CopyLinkToClipboard)->setText(tr("Copy Link"));
@@ -2554,14 +2543,14 @@ void NewsTabWidget::showContextWebPage(const QPoint &p)
     webView_->page()->action(QWebEnginePage::CopyImageToClipboard)->setText(tr("Copy Image"));
     webView_->page()->action(QWebEnginePage::CopyImageUrlToClipboard)->setText(tr("Copy Image Address"));
 
-    // WebEngine: hit test not available directly
-    // Context menu link detection handled by QWebEnginePage context menu actions
     linkUrl_ = QUrl();
-      if (mainWindow_->externalBrowserOn_ <= 0) {
-        menu.addSeparator();
-        menu.addAction(urlExternalBrowserAct_);
-      }
-    } else if (pageMenu->actions().indexOf(webView_->pageAction(QWebEnginePage::Reload)) >= 0) {
+    if (mainWindow_->externalBrowserOn_ <= 0) {
+      menu.addSeparator();
+      menu.addAction(urlExternalBrowserAct_);
+    }
+
+    // Add article-specific actions (reload / print / save) for the news view.
+    if (pageMenu->actions().indexOf(webView_->pageAction(QWebEnginePage::Reload)) >= 0) {
       if (webView_->title() == "news_descriptions") {
         webView_->pageAction(QWebEnginePage::Reload)->setVisible(false);
       } else {
@@ -2574,11 +2563,6 @@ void NewsTabWidget::showContextWebPage(const QPoint &p)
       menu.addAction(mainWindow_->printPreviewAct_);
       menu.addSeparator();
       menu.addAction(mainWindow_->savePageAsAct_);
-    } else {
-      // WebEngine: editable content detection not directly available
-      menu.insertSeparator(menu.actions().at(0));
-      menu.insertAction(menu.actions().at(0), webView_->pageAction(QWebEnginePage::Redo));
-      menu.insertAction(menu.actions().at(0), webView_->pageAction(QWebEnginePage::Undo));
     }
 
     {
@@ -3081,7 +3065,8 @@ void NewsTabWidget::savePageAsDescript()
   webView_->page()->toHtml([guard, row, newsId](const QString &result) {
     if (!guard) return;
 
-    QString html = result.replace("'", "''");
+    QString html = result;
+    html.replace("'", "''");
     guard->newsModel_->setData(
           guard->newsModel_->index(row, guard->newsModel_->fieldIndex("content")),
           html);

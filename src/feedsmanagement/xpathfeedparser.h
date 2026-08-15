@@ -38,12 +38,15 @@ public:
   ~XPathFeedParser();
 
   void parseAsync(const QString &html, const QString &fetchRule);
+  QList<XPathNewsItem> parse(const QString &html, const QString &fetchRule);
 
 signals:
   void parseFinished(const QList<XPathNewsItem> &items);
 
 private:
   void onHtmlLoaded(bool ok);
+  QString buildScript() const;
+  static QList<XPathNewsItem> decodeResult(const QVariant &result);
 
   QString fetchRule_;
   QWebEnginePage *page_;

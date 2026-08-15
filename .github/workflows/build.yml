@@ -16,20 +16,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Qt5 and dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            qtbase5-dev \
-            libqt5webengine5-dev \
-            libqt5webchannel5-dev \
-            qtmultimedia5-dev \
-            libqt5xml5 \
-            libqt5sql5 \
-            libqt5network5 \
-            libqt5printsupport5 \
-            qttools5-dev \
-            libgl1-mesa-dev
+            libgl1-mesa-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libx11-dev \
+            mesa-common-dev \
+            libxkbcommon-x11-0 \
+            libnss3 \
+            libasound2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libdbus-1-3 \
+            libegl1 \
+            libpulse-dev
+
+      - name: Install Qt (with QtWebEngine)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          modules: 'qtwebengine'
+          cache: true
 
       - name: Run qmake
         run: |

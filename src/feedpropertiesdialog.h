@@ -201,6 +201,7 @@ private:
   QGroupBox *authentication_;
   LineEdit *user_;
   LineEdit *pass_;
+  QWidget *createAuthenticationTab();
 
   // Tab "Proxy"
   QGroupBox *proxy_;
