@@ -15,68 +15,52 @@
 * You should have received a copy of the GNU General Public License
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 * ============================================================ */
-#ifndef GROUPSUMMARYDIALOG_H
-#define GROUPSUMMARYDIALOG_H
+#ifndef AUTOTAGDIALOG_H
+#define AUTOTAGDIALOG_H
 
 #include <QDialog>
 #include <QList>
 
 #include "aiassistant.h"
 
-class QComboBox;
-class QDateTimeEdit;
+class QLabel;
+class QSpinBox;
 class QTextBrowser;
-class QTextEdit;
 class QPushButton;
 
-/*! AI summary of all articles of a feed group within a time range.
+/*! Auto classification / labeling dialog.
  *
- * Collects the article titles/links of the given feeds published/received
- * in the selected period, lets the user edit the prompt, and delivers the
- * result through AIAssistant (OpenAI-compatible API).
+ * Collects the titles of the most recent articles of the selected feeds,
+ * asks the AI to suggest a set of category labels, and lets the user write
+ * the chosen labels back into the news rows.
  */
-class GroupSummaryDialog : public QDialog
+class AutoTagDialog : public QDialog
 {
   Q_OBJECT
 public:
-  explicit GroupSummaryDialog(QWidget *parent, AIAssistant *assistant,
-                              const QList<int> &feedIds, const QString &groupName,
-                              bool onlyUnread = false, int initialRange = -1);
+  explicit AutoTagDialog(QWidget *parent, AIAssistant *assistant,
+                         const QList<int> &feedIds,
+                         const QString &groupName);
 
 private slots:
   void slotGenerate();
+  void slotApply();
   void slotCopyResult();
-  void slotTimeRangeChanged(int index);
   void slotResponseReady(const QString &text);
   void slotRequestFailed(const QString &error);
 
 private:
-  struct ArticleInfo {
-    int id;
-    QString title;
-    QString link;
-    QString published;
-  };
-
-  QList<ArticleInfo> loadArticles(const QString &from, const QString &to) const;
-  QString buildArticleList(const QList<ArticleInfo> &articles) const;
-  QString defaultPromptTemplate() const;
-  QString resolveFrom() const;
-  QString resolveTo() const;
+  QString buildPrompt() const;
 
   AIAssistant *assistant_;
   QList<int> feedIds_;
   QString groupName_;
-  bool onlyUnread_;
 
-  QComboBox *timeRangeCombo_;
-  QDateTimeEdit *fromEdit_;
-  QDateTimeEdit *toEdit_;
-  QTextEdit *promptEdit_;
-  QComboBox *lengthCombo_;
+  QSpinBox *limitSpin_;
   QTextBrowser *resultView_;
   QPushButton *generateButton_;
+  QPushButton *applyButton_;
   QPushButton *copyButton_;
 };
 
-#endif // GROUPSUMMARYDIALOG_H
+#endif // AUTOTAGDIALOG_H

@@ -35,13 +35,17 @@
 // ----------------------------------------------------------------------------
 GroupSummaryDialog::GroupSummaryDialog(QWidget *parent, AIAssistant *assistant,
                                        const QList<int> &feedIds,
-                                       const QString &groupName)
+                                       const QString &groupName,
+                                       bool onlyUnread, int initialRange)
   : QDialog(parent)
   , assistant_(assistant)
   , feedIds_(feedIds)
   , groupName_(groupName)
+  , onlyUnread_(onlyUnread)
 {
-  setWindowTitle(tr("AI summary of \"%1\"").arg(groupName_));
+  setWindowTitle(onlyUnread_
+                 ? tr("AI summary of unread in \"%1\"").arg(groupName_)
+                 : tr("AI summary of \"%1\"").arg(groupName_));
   setMinimumWidth(640);
   setMinimumHeight(520);
 
@@ -56,6 +60,12 @@ GroupSummaryDialog::GroupSummaryDialog(QWidget *parent, AIAssistant *assistant,
   timeRangeCombo_->addItem(tr("Last 30 days"), 2);
   timeRangeCombo_->addItem(tr("All time"), 3);
   timeRangeCombo_->addItem(tr("Custom"), 4);
+  timeRangeCombo_->addItem(tr("Today"), 5);
+  if (initialRange >= 0) {
+    int idx = timeRangeCombo_->findData(initialRange);
+    if (idx >= 0)
+      timeRangeCombo_->setCurrentIndex(idx);
+  }
   timeLayout->addWidget(timeRangeCombo_);
 
   fromEdit_ = new QDateTimeEdit(QDateTime::currentDateTime().addDays(-7));
@@ -141,6 +151,8 @@ QString GroupSummaryDialog::resolveFrom() const
   if (range == 3) return QString();                 // all time
   if (range == 4) return fromEdit_->dateTime().toString(Qt::ISODate);
   QDateTime now = QDateTime::currentDateTime();
+  if (range == 5)                                  // today (from 00:00)
+    return QDateTime(QDate::currentDate(), QTime(0, 0)).toString(Qt::ISODate);
   if (range == 0) return now.addSecs(-24 * 3600).toString(Qt::ISODate);
   if (range == 1) return now.addDays(-7).toString(Qt::ISODate);
   return now.addDays(-30).toString(Qt::ISODate);
@@ -174,6 +186,8 @@ GroupSummaryDialog::loadArticles(const QString &from, const QString &to) const
 
   QString sql = "SELECT id, title, link_href, published FROM news "
                 "WHERE feedId IN (" + placeholders + ") AND deleted==0";
+  if (onlyUnread_)
+    sql += " AND read==0";
   if (!from.isEmpty())
     sql += " AND received >= ?";
   if (!to.isEmpty())

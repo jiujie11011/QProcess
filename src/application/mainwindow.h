@@ -316,6 +316,10 @@ public:
 
   void webViewFullScreen(bool on);
 
+  // AI tools: resolve the currently selected folder/feed into a list of
+  // concrete feed ids plus a display name. Returns false if nothing usable.
+  bool getSelectedFeedIds(QList<int> *feedIds, QString *name);
+
 public slots:
   void restoreFeedsOnStartUp();
   void addFeed();
@@ -330,6 +334,12 @@ public slots:
   void slotShowStatistics();
   void slotShowAIDialog();
   void slotShowGroupSummary();
+  void slotShowUnreadSummary();
+  void slotShowDailyBriefing();
+  void slotShowRecommendations();
+  void slotShowDedup();
+  void slotShowAutoTag();
+  void slotShowKeywordTrends();
   void slotSaveProgress();
   void slotCheckDiskSpace();
   void slotFeedClicked(QModelIndex index);

@@ -36,6 +36,10 @@
 #include "statisticsdialog.h"
 #include "aidialog.h"
 #include "groupsummarydialog.h"
+#include "recommendationdialog.h"
+#include "dedupdialog.h"
+#include "autotagdialog.h"
+#include "keywordtrendsdialog.h"
 #include "webpage.h"
 #include "settings.h"
 
@@ -3090,31 +3094,138 @@ void MainWindow::slotShowAIDialog()
 }
 
 // ----------------------------------------------------------------------------
+bool MainWindow::getSelectedFeedIds(QList<int> *feedIds, QString *name)
+{
+  feedIds->clear();
+  QModelIndex index = feedsProxyModel_->mapToSource(feedsView_->currentIndex());
+  if (!index.isValid())
+    return false;
+
+  int id = feedsModel_->dataField(index, "id").toInt();
+  if (id <= 0) return false;
+  if (name)
+    *name = feedsModel_->dataField(index, "text").toString();
+
+  if (feedsModel_->isFolder(index)) {
+    *feedIds = UpdateObject::getIdFeedsInList(db_, id);
+  } else {
+    *feedIds << id;
+  }
+  return !feedIds->isEmpty();
+}
+
+// ----------------------------------------------------------------------------
 void MainWindow::slotShowGroupSummary()
 {
   if (!aiAssistant_) return;
 
-  QModelIndex index = feedsProxyModel_->mapToSource(feedsView_->currentIndex());
-  if (!index.isValid())
-    return;
-
-  int id = feedsModel_->dataField(index, "id").toInt();
-  QString name = feedsModel_->dataField(index, "text").toString();
-  if (id <= 0) return;
-
   QList<int> feedIds;
-  if (feedsModel_->isFolder(index)) {
-    feedIds = UpdateObject::getIdFeedsInList(db_, id);
-  } else {
-    feedIds << id;
-  }
-  if (feedIds.isEmpty()) {
+  QString name;
+  if (!getSelectedFeedIds(&feedIds, &name)) {
     QMessageBox::information(this, tr("AI summary"),
                              tr("No feeds in this group."));
     return;
   }
 
   GroupSummaryDialog dialog(this, aiAssistant_, feedIds, name);
+  dialog.exec();
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotShowUnreadSummary()
+{
+  if (!aiAssistant_) return;
+
+  QList<int> feedIds;
+  QString name;
+  if (!getSelectedFeedIds(&feedIds, &name)) {
+    QMessageBox::information(this, tr("AI summary"),
+                             tr("No feeds in this group."));
+    return;
+  }
+
+  GroupSummaryDialog dialog(this, aiAssistant_, feedIds, name, true);
+  dialog.exec();
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotShowDailyBriefing()
+{
+  if (!aiAssistant_) return;
+
+  QList<int> feedIds;
+  QString name;
+  if (!getSelectedFeedIds(&feedIds, &name)) {
+    QMessageBox::information(this, tr("AI summary"),
+                             tr("No feeds in this group."));
+    return;
+  }
+
+  GroupSummaryDialog dialog(this, aiAssistant_, feedIds, name, false, 5);
+  dialog.exec();
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotShowRecommendations()
+{
+  if (!aiAssistant_) return;
+
+  QList<int> feedIds;
+  QString name;
+  if (!getSelectedFeedIds(&feedIds, &name)) {
+    QMessageBox::information(this, tr("AI recommendations"),
+                             tr("No feeds in this group."));
+    return;
+  }
+
+  RecommendationDialog dialog(this, aiAssistant_, feedIds);
+  dialog.exec();
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotShowDedup()
+{
+  QList<int> feedIds;
+  QString name;
+  if (!getSelectedFeedIds(&feedIds, &name)) {
+    QMessageBox::information(this, tr("Duplicate articles"),
+                             tr("No feeds in this group."));
+    return;
+  }
+
+  DedupDialog dialog(this, feedIds, name);
+  dialog.exec();
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotShowAutoTag()
+{
+  if (!aiAssistant_) return;
+
+  QList<int> feedIds;
+  QString name;
+  if (!getSelectedFeedIds(&feedIds, &name)) {
+    QMessageBox::information(this, tr("AI auto labeling"),
+                             tr("No feeds in this group."));
+    return;
+  }
+
+  AutoTagDialog dialog(this, aiAssistant_, feedIds, name);
+  dialog.exec();
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotShowKeywordTrends()
+{
+  QList<int> feedIds;
+  QString name;
+  if (!getSelectedFeedIds(&feedIds, &name)) {
+    QMessageBox::information(this, tr("Keyword trends"),
+                             tr("No feeds in this group."));
+    return;
+  }
+
+  KeywordTrendsDialog dialog(this, feedIds, name);
   dialog.exec();
 }
 
@@ -5161,9 +5272,29 @@ void MainWindow::showContextMenuFeed(const QPoint &pos)
       menu.addAction(setFilterNewsAct_);
       menu.addAction(feedProperties_);
       menu.addSeparator();
-      QAction *aiSummaryAct = menu.addAction(tr("AI summarize this group"));
+      QMenu *aiMenu = menu.addMenu(tr("AI tools"));
+      QAction *aiSummaryAct = aiMenu->addAction(tr("Summarize this group"));
       connect(aiSummaryAct, SIGNAL(triggered()),
               this, SLOT(slotShowGroupSummary()));
+      QAction *aiUnreadAct = aiMenu->addAction(tr("Summarize unread articles"));
+      connect(aiUnreadAct, SIGNAL(triggered()),
+              this, SLOT(slotShowUnreadSummary()));
+      QAction *aiBriefingAct = aiMenu->addAction(tr("Today's briefing"));
+      connect(aiBriefingAct, SIGNAL(triggered()),
+              this, SLOT(slotShowDailyBriefing()));
+      aiMenu->addSeparator();
+      QAction *aiRecAct = aiMenu->addAction(tr("Recommendations"));
+      connect(aiRecAct, SIGNAL(triggered()),
+              this, SLOT(slotShowRecommendations()));
+      QAction *aiDedupAct = aiMenu->addAction(tr("Duplicate articles"));
+      connect(aiDedupAct, SIGNAL(triggered()),
+              this, SLOT(slotShowDedup()));
+      QAction *aiTagAct = aiMenu->addAction(tr("Auto labeling"));
+      connect(aiTagAct, SIGNAL(triggered()),
+              this, SLOT(slotShowAutoTag()));
+      QAction *aiTrendsAct = aiMenu->addAction(tr("Keyword trends"));
+      connect(aiTrendsAct, SIGNAL(triggered()),
+              this, SLOT(slotShowKeywordTrends()));
 
       menu.exec(feedsView_->viewport()->mapToGlobal(pos));
     }

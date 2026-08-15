@@ -122,6 +122,10 @@ HEADERS += \
     src/ai/aiassistant.h \
     src/ai/aidialog.h \
     src/ai/groupsummarydialog.h \
+    src/ai/recommendationdialog.h \
+    src/ai/dedupdialog.h \
+    src/ai/autotagdialog.h \
+    src/ai/keywordtrendsdialog.h \
     src/ai/localsummary.h \
     src/ai/translationservice.h \
     src/common/dialog.h \
@@ -149,6 +153,10 @@ SOURCES += \
     src/ai/aiassistant.cpp \
     src/ai/aidialog.cpp \
     src/ai/groupsummarydialog.cpp \
+    src/ai/recommendationdialog.cpp \
+    src/ai/dedupdialog.cpp \
+    src/ai/autotagdialog.cpp \
+    src/ai/keywordtrendsdialog.cpp \
     src/ai/localsummary.cpp \
     src/ai/translationservice.cpp \
     src/newsview/newsheader.cpp \

@@ -2,6 +2,7 @@
 *.bak
 *.orig
 _build
+build/
 .directory
 debug
 release

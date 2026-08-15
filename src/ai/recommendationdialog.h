@@ -15,8 +15,8 @@
 * You should have received a copy of the GNU General Public License
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 * ============================================================ */
-#ifndef GROUPSUMMARYDIALOG_H
-#define GROUPSUMMARYDIALOG_H
+#ifndef RECOMMENDATIONDIALOG_H
+#define RECOMMENDATIONDIALOG_H
 
 #include <QDialog>
 #include <QList>
@@ -24,29 +24,27 @@
 #include "aiassistant.h"
 
 class QComboBox;
-class QDateTimeEdit;
+class QSpinBox;
 class QTextBrowser;
-class QTextEdit;
 class QPushButton;
 
-/*! AI summary of all articles of a feed group within a time range.
+/*! AI content recommendation dialog.
  *
- * Collects the article titles/links of the given feeds published/received
- * in the selected period, lets the user edit the prompt, and delivers the
- * result through AIAssistant (OpenAI-compatible API).
+ * Collects the article titles/links that the user recently read or starred,
+ * and asks the AI which new topics / articles to follow. This is a "stub"
+ * implementation: the recommendation logic is delegated to the configured
+ * OpenAI-compatible endpoint.
  */
-class GroupSummaryDialog : public QDialog
+class RecommendationDialog : public QDialog
 {
   Q_OBJECT
 public:
-  explicit GroupSummaryDialog(QWidget *parent, AIAssistant *assistant,
-                              const QList<int> &feedIds, const QString &groupName,
-                              bool onlyUnread = false, int initialRange = -1);
+  explicit RecommendationDialog(QWidget *parent, AIAssistant *assistant,
+                                const QList<int> &feedIds);
 
 private slots:
   void slotGenerate();
   void slotCopyResult();
-  void slotTimeRangeChanged(int index);
   void slotResponseReady(const QString &text);
   void slotRequestFailed(const QString &error);
 
@@ -58,25 +56,18 @@ private:
     QString published;
   };
 
-  QList<ArticleInfo> loadArticles(const QString &from, const QString &to) const;
+  QList<ArticleInfo> loadRecentArticles(int limit) const;
   QString buildArticleList(const QList<ArticleInfo> &articles) const;
-  QString defaultPromptTemplate() const;
-  QString resolveFrom() const;
-  QString resolveTo() const;
+  QString buildPrompt(const QList<ArticleInfo> &articles) const;
 
   AIAssistant *assistant_;
   QList<int> feedIds_;
-  QString groupName_;
-  bool onlyUnread_;
 
-  QComboBox *timeRangeCombo_;
-  QDateTimeEdit *fromEdit_;
-  QDateTimeEdit *toEdit_;
-  QTextEdit *promptEdit_;
-  QComboBox *lengthCombo_;
+  QComboBox *sourceCombo_;
+  QSpinBox *limitSpin_;
   QTextBrowser *resultView_;
   QPushButton *generateButton_;
   QPushButton *copyButton_;
 };
 
-#endif // GROUPSUMMARYDIALOG_H
+#endif // RECOMMENDATIONDIALOG_H
