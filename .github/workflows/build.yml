@@ -51,19 +51,16 @@ jobs:
 
       - name: Build
         run: |
-          set -o pipefail
-          echo "::error::DBG build_step_started"
+          # GitHub Actions runs bash with -e -o pipefail by default; the
+          # pipeline below would abort the script before diagnostics if
+          # make fails, so disable errexit around it.
+          set +e
           make -j$(nproc) 2>&1 | tee build.log
           status=$?
-          echo "::error::DBG make_status=$status log_lines=$(wc -l < build.log 2>/dev/null || echo 0)"
+          set -e
           if [ $status -ne 0 ]; then
-            echo "::error::DBG b64_$(base64 -w0 build.log | head -c 50000)"
-            head -60 build.log | while IFS= read -r line; do
-              printf '::error::%s\n' "$line"
-            done
-            tail -60 build.log | while IFS= read -r line; do
-              printf '::error::%s\n' "$line"
-            done
+            echo "::error::DBG make_status=$status log_lines=$(wc -l < build.log 2>/dev/null || echo 0)"
+            echo "::error::B64_$(base64 -w0 build.log | head -c 50000)"
           fi
           exit $status
 

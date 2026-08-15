@@ -83,7 +83,10 @@ void FeedUrlDetector::probeNext()
   }
 
   QString urlStr = candidateUrls_.takeFirst();
-  QNetworkRequest request(QUrl(urlStr));
+  // Extra parentheses avoid the C++ most vexing parse:
+  // QNetworkRequest request(QUrl(urlStr)); would be read as a function
+  // declaration by MSVC/GCC.
+  QNetworkRequest request((QUrl(urlStr)));
   request.setRawHeader("User-Agent", "QuiteRSS/0.19 (feed discovery)");
   request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                        QNetworkRequest::AlwaysNetwork);
