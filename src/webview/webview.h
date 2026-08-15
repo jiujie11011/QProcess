@@ -63,6 +63,8 @@ private slots:
   void contextMenuRequested(const QPoint& pos);
 
 private:
+  void checkRss();
+
   bool isLoading_;
   bool rssChecked_;
   bool hasRss_;

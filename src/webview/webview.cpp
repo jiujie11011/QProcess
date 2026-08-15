@@ -57,8 +57,6 @@ void WebView::disconnectObjects()
 
   if (event->buttons() == Qt::RightButton) {
     posX_ = event->pos().x();
-  } else if (event->buttons() == Qt::LeftButton) {
-    dragStartPos_ = event->pos();
   }
 
   QWebEngineView::mousePressEvent(event);
@@ -149,7 +147,7 @@ void WebView::slotLoadProgress(int value)
   }
 }
 
-void WebView::slotLoadFinished(bool)
+void WebView::slotLoadFinished()
 {
   isLoading_ = false;
 }
