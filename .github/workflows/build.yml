@@ -52,17 +52,17 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
+          echo "::error::DBG build_step_started"
           make -j$(nproc) 2>&1 | tee build.log
           status=$?
+          echo "::error::DBG make_status=$status log_lines=$(wc -l < build.log 2>/dev/null || echo 0)"
           if [ $status -ne 0 ]; then
-            {
-              echo "## Build failed - last 60 lines"
-              echo '```'
-              tail -60 build.log
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::DBG b64_$(base64 -w0 build.log | head -c 50000)"
+            head -60 build.log | while IFS= read -r line; do
+              printf '::error::%s\n' "$line"
+            done
             tail -60 build.log | while IFS= read -r line; do
-              echo "::error::$line"
+              printf '::error::%s\n' "$line"
             done
           fi
           exit $status
@@ -116,12 +116,12 @@ jobs:
           nmake *>&1 | Tee-Object -FilePath build.log | Out-Host
           $status = $LASTEXITCODE
           if ($status -ne 0) {
-            $tail = Get-Content build.log -Tail 60
-            $summary = @("## Build failed - last 60 lines", '```')
-            $summary += $tail
-            $summary += '```'
-            $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-            $tail | ForEach-Object {
+            $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path build.log)))
+            Write-Output ("::error::B64_" + $b64.Substring(0, [Math]::Min(50000, $b64.Length)))
+            Select-String -Path build.log -Pattern 'error|LNK[0-9]+|fatal' | Select-Object -First 30 | ForEach-Object {
+              Write-Output ("::error::" + $_.Line)
+            }
+            Get-Content build.log -Tail 40 | ForEach-Object {
               Write-Output ("::error::" + $_)
             }
           }
