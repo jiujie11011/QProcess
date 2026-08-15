@@ -104,6 +104,7 @@ public slots:
 signals:
   void signalRunUserFilter(int feedId, int filterId);
   void signalSqlQueryExec(const QString &query);
+  void signalRequestSaveMemoryDB();
 
 private slots:
   void commitData(QSessionManager &manager);

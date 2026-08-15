@@ -181,6 +181,8 @@ UpdateFeeds::UpdateFeeds(QObject *parent, bool addFeed)
 
     connect(mainApp, SIGNAL(signalSqlQueryExec(QString)),
             updateObject_, SLOT(slotSqlQueryExec(QString)));
+    connect(mainApp, SIGNAL(signalRequestSaveMemoryDB()),
+            updateObject_, SLOT(slotRequestSaveMemoryDB()));
     connect(mainApp, SIGNAL(signalRunUserFilter(int, int)),
             parseObject_, SLOT(runUserFilter(int, int)));
 
@@ -340,6 +342,14 @@ UpdateObject::UpdateObject(QObject *parent)
   timerUpdateNews_->setSingleShot(true);
   connect(timerUpdateNews_, SIGNAL(timeout()), this, SIGNAL(signalUpdateNews()));
 
+  // Debounce timer to persist in-memory DB to disk shortly after user
+  // marks items read/unread etc., so a crash loses at most a few seconds
+  // of changes instead of waiting for the 30-minute backup timer.
+  saveMemoryDBDebounceTimer_ = new QTimer(this);
+  saveMemoryDBDebounceTimer_->setSingleShot(true);
+  saveMemoryDBDebounceTimer_->setInterval(2000);
+  connect(saveMemoryDBDebounceTimer_, SIGNAL(timeout()),
+          this, SLOT(saveMemoryDatabase()));
 }
 
 UpdateObject::~UpdateObject()
@@ -1079,6 +1089,8 @@ void UpdateObject::slotSetFeedRead(int readType, int feedId, int idException, QL
       slotRecountFeedCounts(feedId, false);
   }
 
+  requestSaveMemoryDB();
+
   emit signalSetFeedsFilter();
 }
 
@@ -1109,6 +1121,8 @@ void UpdateObject::slotMarkFeedRead(int id, bool isFolder, bool openFeed)
     q.exec(qStr);
   }
   db_.commit();
+
+  requestSaveMemoryDB();
 
   if (!openFeed || isFolder)
     slotUpdateStatus(id, true);
@@ -1171,6 +1185,8 @@ void UpdateObject::slotMarkAllFeedsRead()
 
   slotRefreshInfoTray();
 
+  requestSaveMemoryDB();
+
   emit signalMarkAllFeedsRead();
 }
 
@@ -1207,6 +1223,8 @@ void UpdateObject::slotMarkReadCategory(int type, int idLabel)
   foreach (int id, idList) {
     slotUpdateStatus(id, true);
   }
+
+  requestSaveMemoryDB();
 }
 
 /** @brief Save icon in DB and emit signal to update it
@@ -1238,6 +1256,10 @@ void UpdateObject::slotSqlQueryExec(QString query)
     qCritical() << __PRETTY_FUNCTION__ << __LINE__
                 << "q.lastError(): " << q.lastError().text();
   }
+
+  // Persist user state changes (read/unread etc.) to disk shortly after
+  // they happen instead of only at shutdown / every 30 minutes.
+  requestSaveMemoryDB();
 }
 
 /** @brief Mark all feeds Not New
@@ -1258,6 +1280,8 @@ void UpdateObject::slotMarkAllFeedsOld()
   }
 
   slotRefreshInfoTray();
+
+  requestSaveMemoryDB();
 }
 
 void UpdateObject::slotRefreshInfoTray()
@@ -1280,6 +1304,30 @@ void UpdateObject::saveMemoryDatabase()
   isSaveMemoryDatabase = true;
   Database::sqliteDBMemFile(db_);
   isSaveMemoryDatabase = false;
+}
+
+/** @brief Debounced request to persist the in-memory DB to disk.
+ *
+ * Called after user state writes (mark read/unread etc.). Restarts the
+ * debounce timer so rapid successive operations only flush once, shortly
+ * after the last one. No-op when the DB is not stored in memory.
+ *---------------------------------------------------------------------------*/
+void UpdateObject::slotRequestSaveMemoryDB()
+{
+  requestSaveMemoryDB();
+}
+
+void UpdateObject::requestSaveMemoryDB()
+{
+  if (!mainApp->storeDBMemory()) return;
+
+  // If a flush is already in progress, retry after it completes.
+  if (isSaveMemoryDatabase) {
+    saveMemoryDBDebounceTimer_->start(1000);
+    return;
+  }
+
+  saveMemoryDBDebounceTimer_->start();
 }
 
 /** @brief Delete news from the feed by criteria

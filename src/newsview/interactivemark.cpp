@@ -137,6 +137,9 @@ void InteractiveMarkController::markRowsRead(const QList<int> &rows, bool record
          .arg(idStrs.join(",")));
   db_.commit();
 
+  // Persist to disk shortly after marking read, so a crash does not lose it.
+  emit mainApp->signalRequestSaveMemoryDB();
+
   // Update in-memory model state
   for (int i = 0; i < model_->rowCount(); i++) {
     if (idsToMark.contains(newsIdByRow(i))) {
@@ -223,6 +226,9 @@ bool InteractiveMarkController::undoLastBulkMark()
   QSqlQuery q(db_);
   q.exec(QString("UPDATE news SET read=0 WHERE id IN (%1)").arg(idStrs.join(",")));
   db_.commit();
+
+  // Persist the unread state to disk shortly after the undo.
+  emit mainApp->signalRequestSaveMemoryDB();
 
   // Update model state back to unread
   for (int i = 0; i < model_->rowCount(); i++) {

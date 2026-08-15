@@ -141,6 +141,8 @@ private slots:
                       const QDateTime &date, int auth,
                       const QString &proxyUrl = QString(),
                       bool highPriority = false);
+  void requestSaveMemoryDB();
+  void slotRequestSaveMemoryDB();
 
 private:
   QString getIdFeedsString(int idFolder, int idException = -1);
@@ -153,6 +155,7 @@ private:
   int updateFeedsCount_;
   QTimer *updateModelTimer_;
   QTimer *timerUpdateNews_;
+  QTimer *saveMemoryDBDebounceTimer_;
 
 };
 
