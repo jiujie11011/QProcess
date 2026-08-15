@@ -246,6 +246,77 @@
 3. 引用完整性：`grep` 检查已删除符号（旧 theme action、guidList_/linkList_）无残留引用。
 4. 数据库迁移幂等性：`CREATE TABLE IF NOT EXISTS` + `ALTER TABLE` 迁移块设计为可重复执行。
 
+## CI 构建经验教训（GitHub Actions 编译调试沉淀）
+
+> 本机无 Qt/MSVC 工具链，改用 GitHub Actions 的 build-windows（MSVC2019 + QtWebEngine）/ build-linux 双 job 编译验证。数轮调试中沉淀出以下可复用的坑与排查法。
+
+### 1. C++ 最烦恼解析（Most Vexing Parse）
+
+**现象**：`src/importexport/feedurldetector.cpp` 报 `C2228 left of '.setRawHeader' must have class/struct/union` 与 `C2664 cannot convert argument 1 from 'QNetworkRequest (*)(QUrl)' to 'const QNetworkRequest&'`。
+
+**根因**：
+```cpp
+QNetworkRequest request(QUrl(urlStr));   // 被解析成函数声明！
+// 等价于: QNetworkRequest request(QUrl urlStr);
+```
+MSVC/GCC 把形如 `T obj(a(b));` 的语句优先解释为**函数声明**（参数是 `QUrl urlStr`），于是 `request` 变成函数指针，后续 `.setRawHeader()`、`get(request)` 全部报错。LSP/lint 通常不报这类语义错误，只有真实编译才暴露。
+
+**修复**：加一对多余括号强制按对象构造解释：
+```cpp
+QNetworkRequest request((QUrl(urlStr)));
+```
+
+**排查经验**：当"两个平台同时报出看似无关的类型错误、且 `xxx(*)(T)` 出现在错误信息里"时，优先怀疑最烦恼解析。用正则 `\b\w+\s+\w+\(\s*\w+\s*\(\s*\w+\)\s*\);` 全仓扫描同类写法。
+
+### 2. Qt API 版本不匹配（Qt5.15 用了 Qt6-only API）
+
+**现象**：编译报"找不到成员"（如 `setUserStyleSheetUrl`、`&QPrintDialog::accepted` 取址歧义、`populateNetworkRequest(QNetworkRequest)` 签名不匹配）。
+
+**根因**：代码残留了旧版 QtWebKit 时代的 API（如 `webview.cpp` 的 `dragStartPos_`/`slotLoadFinished(bool)`），而 `.h` 已精简为 QtWebEngine 版本；或误用了 Qt6 才有/签名已变的 API。
+
+**要点**：
+- 这是**确定性**问题，不是"编译工具冲突"——编译器忠实报"成员不存在"，修复方向唯一。
+- 同源文件在两个平台同时被编译，所以同一个旧 API 残留会**同时炸 Windows 和 Linux**，反而有助于确认排查方向。
+- 修复后编译时长逐轮增加（2min→4min），说明错误逐个被清掉、编译深入到了更深层文件——这是**进度信号**。
+
+### 3. GitHub Actions Linux 默认 `bash -e -o pipefail` 吞掉诊断输出
+
+**现象**：Linux job 的 `::error::` 诊断只在 `make` 之前出现，`make` 失败后 `make_status`/base64/错误头尾全部消失；Windows（PowerShell）却正常。
+
+**根因**：GHA 的 `run:` 默认用 `bash -e -o pipefail` 执行。`-e`（errexit）让失败的 `make | tee` 管道**立即终止脚本**，`status=$?` 和后续 `echo ::error::` 根本没机会执行。
+
+**修复**：在 `make` 周围显式关闭 errexit，出错时再恢复：
+```bash
+set +e
+make -j$(nproc) 2>&1 | tee build.log
+status=$?
+set -e
+if [ $status -ne 0 ]; then
+  echo "::error::make_status=$status ..."
+  # base64 + head/tail 输出错误
+fi
+exit $status
+```
+
+**排查经验**：当某平台"诊断步骤凭空消失"而非"报错"时，先怀疑 shell 的 `-e`/`set -e` 行为，而非代码或工具本身。
+
+### 4. GitHub Actions annotation 大小限制（base64 被截断）
+
+**现象**：base64 编码的完整 `build.log` 只能拿到 4092 字符（含 lrelease 翻译阶段），后面的编译错误全被 GitHub 截断。
+
+**要点**：GHA 的 `::error::` annotation 单条有大小上限。**不要把大日志塞进单条 annotation**；把 `grep error` 命中的行单独逐条 `::error::` 输出，才是可靠的错误获取通道。
+
+### 5. SIGNAL/SLOT 宏字符串必须精确匹配（编译期不报错）
+
+**要点**：Qt 旧式 `connect(sender, SIGNAL(sig(...)), receiver, SLOT(slot(...)))` 靠运行时字符串匹配，**签名不一致只在运行期连接失败、编译期静默**。审查这类连接时要逐字符核对参数类型与个数，尤其新加的自定义信号（如 `signalRequestUrl(int,QString,...)` 的 3 处声明 / 2 处 connect / 6 处 emit）。
+
+### 6. 排查流程小结
+
+1. 先看失败 job 的 `annotations`（`::error::`），比下载整包日志快；
+2. 有 base64 就解码看完整日志；没有/被截断就用 `grep error C\d+|LNK\d+` 提取错误行；
+3. 对每个编译器错误**逐一溯源到源码**（读文件确认），不放过级联错误；
+4. 修复后 lint 零错误再 commit，push 触发新一轮编译，直到双 job 全绿。
+
 ## 关键设计决策记录
 
 - **主题彻底替换**：仅保留 Codex Light/Dark 两套，旧值归一化（dark 系→dark，其余→light）。
