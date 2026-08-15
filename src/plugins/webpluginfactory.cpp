@@ -74,7 +74,7 @@ void WebPluginFactory::interceptRequest(QWebEngineUrlRequestInfo &info)
       info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeMedia) {
     QString imageHost = url.host().toLower();
     if (!imageHost.isEmpty()) {
-      QString refHost = info.referrerUrl().host().toLower();
+      QString refHost = info.firstPartyUrl().host().toLower();
       if (refHost.isEmpty() ||
           (imageHost != refHost &&
            !imageHost.endsWith("." + refHost) &&
