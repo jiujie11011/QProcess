@@ -1,64 +1,14 @@
-name: Build QuiteRSS
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
 jobs:
   build-windows:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 安装 Qt 5.6.3（自带 WebKit）
-        uses: jurplel/install-qt-action@v3
-        with:
-          version: '5.6.3'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_mingw49'
-
-      - name: 编译
-        shell: cmd
+      - uses: actions/checkout@v4
+      - name: Install Qt
         run: |
-          qmake quiterss.pro
-          mingw32-make -j4
-
-      - name: 打包 Qt 依赖库
-        shell: cmd
-        run: |
-          windeployqt release/QuiteRSS.exe
-
-      - name: 上传产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: QuiteRSS-Windows
-          path: release/
-
-  build-ubuntu:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 安装依赖
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            libqt5webkit5-dev \
-            qtbase5-dev \
-            qt5-qmake \
-            build-essential
-
-      - name: 编译
-        run: |
-          qmake quiterss.pro
-          make -j4
-
-      - name: 上传产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: QuiteRSS-Ubuntu
-          path: release/
+          python -m pip install aqtinstall
+          python -m aqt install -qt windows desktop 5.15.2 win64_mingw81 --outputdir ${{ runner.workspace }}/Qt
+        shell: bash
+      - name: Set Qt PATH
+        run: echo "${{ runner.workspace }}/Qt/5.15.2/mingw81/bin" >> $GITHUB_PATH
+        shell: bash
+      # 后续编译步骤...
