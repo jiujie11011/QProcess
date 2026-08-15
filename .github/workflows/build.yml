@@ -1,24 +1,27 @@
-- name: Debug - Show Python and environment
-  run: |
-    echo "Python version:"
-    python --version
-    echo "Python path:"
-    which python
-    echo "PATH:"
-    echo $PATH
-  shell: bash
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        run: |
+          python -m pip install aqtinstall
+          python -m aqt install-qt windows desktop 5.15.2 win64_mingw81 --outputdir ${{ runner.workspace }}/Qt
+        shell: bash
+      - name: Set PATH
+        run: echo "${{ runner.workspace }}/Qt/5.15.2/mingw81/bin" >> $GITHUB_PATH
+        shell: bash
+      # 编译...
 
-- name: Debug - List available Qt versions and modules
-  run: |
-    python -m pip install aqtinstall
-    echo "=== List available Qt versions (desktop) ==="
-    python -m aqt list-qt windows desktop
-    echo "=== List modules for 5.15.2 win64_mingw81 ==="
-    python -m aqt list-qt windows desktop --modules 5.15.2 win64_mingw81
-  shell: bash
-
-- name: Install Qt with verbose output
-  run: |
-    # 尝试安装基础包，并增加 -v 详细输出
-    python -m aqt install-qt windows desktop 5.15.2 win64_mingw81 --outputdir ${{ runner.workspace }}/Qt -v
-  shell: bash
+  build-ubuntu:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        run: |
+          python -m pip install aqtinstall
+          python -m aqt install-qt linux desktop 5.15.2 gcc_64 --outputdir ${{ runner.workspace }}/Qt
+        shell: bash
+      - name: Set PATH
+        run: echo "${{ runner.workspace }}/Qt/5.15.2/gcc_64/bin" >> $GITHUB_PATH
+        shell: bash
+      # 编译...
