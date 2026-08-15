@@ -142,17 +142,48 @@ jobs:
       - name: Generate and package translation files
         shell: pwsh
         run: |
+          # GitHub Actions' pwsh defaults $ErrorActionPreference to 'stop',
+          # which turns any native-command stderr into a fatal error on
+          # pwsh >= 7.3 ($PSNativeCommandUseErrorActionPreference). We check
+          # exit codes explicitly instead.
+          $ErrorActionPreference = 'Continue'
           $langDir = "release/target/lang"
           New-Item -ItemType Directory -Force $langDir | Out-Null
+
+          # Locate lrelease.exe (it lives in the same Qt bin dir as windeployqt).
+          $lreleaseCmd = Get-Command lrelease.exe -ErrorAction SilentlyContinue
+          if (-not $lreleaseCmd) {
+            Write-Output "::error::lrelease.exe not found in PATH"
+            exit 1
+          }
+          Write-Output "Using lrelease: $($lreleaseCmd.Source)"
 
           # Compile the application translations (.ts -> .qm). lrelease puts
           # the .qm files next to their .ts sources, then we copy them into
           # the distribution next to QuiteRSS.exe so that
           # MainApplication::setTranslateApplication() can find them at
           # "<exe dir>/lang/quiterss_<lang>.qm".
-          lrelease.exe lang/quiterss_*.ts
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Copy-Item lang/quiterss_*.qm $langDir
+          $tsFiles = @(Get-ChildItem -Path lang -Filter quiterss_*.ts | Sort-Object Name)
+          Write-Output "Compiling $($tsFiles.Count) .ts files"
+          & $lreleaseCmd.Source @($tsFiles.FullName) 2>&1 | Tee-Object -FilePath lrelease.log
+          $lr = $LASTEXITCODE
+          if ($lr -ne 0) {
+            Write-Output "::error::lrelease exited with code $lr"
+            Select-String -Path lrelease.log -Pattern 'error|Error|cannot|unable|failed' |
+              Select-Object -First 20 | ForEach-Object {
+                Write-Output ("::error::" + $_.Line)
+              }
+            exit $lr
+          }
+
+          # Copy the generated .qm files next to the exe.
+          $qm = @(Get-ChildItem -Path lang -Filter quiterss_*.qm -ErrorAction SilentlyContinue)
+          if ($qm.Count -eq 0) {
+            Write-Output "::error::no .qm files generated in lang/"
+            exit 1
+          }
+          Copy-Item $qm.FullName $langDir
+          Write-Output "Copied $($qm.Count) .qm files"
 
           # Copy Qt's own translations (standard buttons, dialogs) from the
           # windeployqt output into lang/ as well.
