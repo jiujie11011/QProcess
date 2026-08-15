@@ -30,6 +30,7 @@
 #include "webpluginfactory.h"
 
 #include <QWebEngineProfile>
+#include <QWebEngineScript>
 #include <QWebEngineSettings>
 
 MainApplication::MainApplication(int &argc, char **argv)
@@ -590,8 +591,22 @@ void MainApplication::reloadUserStyleBrowser()
   Settings settings;
   settings.beginGroup("Settings");
   QString userStyleBrowser = settings.value("userStyleBrowser", QString()).toString();
-  QWebEngineProfile::defaultProfile()->settings()->setUserStyleSheetUrl(userStyleSheet(userStyleBrowser));
+  QUrl styleUrl = userStyleSheet(userStyleBrowser);
   settings.endGroup();
+
+  // Qt 5.15 has no QWebEngineSettings::setUserStyleSheetUrl (Qt 6 API);
+  // inject the stylesheet via a document-level script instead.
+  QWebEngineScript styleScript;
+  styleScript.setName(QStringLiteral("_qtrssUserStyle"));
+  styleScript.setInjectionPoint(QWebEngineScript::DocumentReady);
+  styleScript.setRunsOnSubFrames(true);
+  styleScript.setWorldId(QWebEngineScript::ApplicationWorld);
+  styleScript.setSourceCode(QStringLiteral(
+      "(function(){var s=document.createElement('link');"
+      "s.rel='stylesheet';s.type='text/css';s.href='%1';"
+      "(document.head||document.documentElement).appendChild(s);})();")
+      .arg(styleUrl.toString()));
+  QWebEngineProfile::defaultProfile()->scripts()->insert(styleScript);
 }
 
 /** @brief Set user style sheet for browser

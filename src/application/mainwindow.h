@@ -45,6 +45,8 @@
 #include "newsmodel.h"
 #include "newstabwidget.h"
 #include "newsview.h"
+
+class IntelligentRefreshCalculator;
 #include "notificationswidget.h"
 #include "tabbar.h"
 #include "optionsdialog.h"
@@ -123,7 +125,6 @@ public:
   StatisticsService *statisticsService_;
   AIAssistant *aiAssistant_;
   TranslationService *translationService_;
-  class IntelligentRefreshCalculator;
   IntelligentRefreshCalculator *intelligentRefresh_;
 
   QAction *newsToolbarToggle_;

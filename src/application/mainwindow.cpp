@@ -7589,11 +7589,11 @@ void MainWindow::slotPrint(QWebEnginePage *page)
   printer.setDocName(tr("Web Page"));
   QPrintDialog *printDlg = new QPrintDialog(&printer);
   if (!page)
-    connect(printDlg, &QPrintDialog::accepted, currentNewsTab->webView_, [this, &printer]() {
+    connect(printDlg, &QDialog::accepted, currentNewsTab->webView_, [this, &printer]() {
       currentNewsTab->webView_->page()->print(&printer, [](bool) {});
     });
   else
-    connect(printDlg, &QPrintDialog::accepted, page, [&printer, page]() {
+    connect(printDlg, &QDialog::accepted, page, [&printer, page]() {
       page->print(&printer, [](bool) {});
     });
   printDlg->exec();
