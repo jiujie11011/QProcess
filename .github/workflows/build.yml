@@ -12,47 +12,27 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      # 1. 安装 Qt 5.9.9（这个老版本自带了比较完整的组件，不写 modules 避免去下载不存在的包）
       - name: 安装 Qt
         uses: jurplel/install-qt-action@v3
         with:
-          version: '5.12.12'
+          version: '5.9.9'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_mingw73'
 
+      # 2. 执行编译
       - name: 编译
         shell: cmd
         run: |
-          dir
           qmake quiterss.pro
           mingw32-make -j4
 
-      - name: 上传产物
+      # 3. 编译成功后，打包上传产物
+      - name: 上传可执行文件
         uses: actions/upload-artifact@v4
         with:
-          name: QuiteRSS-Windows
-          path: release/
-
-  build-ubuntu:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 安装依赖
-        run: |
-          sudo apt update
-          sudo apt install -y qt5-default qtbase5-dev qtbase5-dev-tools \
-            qtwebengine5-dev qtwebkit5-dev libqt5webkit5-dev \
-            libqt5sql5-sqlite build-essential
-
-      - name: 编译
-        run: |
-          qmake quiterss.pro
-          make -j4
-
-      - name: 上传产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: QuiteRSS-Ubuntu
-          path: release/
+          name: QuiteRSS-Windows-Build
+          path: |
+            release/*.exe
+            release/*.dll
