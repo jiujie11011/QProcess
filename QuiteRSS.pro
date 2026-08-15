@@ -32,10 +32,10 @@ exists(.git) {
 }
 
 isEqual(QT_MAJOR_VERSION, 5) {
-  QT += widgets webkitwidgets network xml printsupport sql multimedia
+  QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia
   DEFINES += HAVE_QT5
 } else {
-  QT += core gui network xml webkit sql
+  QT += core gui network xml webengine sql
   os2 {
     DISABLE_PHONON = 1
   }
@@ -101,6 +101,7 @@ HEADERS += \
     src/network/authenticationdialog.h \
     src/network/cookiejar.h \
     src/network/networkmanager.h \
+    src/network/netspeeddetector.h \
     src/webview/locationbar.h \
     src/webview/rssdetectionwidget.h \
     src/webview/webpage.h \
@@ -109,6 +110,7 @@ HEADERS += \
     src/common/common.h \
     src/common/delegatewithoutfocus.h \
     src/importexport/jsonfeeds.h \
+    src/importexport/feedurldetector.h \
     src/feedsmanagement/feedsmanagementdialog.h \
     src/feedsmanagement/xpathfeedparser.h \
     src/feedsmanagement/scriptfeedrunner.h \
@@ -194,12 +196,14 @@ SOURCES += \
     src/network/authenticationdialog.cpp \
     src/network/cookiejar.cpp \
     src/network/networkmanager.cpp \
+    src/network/netspeeddetector.cpp \
     src/webview/locationbar.cpp \
     src/webview/rssdetectionwidget.cpp \
     src/webview/webpage.cpp \
     src/webview/webview.cpp \
     src/database/database.cpp \
     src/importexport/jsonfeeds.cpp \
+    src/importexport/feedurldetector.cpp \
     src/feedsmanagement/feedsmanagementdialog.cpp \
     src/feedsmanagement/xpathfeedparser.cpp \
     src/feedsmanagement/scriptfeedrunner.cpp \

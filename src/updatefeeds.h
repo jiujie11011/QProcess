@@ -29,6 +29,7 @@
 
 class UpdateObject;
 class MainWindow;
+class NetworkSpeedDetector;
 
 class UpdateFeeds : public QObject
 {
@@ -39,6 +40,10 @@ public:
 
   void disconnectObjects();
   void startSaveTimer();
+
+  void startSpeedDetection();
+  void setNumberRequests(int number);
+  int numberRequests() const;
 
   UpdateObject *updateObject_;
   RequestFeed *requestFeed_;
@@ -53,10 +58,16 @@ public slots:
 
 signals:
   void signalSaveMemoryDatabase();
+  void signalMessageStatusBar(QString message, int timeout = 0);
+
+private slots:
+  void slotSpeedDetected(bool success, int latencyMs,
+                         double bandwidthMbps, int concurrency);
 
 private:
   bool addFeed_;
   QTimer *saveMemoryDBTimer_;
+  NetworkSpeedDetector *netspeedDetector_;
 
 };
 
@@ -105,7 +116,9 @@ signals:
   void signalMessageStatusBar(QString message, int timeout = 0);
   void signalUpdateFeedsModel();
   void signalRequestUrl(int feedId, QString urlString,
-                        QDateTime date, QString userInfo);
+                        QDateTime date, QString userInfo, QString proxyUrl,
+                        bool highPriority = false);
+  void signalTaskStats(int queued, int running, int done, int failed);
   void xmlReadyParse(QByteArray data, int feedId,
                      QDateTime dtReply, QString codecName);
   void setStatusFeed(int feedId, QString status);
@@ -125,10 +138,14 @@ signals:
 
 private slots:
   bool addFeedInQueue(int feedId, const QString &feedUrl,
-                      const QDateTime &date, int auth);
+                      const QDateTime &date, int auth,
+                      const QString &proxyUrl = QString(),
+                      bool highPriority = false);
 
 private:
   QString getIdFeedsString(int idFolder, int idException = -1);
+  QString getFeedProxyUrl(int feedId, const QString &proxyUrl);
+  QString getFeedUserInfo(const QString &feedUrl, int auth);
 
   MainWindow *mainWindow_;
   QSqlDatabase db_;

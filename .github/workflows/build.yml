@@ -21,8 +21,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             qtbase5-dev \
-            libqt5webkit5-dev \
-            libqt5multimediawidgets5 \
+            libqt5webengine5-dev \
+            libqt5webchannel5-dev \
             qtmultimedia5-dev \
             libqt5xml5 \
             libqt5sql5 \
@@ -60,24 +60,23 @@ jobs:
           version: '5.15.2'
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_mingw81'
+          arch: 'win64_msvc2019_64'
           modules: 'qtwebengine'
-          tools: 'tools_mingw81'
           cache: true
 
-      - name: Set up MSVC environment (fallback for WebKit)
+      - name: Set up MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: amd64
 
       - name: Run qmake
         run: |
-          qmake QuiteRSS.pro -spec win32-g++ "CONFIG+=release"
+          qmake QuiteRSS.pro -spec win32-msvc "CONFIG+=release"
         shell: cmd
 
       - name: Build
         run: |
-          mingw32-make -j4
+          nmake
         shell: cmd
 
       - name: Upload artifact

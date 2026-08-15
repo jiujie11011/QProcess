@@ -18,14 +18,12 @@
 #ifndef WEBPAGE_H
 #define WEBPAGE_H
 
-#include <QNetworkAccessManager>
-#include <QWebPage>
+#include <QWebEnginePage>
 #include <QSslCertificate>
 
-class NetworkManagerProxy;
 class AdBlockRule;
 
-class WebPage : public QWebPage
+class WebPage : public QWebEnginePage
 {
   Q_OBJECT
 public:
@@ -43,10 +41,9 @@ public:
 
   void disconnectObjects();
 
-  bool acceptNavigationRequest(QWebFrame *frame,
-                               const QNetworkRequest &request,
-                               NavigationType type);
-  void populateNetworkRequest(QNetworkRequest &request);
+  // Navigation handling - overridden from QWebEnginePage
+  bool acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame);
+  void populateNetworkRequest(QWebEngineUrlRequestInfo &request);
 
   void scheduleAdjustPage();
   bool isLoading() const;
@@ -58,24 +55,17 @@ public:
   void addRejectedCerts(const QList<QSslCertificate> &certs);
   bool containsRejectedCerts(const QList<QSslCertificate> &certs);
 
-protected slots:
-  QWebPage *createWindow(WebWindowType type);
-  void handleUnsupportedContent(QNetworkReply* reply);
+protected:
+  // Override to handle custom window creation
+  QWebEnginePage* createWindow(WebWindowType type) override;
 
 private slots:
   void progress(int prog);
-  void finished();
-  void downloadRequested(const QNetworkRequest &request);
-  void cleanBlockedObjects();
-  void urlChanged(const QUrl &url);
-#if QT_VERSION >= 0x050905
-  void slotFullScreenRequested(QWebFullScreenRequest fullScreenRequest);
-#endif
+  void finished(bool ok);
+  void handleFeaturePermissionRequested(const QUrl &securityOrigin, Feature feature);
 
 private:
-  NetworkManagerProxy *networkManagerProxy_;
-
-  QWebPage::NavigationType lastRequestType_;
+  WebPage::NavigationType lastRequestType_;
   QUrl lastRequestUrl_;
 
   bool adjustingScheduled_;
@@ -84,6 +74,12 @@ private:
 
   int loadProgress_;
 
+  // AdBlock related
+  void cleanBlockedObjects();
+  void cleanBlockedObjectsJavaScript();
+
+  // WebEngine specific: certificate error handling
+  void certificateError(const QWebEngineCertificateError &error);
 };
 
 #endif // WEBPAGE_H

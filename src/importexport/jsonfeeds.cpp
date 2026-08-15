@@ -61,6 +61,10 @@ QString exportFeedsToJson(FeedsModel *model, QSqlDatabase db)
                  exportTreeModel.dataField(index, "updateIntervalType").toString());
       obj.insert("updateOnStartup",
                  exportTreeModel.dataField(index, "updateOnStartup").toInt());
+      obj.insert("proxyEnabled",
+                 exportTreeModel.dataField(index, "proxyEnabled").toInt());
+      obj.insert("proxyURL",
+                 exportTreeModel.dataField(index, "proxyURL").toString());
     }
     feedArray.append(obj);
     index = exportTreeView.indexBelow(index);
@@ -137,8 +141,8 @@ int importFeedsFromJson(const QString &jsonData, QSqlDatabase db)
 
       q.prepare("INSERT INTO feeds(text, title, description, xmlUrl, htmlUrl, created, "
                 "parentId, rowToParent, updateIntervalEnable, updateInterval, "
-                "updateIntervalType, updateOnStartup) "
-                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                "updateIntervalType, updateOnStartup, proxyEnabled, proxyURL) "
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
       q.addBindValue(textString);
       q.addBindValue(obj.value("title").toString());
       q.addBindValue(obj.value("description").toString());
@@ -151,6 +155,8 @@ int importFeedsFromJson(const QString &jsonData, QSqlDatabase db)
       q.addBindValue(obj.value("updateInterval").toInt());
       q.addBindValue(obj.value("updateIntervalType").toString());
       q.addBindValue(obj.value("updateOnStartup").toInt());
+      q.addBindValue(obj.value("proxyEnabled").toInt());
+      q.addBindValue(obj.value("proxyURL").toString());
       q.exec();
     }
 

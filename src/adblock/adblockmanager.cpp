@@ -124,7 +124,7 @@ QNetworkReply* AdBlockManager::block(const QNetworkRequest &request)
     QVariant v = request.attribute((QNetworkRequest::Attribute)(QNetworkRequest::User + 100));
     WebPage* webPage = static_cast<WebPage*>(v.value<void*>());
     if (WebPage::isPointerSafeToUse(webPage)) {
-      if (!canBeBlocked(webPage->mainFrame()->url())) {
+      if (!canBeBlocked(webPage->url())) {
         return 0;
       }
 
@@ -146,6 +146,29 @@ QNetworkReply* AdBlockManager::block(const QNetworkRequest &request)
 #endif
 
   return 0;
+}
+
+bool AdBlockManager::isBlocked(const QNetworkRequest &request)
+{
+  const QString urlString = request.url().toEncoded().toLower();
+  const QString urlDomain = request.url().host().toLower();
+  const QString urlScheme = request.url().scheme().toLower();
+
+  if (!isEnabled() || !canRunOnScheme(urlScheme))
+    return false;
+
+  const AdBlockRule* blockedRule = m_matcher->match(request, urlDomain, urlString);
+
+  if (blockedRule) {
+    QVariant v = request.attribute((QNetworkRequest::Attribute)(QNetworkRequest::User + 100));
+    WebPage* webPage = static_cast<WebPage*>(v.value<void*>());
+    if (WebPage::isPointerSafeToUse(webPage) && !canBeBlocked(webPage->url())) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
 }
 
 QStringList AdBlockManager::disabledRules() const

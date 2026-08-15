@@ -24,7 +24,8 @@
 #include <QtGui>
 #endif
 #include <QtSql>
-#include <QtWebKit>
+#include <QtWebEngineWidgets>
+#include <QtWebChannel>
 
 #include "feedsproxymodel.h"
 #include "feedsmodel.h"

@@ -20,6 +20,7 @@
 #include "mainapplication.h"
 #include "database.h"
 #include "settings.h"
+#include "netspeeddetector.h"
 
 #include <QDebug>
 #include <qzregexp.h>
@@ -37,6 +38,7 @@ UpdateFeeds::UpdateFeeds(QObject *parent, bool addFeed)
   , getFaviconThread_(NULL)
   , addFeed_(addFeed)
   , saveMemoryDBTimer_(NULL)
+  , netspeedDetector_(NULL)
 {
   getFeedThread_ = new QThread();
   getFeedThread_->setObjectName("getFeedThread_");
@@ -53,8 +55,8 @@ UpdateFeeds::UpdateFeeds(QObject *parent, bool addFeed)
   parseObject_ = new ParseObject();
 
   if (addFeed_) {
-    connect(parent, SIGNAL(signalRequestUrl(int,QString,QDateTime,QString)),
-            requestFeed_, SLOT(requestUrl(int,QString,QDateTime,QString)));
+    connect(parent, SIGNAL(signalRequestUrl(int,QString,QDateTime,QString,QString,bool)),
+            requestFeed_, SLOT(requestUrl(int,QString,QDateTime,QString,QString,bool)));
     connect(requestFeed_, SIGNAL(getUrlDone(int,int,QString,QString,QByteArray,QDateTime,QString)),
             parent, SLOT(getUrlDone(int,int,QString,QString,QByteArray,QDateTime,QString)));
 
@@ -69,12 +71,14 @@ UpdateFeeds::UpdateFeeds(QObject *parent, bool addFeed)
     updateObject_ = new UpdateObject();
     faviconObject_ = new FaviconObject();
 
-    connect(updateObject_, SIGNAL(signalRequestUrl(int,QString,QDateTime,QString)),
-            requestFeed_, SLOT(requestUrl(int,QString,QDateTime,QString)));
+    connect(updateObject_, SIGNAL(signalRequestUrl(int,QString,QDateTime,QString,QString,bool)),
+            requestFeed_, SLOT(requestUrl(int,QString,QDateTime,QString,QString,bool)));
     connect(requestFeed_, SIGNAL(getUrlDone(int,int,QString,QString,QByteArray,QDateTime,QString)),
             updateObject_, SLOT(getUrlDone(int,int,QString,QString,QByteArray,QDateTime,QString)));
     connect(requestFeed_, SIGNAL(setStatusFeed(int,QString)),
             parent, SLOT(setStatusFeed(int,QString)));
+    connect(requestFeed_, SIGNAL(signalTaskStats(int,int,int,int)),
+            parent, SLOT(slotTaskStats(int,int,int,int)));
     connect(parent, SIGNAL(signalStopUpdate()),
             requestFeed_, SLOT(stopRequest()));
 
@@ -99,6 +103,13 @@ UpdateFeeds::UpdateFeeds(QObject *parent, bool addFeed)
     connect(updateObject_, SIGNAL(signalUpdateFeedsModel()),
             parent, SLOT(feedsModelReload()),
             Qt::BlockingQueuedConnection);
+
+    // Network speed detection: adapts the download concurrency at startup.
+    netspeedDetector_ = new NetworkSpeedDetector(this);
+    connect(netspeedDetector_, SIGNAL(signalDetectionFinished(bool,int,double,int)),
+            this, SLOT(slotSpeedDetected(bool,int,double,int)));
+    connect(this, SIGNAL(signalMessageStatusBar(QString,int)),
+            parent, SLOT(showMessageStatusBar(QString,int)));
 
     connect(updateObject_, SIGNAL(xmlReadyParse(QByteArray,int,QDateTime,QString)),
             parseObject_, SLOT(parseXml(QByteArray,int,QDateTime,QString)),
@@ -201,6 +212,52 @@ UpdateFeeds::UpdateFeeds(QObject *parent, bool addFeed)
 
   getFeedThread_->start(QThread::LowPriority);
   updateFeedThread_->start(QThread::LowPriority);
+}
+
+// ----------------------------------------------------------------------------
+void UpdateFeeds::startSpeedDetection()
+{
+  if (!netspeedDetector_ || netspeedDetector_->isRunning())
+    return;
+
+  // Probe the user's own feeds first (privacy friendly). The detector falls
+  // back to well-known hosts when no feeds are configured.
+  QStringList probeUrls;
+  QSqlQuery q(Database::connection("secondConnection"));
+  q.exec("SELECT url FROM feeds WHERE url <> '' LIMIT 6");
+  while (q.next())
+    probeUrls << q.value(0).toString();
+
+  netspeedDetector_->startDetection(probeUrls);
+}
+
+// ----------------------------------------------------------------------------
+void UpdateFeeds::setNumberRequests(int number)
+{
+  if (requestFeed_) {
+    QMetaObject::invokeMethod(requestFeed_, "setNumberRequests",
+                              Qt::QueuedConnection, Q_ARG(int, number));
+  }
+}
+
+// ----------------------------------------------------------------------------
+int UpdateFeeds::numberRequests() const
+{
+  return requestFeed_ ? requestFeed_->numberRequests() : 1;
+}
+
+// ----------------------------------------------------------------------------
+void UpdateFeeds::slotSpeedDetected(bool success, int latencyMs,
+                                    double bandwidthMbps, int concurrency)
+{
+  Q_UNUSED(success);
+  if (requestFeed_) {
+    QMetaObject::invokeMethod(requestFeed_, "setNumberRequests",
+                              Qt::QueuedConnection, Q_ARG(int, concurrency));
+  }
+  emit signalMessageStatusBar(
+    QString(" " + tr("Network speed detected: %1 ms latency, %2 Mbps, %3 concurrent requests") + " ")
+    .arg(latencyMs).arg(bandwidthMbps, 0, 'f', 1).arg(concurrency), 5000);
 }
 
 UpdateFeeds::~UpdateFeeds()
@@ -319,7 +376,8 @@ void UpdateObject::slotGetAllFeedsTimer()
  *---------------------------------------------------------------------------*/
 void UpdateObject::slotGetFeed(int feedId, QString feedUrl, QDateTime date, int auth)
 {
-  addFeedInQueue(feedId, feedUrl, date, auth);
+  // Manual refresh: high priority, jumps to the head of the download queue.
+  addFeedInQueue(feedId, feedUrl, date, auth, QString(), true);
 
   emit showProgressBar(updateFeedsCount_);
 }
@@ -505,34 +563,66 @@ void UpdateObject::slotImportFeeds(QByteArray xmlData)
 
   for (int i = 0; i < idsList.count(); i++) {
     updateFeedsCount_ = updateFeedsCount_ + 2;
-    emit signalRequestUrl(idsList.at(i), urlsList.at(i), QDateTime(), "");
+    emit signalRequestUrl(idsList.at(i), urlsList.at(i), QDateTime(), "", "", false);
   }
   emit showProgressBar(updateFeedsCount_);
 }
 
 // ----------------------------------------------------------------------------
+QString UpdateObject::getFeedProxyUrl(int feedId, const QString &proxyUrl)
+{
+  QString feedProxyUrl = proxyUrl;
+  if (feedProxyUrl.isEmpty()) {
+    QSqlQuery q(db_);
+    q.exec(QString("SELECT proxyEnabled, proxyURL FROM feeds WHERE id=='%1'")
+           .arg(feedId));
+    if (q.next() && (q.value(0).toInt() == 1)) {
+      feedProxyUrl = q.value(1).toString();
+    }
+  }
+  return feedProxyUrl;
+}
+
+// ----------------------------------------------------------------------------
+QString UpdateObject::getFeedUserInfo(const QString &feedUrl, int auth)
+{
+  QString userInfo;
+  if (auth == 1) {
+    QSqlQuery q(db_);
+    QUrl url(feedUrl);
+    q.prepare("SELECT username, password FROM passwords WHERE server=?");
+    q.addBindValue(url.host());
+    q.exec();
+    if (q.next()) {
+      userInfo = QString("%1:%2").arg(q.value(0).toString()).
+          arg(QString::fromUtf8(QByteArray::fromBase64(q.value(1).toByteArray())));
+    }
+  }
+  return userInfo;
+}
+
+// ----------------------------------------------------------------------------
 bool UpdateObject::addFeedInQueue(int feedId, const QString &feedUrl,
-                                  const QDateTime &date, int auth)
+                                  const QDateTime &date, int auth,
+                                  const QString &proxyUrl, bool highPriority)
 {
   int feedIdIndex = feedIdList_.indexOf(feedId);
   if (feedIdIndex > -1) {
+    // Feed already queued or being updated. A high-priority (manual) request
+    // is forwarded so the download queue can promote it to the head without
+    // double-counting the progress.
+    if (highPriority) {
+      emit signalRequestUrl(feedId, feedUrl, date,
+                            getFeedUserInfo(feedUrl, auth),
+                            getFeedProxyUrl(feedId, proxyUrl), true);
+    }
     return false;
   } else {
     feedIdList_.append(feedId);
     updateFeedsCount_ = updateFeedsCount_ + 2;
-    QString userInfo;
-    if (auth == 1) {
-      QSqlQuery q(db_);
-      QUrl url(feedUrl);
-      q.prepare("SELECT username, password FROM passwords WHERE server=?");
-      q.addBindValue(url.host());
-      q.exec();
-      if (q.next()) {
-        userInfo = QString("%1:%2").arg(q.value(0).toString()).
-            arg(QString::fromUtf8(QByteArray::fromBase64(q.value(1).toByteArray())));
-      }
-    }
-    emit signalRequestUrl(feedId, feedUrl, date, userInfo);
+    emit signalRequestUrl(feedId, feedUrl, date,
+                          getFeedUserInfo(feedUrl, auth),
+                          getFeedProxyUrl(feedId, proxyUrl), highPriority);
     return true;
   }
 }

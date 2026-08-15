@@ -18,11 +18,9 @@
 #ifndef WEBVIEW_H
 #define WEBVIEW_H
 
-#include <QWebView>
-#include <QWebHistory>
-#include <QWebPage>
-#include <QWebFrame>
-#include <QWebElement>
+#include <QWebEngineView>
+#include <QWebEngineHistory>
+#include <QWebEnginePage>
 
 #define LEFT_BUTTON 0
 #define MIDDLE_BUTTON 1
@@ -31,7 +29,9 @@
 #define LEFT_BUTTON_SHIFT 4
 #define LEFT_BUTTON_ALT 5
 
-class WebView : public QWebView
+class WebPage;
+
+class WebView : public QWebEngineView
 {
   Q_OBJECT
 public:
@@ -54,20 +54,20 @@ protected:
   virtual void mouseReleaseEvent(QMouseEvent*);
   virtual void wheelEvent(QWheelEvent*);
   void mouseMoveEvent(QMouseEvent* event);
+  void contextMenuEvent(QContextMenuEvent *event);
 
 private slots:
   void slotLoadStarted();
   void slotLoadProgress(int value);
   void slotLoadFinished();
-  void checkRss();
+  void contextMenuRequested(const QPoint& pos);
 
 private:
   bool isLoading_;
   bool rssChecked_;
   bool hasRss_;
   int posX_;
-  QPoint dragStartPos_;
-
+  WebPage* webPage_;
 };
 
 #endif // WEBVIEW_H

@@ -26,7 +26,7 @@
 
 #include <sqlite3.h>
 
-const int versionDB = 19;
+const int versionDB = 21;
 
 const QString kCreateFeedsTableQuery(
     "CREATE TABLE feeds("
@@ -126,7 +126,18 @@ const QString kCreateFeedsTableQuery(
     // Version 19
     "fetchType integer default 0, "         // 0 - rss; 1 - xpath; 2 - script
     "fetchRule varchar, "                   // XPath expression for custom feeds
-    "fetchScript varchar "                  // user script for custom feeds
+    "fetchScript varchar, "                 // user script for custom feeds
+    // Version 20
+    "proxyEnabled integer default 0, "      // enable per-feed proxy
+    "proxyURL varchar, "                    // per-feed proxy URL
+    // Version 21 (Email/Newsletter subscription)
+    "emailIMAPServer varchar, "             // IMAP server address
+    "emailIMAPPort integer default 993, "   // IMAP server port
+    "emailUsername varchar, "               // IMAP account name
+    "emailPassword varchar, "               // IMAP account password (base64)
+    "emailFolder varchar default 'INBOX', " // mailbox folder to watch
+    "emailAddress varchar, "                // sender filter (newsletter address)
+    "emailLastUID integer default 0 "       // last processed message UID
     ")");
 
 const QString kCreateNewsTableQuery(
@@ -390,6 +401,21 @@ void Database::prepareDatabase()
           q.exec("ALTER TABLE feeds ADD COLUMN fetchRule varchar");
           q.exec("ALTER TABLE feeds ADD COLUMN fetchScript varchar");
           q.exec(kCreateRecommendationsTableQuery);
+        }
+
+        if (dbVersion < 20) {
+          q.exec("ALTER TABLE feeds ADD COLUMN proxyEnabled integer default 0");
+          q.exec("ALTER TABLE feeds ADD COLUMN proxyURL varchar");
+        }
+
+        if (dbVersion < 21) {
+          q.exec("ALTER TABLE feeds ADD COLUMN emailIMAPServer varchar");
+          q.exec("ALTER TABLE feeds ADD COLUMN emailIMAPPort integer default 993");
+          q.exec("ALTER TABLE feeds ADD COLUMN emailUsername varchar");
+          q.exec("ALTER TABLE feeds ADD COLUMN emailPassword varchar");
+          q.exec("ALTER TABLE feeds ADD COLUMN emailFolder varchar default 'INBOX'");
+          q.exec("ALTER TABLE feeds ADD COLUMN emailAddress varchar");
+          q.exec("ALTER TABLE feeds ADD COLUMN emailLastUID integer default 0");
         }
 
         createIndexes(db);

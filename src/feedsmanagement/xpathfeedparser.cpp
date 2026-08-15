@@ -17,17 +17,17 @@
 * ============================================================ */
 #include "xpathfeedparser.h"
 
-#include <QWebPage>
-#include <QWebFrame>
+#include <QWebEnginePage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QWebEngineProfile>
 
 XPathFeedParser::XPathFeedParser(QObject *parent)
   : QObject(parent)
+  , page_(new QWebEnginePage(this))
 {
-  page_ = new QWebPage(this);
-  page_->settings()->setAttribute(QWebSettings::JavascriptEnabled, true);
+  page_->settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
 }
 
 XPathFeedParser::~XPathFeedParser()
@@ -35,66 +35,33 @@ XPathFeedParser::~XPathFeedParser()
   delete page_;
 }
 
-/*! Quote a string as a JS string literal (safe to embed in JS source). */
 static QString jsString(const QString &s)
 {
   return QJsonDocument(QJsonArray() << s).toJson(QJsonDocument::Compact).
       trimmed().mid(1).chopped(1);
 }
 
-bool XPathFeedParser::load(const QString &html)
+void XPathFeedParser::parseAsync(const QString &html, const QString &fetchRule)
 {
-  page_->mainFrame()->setHtml(html);
-  return true;
+  fetchRule_ = fetchRule;
+  connect(page_, &QWebEnginePage::loadFinished, this, &XPathFeedParser::onHtmlLoaded, Qt::UniqueConnection);
+  page_->setHtml(html);
 }
 
-QString XPathFeedParser::evalString(const QString &expression)
+void XPathFeedParser::onHtmlLoaded(bool ok)
 {
-  if (expression.isEmpty()) return QString();
-
-  QString js = QString(
-    "var r = document.evaluate(%1, document, null, "
-    "XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-    "r.singleNodeValue ? r.singleNodeValue.textContent : ''").
-      arg(jsString(expression));
-  QVariant result = page_->mainFrame()->evaluateJavaScript(js);
-  return result.toString().trimmed();
-}
-
-QStringList XPathFeedParser::evalNodeList(const QString &expression)
-{
-  QStringList list;
-  if (expression.isEmpty()) return list;
-
-  QString js = QString(
-    "var out = [];"
-    "var r = document.evaluate(%1, document, null, "
-    "XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);"
-    "for (var i = 0; i < r.snapshotLength; i++) {"
-    "  out.push(r.snapshotItem(i).textContent);"
-    "}"
-    "out;").arg(jsString(expression));
-
-  QVariant result = page_->mainFrame()->evaluateJavaScript(js);
-  if (result.type() == QVariant::StringList) {
-    list = result.toStringList();
-  } else if (result.canConvert(QVariant::List)) {
-    foreach (const QVariant &v, result.toList()) {
-      list << v.toString().trimmed();
-    }
+  disconnect(page_, &QWebEnginePage::loadFinished, this, &XPathFeedParser::onHtmlLoaded);
+  if (!ok) {
+    emit parseFinished(QList<XPathNewsItem>());
+    return;
   }
-  return list;
-}
-
-QList<XPathNewsItem> XPathFeedParser::parse(const QString &html,
-                                           const QString &fetchRule)
-{
-  QList<XPathNewsItem> items;
 
   QJsonParseError parseError;
-  QJsonDocument doc = QJsonDocument::fromJson(fetchRule.toUtf8(), &parseError);
-  if (parseError.error != QJsonParseError::NoError || !doc.isObject())
-    return items;
+  QJsonDocument doc = QJsonDocument::fromJson(fetchRule_.toUtf8(), &parseError);
+  if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+    emit parseFinished(QList<XPathNewsItem>());
+    return;
+  }
 
   QJsonObject rule = doc.object();
   QString itemExpr = rule.value("item").toString();
@@ -104,82 +71,73 @@ QList<XPathNewsItem> XPathFeedParser::parse(const QString &html,
   QString dateExpr = rule.value("date").toString();
   QString authorExpr = rule.value("author").toString();
 
-  if (itemExpr.isEmpty())
-    return items;
-
-  load(html);
-
-  // Snapshot all item nodes once; each field expression is then evaluated
-  // with the corresponding item node as context.
-  int count = 0;
-  QString snapshotJs = QString(
-    "var r = document.evaluate(%1, document, null, "
-    "XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);"
-    "window.__xpathCount = r.snapshotLength;"
-    "r.snapshotLength;").arg(jsString(itemExpr));
-  bool ok = false;
-  count = page_->mainFrame()->evaluateJavaScript(snapshotJs).toInt(&ok);
-  if (!ok || count <= 0)
-    return items;
-
-  for (int i = 0; i < count; ++i) {
-    XPathNewsItem item;
-    QString ctxJs = QString(
-      "document.evaluate(%1, document, null, "
-      "XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotItem(%2);")
-        .arg(jsString(itemExpr)).arg(i);
-
-    if (!titleExpr.isEmpty()) {
-      QString js = QString(
-        "var r = document.evaluate(%1, %2, null, "
-        "XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-        "r.singleNodeValue ? r.singleNodeValue.textContent : '';")
-          .arg(jsString(titleExpr), ctxJs);
-      item.title = page_->mainFrame()->evaluateJavaScript(js).toString().trimmed();
-    }
-
-    if (!linkExpr.isEmpty()) {
-      QString js = QString(
-        "var r = document.evaluate(%1, %2, null, "
-        "XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-        "var n = r.singleNodeValue;"
-        "n ? (n.href ? n.href : n.textContent) : '';")
-          .arg(jsString(linkExpr), ctxJs);
-      item.link = page_->mainFrame()->evaluateJavaScript(js).toString().trimmed();
-    }
-
-    if (!descExpr.isEmpty()) {
-      QString js = QString(
-        "var r = document.evaluate(%1, %2, null, "
-        "XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-        "r.singleNodeValue ? r.singleNodeValue.textContent : '';")
-          .arg(jsString(descExpr), ctxJs);
-      item.description = page_->mainFrame()->evaluateJavaScript(js).toString().trimmed();
-    }
-
-    if (!dateExpr.isEmpty()) {
-      QString js = QString(
-        "var r = document.evaluate(%1, %2, null, "
-        "XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-        "var n = r.singleNodeValue;"
-        "n ? (n.getAttribute ? (n.getAttribute('datetime') || "
-        "n.getAttribute('pubdate') || n.textContent) : n.textContent) : '';")
-          .arg(jsString(dateExpr), ctxJs);
-      item.date = page_->mainFrame()->evaluateJavaScript(js).toString().trimmed();
-    }
-
-    if (!authorExpr.isEmpty()) {
-      QString js = QString(
-        "var r = document.evaluate(%1, %2, null, "
-        "XPathResult.FIRST_ORDERED_NODE_TYPE, null);"
-        "r.singleNodeValue ? r.singleNodeValue.textContent : '';")
-          .arg(jsString(authorExpr), ctxJs);
-      item.author = page_->mainFrame()->evaluateJavaScript(js).toString().trimmed();
-    }
-
-    if (!item.title.isEmpty() || !item.link.isEmpty())
-      items.append(item);
+  if (itemExpr.isEmpty()) {
+    emit parseFinished(QList<XPathNewsItem>());
+    return;
   }
 
-  return items;
+  QString js = QString(
+    "(function() {"
+    "  var itemExpr = %1;"
+    "  var titleExpr = %2;"
+    "  var linkExpr = %3;"
+    "  var descExpr = %4;"
+    "  var dateExpr = %5;"
+    "  var authorExpr = %6;"
+    "  var result = [];"
+    "  var r = document.evaluate(itemExpr, document, null, "
+    "    XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);"
+    "  for (var i = 0; i < r.snapshotLength; i++) {"
+    "    var ctx = r.snapshotItem(i);"
+    "    var item = {};"
+    "    if (titleExpr) {"
+    "      var n = document.evaluate(titleExpr, ctx, null, "
+    "        XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
+    "      item.title = n ? n.textContent.trim() : '';"
+    "    }"
+    "    if (linkExpr) {"
+    "      var n = document.evaluate(linkExpr, ctx, null, "
+    "        XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
+    "      item.link = n ? (n.href ? n.href : n.textContent.trim()) : '';"
+    "    }"
+    "    if (descExpr) {"
+    "      var n = document.evaluate(descExpr, ctx, null, "
+    "        XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
+    "      item.description = n ? n.textContent.trim() : '';"
+    "    }"
+    "    if (dateExpr) {"
+    "      var n = document.evaluate(dateExpr, ctx, null, "
+    "        XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
+    "      item.date = n ? (n.getAttribute ? "
+    "        (n.getAttribute('datetime') || n.getAttribute('pubdate') || n.textContent.trim()) "
+    "        : n.textContent.trim()) : '';"
+    "    }"
+    "    if (authorExpr) {"
+    "      var n = document.evaluate(authorExpr, ctx, null, "
+    "        XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;"
+    "      item.author = n ? n.textContent.trim() : '';"
+    "    }"
+    "    if (item.title || item.link) result.push(item);"
+    "  }"
+    "  return JSON.stringify(result);"
+    "})();"
+  ).arg(jsString(itemExpr), jsString(titleExpr), jsString(linkExpr),
+        jsString(descExpr), jsString(dateExpr), jsString(authorExpr));
+
+  page_->runJavaScript(js, [this](const QVariant& result) {
+    QList<XPathNewsItem> items;
+    QJsonDocument doc = QJsonDocument::fromJson(result.toString().toUtf8());
+    QJsonArray arr = doc.array();
+    for (int i = 0; i < arr.count(); ++i) {
+      QJsonObject obj = arr.at(i).toObject();
+      XPathNewsItem item;
+      item.title = obj.value("title").toString().trimmed();
+      item.link = obj.value("link").toString().trimmed();
+      item.description = obj.value("description").toString().trimmed();
+      item.date = obj.value("date").toString().trimmed();
+      item.author = obj.value("author").toString().trimmed();
+      items.append(item);
+    }
+    emit parseFinished(items);
+  });
 }

@@ -18,22 +18,20 @@
 #ifndef WEB_PLUGIN_FACTORY_H
 #define WEB_PLUGIN_FACTORY_H
 
-#include <QWebPluginFactory>
+#include <QWebEngineUrlRequestInterceptor>
+#include <QHash>
 
-class WebPage;
-
-class WebPluginFactory : public QWebPluginFactory
+class WebPluginFactory : public QWebEngineUrlRequestInterceptor
 {
+  Q_OBJECT
 public:
-  WebPluginFactory(WebPage *page);
+  explicit WebPluginFactory(QObject *parent = nullptr);
 
-  virtual QObject *create(const QString &mimeType, const QUrl &url,
-                          const QStringList &argumentNames,
-                          const QStringList &argumentValues) const;
-  QList<QWebPluginFactory::Plugin> plugins() const;
+  void interceptRequest(QWebEngineUrlRequestInfo &info) override;
 
 private:
-  WebPage *page_;
-
+  // Smart Referer cache: image host -> Referer header to use.
+  QHash<QString, QByteArray> refererCache_;
 };
+
 #endif // WEB_PLUGIN_FACTORY_H

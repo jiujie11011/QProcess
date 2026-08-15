@@ -51,6 +51,12 @@ typedef struct {
     QString pass;   //!< User password
   } authentication;
 
+  //! Proxy properties (per-feed)
+  struct proxy{
+    bool on;        //!< Enabling flag
+    QString url;    //!< Proxy URL (e.g. http://user:pass@host:port)
+  } proxy;
+
   //! Reading properties
   struct reading{
     bool markSelectedAsRead; //!< Mark focused news as Read
@@ -195,7 +201,11 @@ private:
   QGroupBox *authentication_;
   LineEdit *user_;
   LineEdit *pass_;
-  QWidget *createAuthenticationTab();
+
+  // Tab "Proxy"
+  QGroupBox *proxy_;
+  LineEdit *proxyUrl_;
+  QWidget *createProxyTab();
 
   // Tab "Status"
   QLabel *statusFeed_;

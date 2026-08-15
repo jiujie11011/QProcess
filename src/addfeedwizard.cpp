@@ -22,6 +22,7 @@
 #include "authenticationdialog.h"
 #include "toolbutton.h"
 #include "settings.h"
+#include "feedurldetector.h"
 
 #include <QDomDocument>
 #include <qzregexp.h>
@@ -44,6 +45,12 @@ AddFeedWizard::AddFeedWizard(QWidget *parent, int curFolderId)
 
   updateFeeds_ = new UpdateFeeds(this, true);
 
+  feedUrlDetector_ = new FeedUrlDetector(this);
+  connect(feedUrlDetector_, SIGNAL(signalFeedFound(QStringList)),
+          this, SLOT(slotFeedUrlFound(QStringList)));
+  connect(feedUrlDetector_, SIGNAL(signalNoFeedFound()),
+          this, SLOT(slotNoFeedUrlFound()));
+
   connect(button(QWizard::BackButton), SIGNAL(clicked()),
           this, SLOT(backButtonClicked()));
   connect(button(QWizard::NextButton), SIGNAL(clicked()),
@@ -64,6 +71,7 @@ AddFeedWizard::~AddFeedWizard()
   Settings settings;
   settings.setValue("addFeedWizard/geometry", saveGeometry());
 
+  feedUrlDetector_->stop();
   updateFeeds_->disconnectObjects();
   delete updateFeeds_;
 }
@@ -301,28 +309,27 @@ void AddFeedWizard::setUrlFeed(const QString &feedUrl)
   urlFeedEdit_->setText(feedUrl);
 }
 
+void AddFeedWizard::updateFinishButton()
+{
+  const QString url = urlFeedEdit_->text();
+  const bool valid = titleFeedAsName_->isChecked() &&
+                     !url.isEmpty() && (url != "http://");
+  button(QWizard::FinishButton)->setEnabled(valid);
+}
+
 void AddFeedWizard::urlFeedEditChanged(const QString& text)
 {
   button(QWizard::NextButton)->setEnabled(
         !text.isEmpty() && (text != "http://"));
 
-  bool buttonEnable = false;
-  if (titleFeedAsName_->isChecked() && (text != "http://") &&
-      !text.isEmpty()) {
-    buttonEnable = true;
-  }
   warningWidget_->setVisible(false);
-  button(QWizard::FinishButton)->setEnabled(buttonEnable);
+  updateFinishButton();
 }
 
 void AddFeedWizard::titleFeedAsNameStateChanged(int state)
 {
-  bool buttonEnable = false;
-  if ((state == Qt::Checked) && (urlFeedEdit_->text() != "http://") &&
-      !urlFeedEdit_->text().isEmpty()) {
-    buttonEnable = true;
-  }
-  button(QWizard::FinishButton)->setEnabled(buttonEnable);
+  Q_UNUSED(state);
+  updateFinishButton();
 }
 
 void AddFeedWizard::slotFetchTypeChanged(int index)
@@ -470,7 +477,7 @@ void AddFeedWizard::addFeed()
       mainApp->cookieJar()->setCookiesFromUrl(loadedCookies, feedUrlString_);
     }
 
-    emit signalRequestUrl(feedId_, feedUrlString_, QDateTime(), userInfo);
+    emit signalRequestUrl(feedId_, feedUrlString_, QDateTime(), userInfo, "", false);
   }
 }
 
@@ -520,6 +527,66 @@ void AddFeedWizard::slotProgressBarUpdate()
   progressBar_->update();
   if (progressBar_->isVisible())
     QTimer::singleShot(250, this, SLOT(slotProgressBarUpdate()));
+}
+
+// ----------------------------------------------------------------------------
+void AddFeedWizard::useFeedUrl(const QString &linkFeedString, int feedId)
+{
+  qDebug() << "Parse feed URL, valid:" << linkFeedString;
+
+  QSqlQuery q;
+  int duplicateFoundId = -1;
+  q.prepare("SELECT id FROM feeds WHERE xmlUrl LIKE :xmlUrl");
+  q.bindValue(":xmlUrl", linkFeedString);
+  q.exec();
+  if (q.next()) duplicateFoundId = q.value(0).toInt();
+
+  if (0 <= duplicateFoundId) {
+    if (feedUrlString_ != linkFeedString)
+      textWarning->setText(tr("Duplicate feed!"));
+    else
+      textWarning->setText(tr("Can't find feed URL!"));
+    warningWidget_->setVisible(true);
+
+    deleteFeed();
+    progressBar_->hide();
+    page(0)->setEnabled(true);
+    selectedPage = false;
+    button(QWizard::CancelButton)->setEnabled(true);
+  } else {
+    feedUrlString_ = linkFeedString;
+    q.prepare("UPDATE feeds SET xmlUrl = :xmlUrl WHERE id == :id");
+    q.bindValue(":xmlUrl", linkFeedString);
+    q.bindValue(":id", feedId);
+    q.exec();
+
+    authentication_->setChecked(false);
+
+    emit signalRequestUrl(feedId, linkFeedString, QDateTime(), "", "", false);
+  }
+}
+
+// ----------------------------------------------------------------------------
+void AddFeedWizard::slotFeedUrlFound(const QStringList &feedUrls)
+{
+  if (feedUrls.isEmpty()) {
+    slotNoFeedUrlFound();
+    return;
+  }
+  useFeedUrl(feedUrls.first(), feedId_);
+}
+
+// ----------------------------------------------------------------------------
+void AddFeedWizard::slotNoFeedUrlFound()
+{
+  textWarning->setText(tr("Can't find feed URL!"));
+  warningWidget_->setVisible(true);
+
+  deleteFeed();
+  progressBar_->hide();
+  page(0)->setEnabled(true);
+  selectedPage = false;
+  button(QWizard::CancelButton)->setEnabled(true);
 }
 
 void AddFeedWizard::getUrlDone(int result, int feedId, QString feedUrlStr,
@@ -574,50 +641,14 @@ void AddFeedWizard::getUrlDone(int result, int feedId, QString feedUrlStr,
             }
           }
           linkFeedString = url.toString();
-          qDebug() << "Parse feed URL, valid:" << linkFeedString;
 
-          QSqlQuery q;
-          int duplicateFoundId = -1;
-          q.prepare("SELECT id FROM feeds WHERE xmlUrl LIKE :xmlUrl");
-          q.bindValue(":xmlUrl", linkFeedString);
-          q.exec();
-          if (q.next()) duplicateFoundId = q.value(0).toInt();
-
-          if (0 <= duplicateFoundId) {
-            if (feedUrlString_ != linkFeedString)
-              textWarning->setText(tr("Duplicate feed!"));
-            else
-              textWarning->setText(tr("Can't find feed URL!"));
-            warningWidget_->setVisible(true);
-
-            deleteFeed();
-            progressBar_->hide();
-            page(0)->setEnabled(true);
-            selectedPage = false;
-            button(QWizard::CancelButton)->setEnabled(true);
-          } else {
-            feedUrlString_ = linkFeedString;
-            q.prepare("UPDATE feeds SET xmlUrl = :xmlUrl WHERE id == :id");
-            q.bindValue(":xmlUrl", linkFeedString);
-            q.bindValue(":id", feedId);
-            q.exec();
-
-            authentication_->setChecked(false);
-
-            emit signalRequestUrl(feedId, linkFeedString, QDateTime(), "");
-          }
+          useFeedUrl(linkFeedString, feedId);
+          return;
         }
       }
-      if (pos < 0) {
-        textWarning->setText(tr("Can't find feed URL!"));
-        warningWidget_->setVisible(true);
-
-        deleteFeed();
-        progressBar_->hide();
-        page(0)->setEnabled(true);
-        selectedPage = false;
-        button(QWizard::CancelButton)->setEnabled(true);
-      }
+      // No feed <link> in the HTML - probe common feed paths and alternate
+      // feeds (MrRSS-style feed discovery).
+      feedUrlDetector_->discover(feedUrlString_);
       return;
     }
 

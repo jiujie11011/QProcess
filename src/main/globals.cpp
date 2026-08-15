@@ -19,10 +19,9 @@
 
 #ifdef HAVE_QT5
 #include <QStandardPaths>
-#include <QWebPage>
+#include <QWebEnginePage>
 #else
 #include <QDesktopServices>
-#include <qwebkitversion.h>
 #endif
 #include <QCoreApplication>
 #include <QDir>

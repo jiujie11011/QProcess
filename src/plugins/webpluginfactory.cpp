@@ -20,89 +20,77 @@
 #include "clicktoflash.h"
 #include "mainapplication.h"
 #include "adblockmanager.h"
-#include "webpage.h"
 
-#include <QDebug>
-#include <QNetworkRequest>
+#include <QWebEngineUrlRequestInfo>
 
-WebPluginFactory::WebPluginFactory(WebPage *page)
-  : QWebPluginFactory(page)
-  , page_(page)
+WebPluginFactory::WebPluginFactory(QObject *parent)
+  : QWebEngineUrlRequestInterceptor(parent)
 {
-
 }
 
-QObject* WebPluginFactory::create(const QString &mimeType, const QUrl &url,
-                                  const QStringList &argumentNames,
-                                  const QStringList &argumentValues) const
+void WebPluginFactory::interceptRequest(QWebEngineUrlRequestInfo &info)
 {
-  if (url.isEmpty()) {
-    return new QObject();
-  }
+  QUrl url = info.requestUrl();
 
-  // AdBlock
+  if (url.isEmpty())
+    return;
+
   AdBlockManager* manager = AdBlockManager::instance();
-  QNetworkRequest request(url);
-  request.setAttribute(QNetworkRequest::Attribute(QNetworkRequest::User + 150), QString("object"));
-  if (manager->isEnabled() && manager->block(request)) {
-    return new QObject();
-  }
-
-  QString mime = mimeType.trimmed();
-  if (mime.isEmpty()) {
-    if (url.toString().contains(QLatin1String(".swf"))) {
-      mime = "application/x-shockwave-flash";
-    } else {
-      return 0;
+  if (manager->isEnabled()) {
+    QNetworkRequest request(url);
+    if (manager->isBlocked(request)) {
+      info.block(true);
+      return;
     }
   }
 
-  if (mime != QLatin1String("application/x-shockwave-flash")) {
-    if ((mime != QLatin1String("application/futuresplash")) &&
-        (mime != QLatin1String("application/x-java-applet"))) {
-      qDebug()  << "WebPluginFactory::create creating object of mimeType : "
-                << mime;
+  QString path = url.path().toLower();
+  if (path.endsWith(".swf")) {
+    if (!mainApp->c2fIsEnabled()) {
+      info.block(true);
+      return;
     }
-    return 0;
-  }
 
-  if (!mainApp->c2fIsEnabled()) {
-    return 0;
-  }
-
-  // Click2Flash whitelist
-  QStringList whitelist = mainApp->c2fGetWhitelist();
-  if (whitelist.contains(url.host()) || whitelist.contains("www." + url.host()) || whitelist.contains(url.host().remove(QLatin1String("www.")))) {
-    return 0;
-  }
-
-  // Click2Flash already accepted
-  if (ClickToFlash::isAlreadyAccepted(url, argumentNames, argumentValues)) {
-    return 0;
-  }
-
-  int ctfWidth = 10;
-  int ctfHeight = 10;
-  for (int i = 0; i < argumentNames.count(); i++) {
-    if (argumentNames[i] == "width") {
-      if (!argumentValues[i].contains("%"))
-        ctfWidth = argumentValues[i].toInt();
+    QStringList whitelist = mainApp->c2fGetWhitelist();
+    QString host = url.host();
+    if (whitelist.contains(host) ||
+        whitelist.contains("www." + host) ||
+        whitelist.contains(QString(host).remove(QLatin1String("www.")))) {
+      return;
     }
-    if (argumentNames[i] == "height") {
-      if (!argumentValues[i].contains("%"))
-        ctfHeight = argumentValues[i].toInt();
+
+    if (ClickToFlash::isAlreadyAccepted(url)) {
+      return;
+    }
+
+    info.block(true);
+  }
+
+  // Smart Referer: RSS readers commonly trip hotlink protection because the
+  // news page is rendered from a different origin. Same-domain resources keep
+  // the original Referer; third-party resources (images/media on a CDN) use
+  // their own host as Referer. Decisions are cached per image host.
+  if (info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeImage ||
+      info.resourceType() == QWebEngineUrlRequestInfo::ResourceTypeMedia) {
+    QString imageHost = url.host().toLower();
+    if (!imageHost.isEmpty()) {
+      QString refHost = info.referrerUrl().host().toLower();
+      if (refHost.isEmpty() ||
+          (imageHost != refHost &&
+           !imageHost.endsWith("." + refHost) &&
+           !refHost.endsWith("." + imageHost))) {
+        QHash<QString, QByteArray>::const_iterator it = refererCache_.constFind(imageHost);
+        QByteArray referer;
+        if (it != refererCache_.constEnd()) {
+          referer = it.value();
+        } else {
+          referer = url.scheme().toUtf8() + "://" + imageHost.toUtf8() + "/";
+          if (refererCache_.size() > 512)
+            refererCache_.clear();
+          refererCache_.insert(imageHost, referer);
+        }
+        info.setHttpHeader("Referer", referer);
+      }
     }
   }
-  if ((ctfWidth < 5) && (ctfHeight < 5)) {
-    return 0;
-  }
-
-  ClickToFlash* ctf = new ClickToFlash(url, argumentNames, argumentValues, page_);
-  return ctf;
-}
-
-QList<QWebPluginFactory::Plugin> WebPluginFactory::plugins() const
-{
-  QList<Plugin> plugins;
-  return plugins;
 }

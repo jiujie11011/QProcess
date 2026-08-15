@@ -32,6 +32,7 @@
 class QComboBox;
 class QPlainTextEdit;
 class QLabel;
+class FeedUrlDetector;
 
 class AddFeedWizard : public QWizard
 {
@@ -60,7 +61,8 @@ signals:
   void xmlReadyParse(QByteArray data, int feedId,
                      QDateTime dtReply, QString codecName);
   void signalRequestUrl(int feedId, QString urlString,
-                        QDateTime date, QString userInfo);
+                        QDateTime date, QString userInfo, QString proxyUrl,
+                        bool highPriority = false);
 
 protected:
   virtual bool validateCurrentPage();
@@ -78,12 +80,16 @@ private slots:
   void titleFeedAsNameStateChanged(int);
   void slotProgressBarUpdate();
   void newFolder();
+  void slotFeedUrlFound(const QStringList &feedUrls);
+  void slotNoFeedUrlFound();
 
 private:
   void addFeed();
   void deleteFeed();
   void showProgressBar();
   void finish();
+  void useFeedUrl(const QString &linkFeedString, int feedId);
+  void updateFinishButton();
 
   UpdateFeeds *updateFeeds_;
   QWizardPage *createUrlFeedPage();
@@ -104,6 +110,7 @@ private:
   bool finishOn;
   QTreeWidget *foldersTree_;
   int curFolderId_;
+  FeedUrlDetector *feedUrlDetector_;
 
 };
 

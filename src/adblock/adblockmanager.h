@@ -75,6 +75,8 @@ public:
   QList<AdBlockSubscription*> subscriptions() const;
 
   QNetworkReply* block(const QNetworkRequest &request);
+  // Side-effect free check used by the WebEngine URL request interceptor
+  bool isBlocked(const QNetworkRequest &request);
 
   QStringList disabledRules() const;
   void addDisabledRule(const QString &filter);

@@ -23,7 +23,10 @@
 
 #include <QToolTip>
 #include <QPushButton>
-#include <QWebFrame>
+#include <QWebEnginePage>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 RSSDetectionWidget::RSSDetectionWidget(WebView* view, QWidget* parent)
   : QFrame(parent, Qt::Popup)
@@ -38,42 +41,58 @@ RSSDetectionWidget::RSSDetectionWidget(WebView* view, QWidget* parent)
   gridLayout_->setMargin(5);
   gridLayout_->setSpacing(5);
 
-  QWebFrame* frame = view_->page()->mainFrame();
-  QWebElementCollection links = frame->findAllElements("link[type=\"application/rss+xml\"]");
+  QString js = R"(
+    (function() {
+      var links = document.querySelectorAll('link[type="application/rss+xml"]');
+      var result = [];
+      for (var i = 0; i < links.length; i++) {
+        result.push({title: links[i].getAttribute('title') || '', href: links[i].getAttribute('href') || ''});
+      }
+      return JSON.stringify(result);
+    })();
+  )";
 
-  int cols = links.count() / 10 == 0 ? 1 : links.count() / 10;
-  int row = 0;
+  view_->page()->runJavaScript(js, [this](const QVariant& result) {
+    QJsonDocument doc = QJsonDocument::fromJson(result.toString().toUtf8());
+    QJsonArray links = doc.array();
 
-  for (int i = 0; i < links.count(); i++) {
-    QWebElement element = links.at(i);
-    QString title = element.attribute("title");
-    const QUrl url = QUrl::fromEncoded(element.attribute("href").toUtf8());
-    if (url.isEmpty()) {
-      continue;
+    int cols = links.count() / 10 == 0 ? 1 : links.count() / 10;
+    int row = 0;
+
+    for (int i = 0; i < links.count(); i++) {
+      QJsonObject obj = links.at(i).toObject();
+      QString title = obj.value("title").toString();
+      const QUrl url = QUrl::fromEncoded(obj.value("href").toString().toUtf8());
+      if (url.isEmpty() && title.isEmpty()) {
+        continue;
+      }
+
+      if (title.isEmpty()) {
+        title = tr("Untitled feed");
+      }
+
+      QPushButton* button = new QPushButton(this);
+      button->setStyleSheet("QPushButton {text-align:left; border: none; padding: 0px;}"
+                            "QPushButton:hover {color: #1155CC;}");
+      button->setCursor(Qt::PointingHandCursor);
+      button->setText(title);
+      button->setToolTip(url.toString());
+      button->setProperty("rss-url", url);
+      button->setProperty("rss-title", title);
+
+      int pos = i % cols > 0 ? (i % cols) * 2 : 0;
+
+      gridLayout_->addWidget(button, row, pos);
+      connect(button, SIGNAL(clicked()), this, SLOT(addRss()));
+
+      if (i % cols == cols - 1) {
+        row++;
+      }
     }
 
-    if (title.isEmpty()) {
-      title = tr("Untitled feed");
-    }
-
-    QPushButton* button = new QPushButton(this);
-    button->setStyleSheet("QPushButton {text-align:left; border: none; padding: 0px;}"
-                          "QPushButton:hover {color: #1155CC;}");
-    button->setCursor(Qt::PointingHandCursor);
-    button->setText(title);
-    button->setToolTip(url.toString());
-    button->setProperty("rss-url", url);
-    button->setProperty("rss-title", title);
-
-    int pos = i % cols > 0 ? (i % cols) * 2 : 0;
-
-    gridLayout_->addWidget(button, row, pos);
-    connect(button, SIGNAL(clicked()), this, SLOT(addRss()));
-
-    if (i % cols == cols - 1) {
-      row++;
-    }
-  }
+    layout()->invalidate();
+    layout()->activate();
+  });
 }
 
 RSSDetectionWidget::~RSSDetectionWidget()
@@ -82,10 +101,6 @@ RSSDetectionWidget::~RSSDetectionWidget()
 
 void RSSDetectionWidget::showAt(QWidget* parent)
 {
-  // Calculate sizes before showing
-  layout()->invalidate();
-  layout()->activate();
-
   QPoint p = parent->mapToGlobal(QPoint(0, 0));
 
   p.setX(p.x() + parent->width() - width());
@@ -101,7 +116,7 @@ void RSSDetectionWidget::addRss()
     QUrl url = button->property("rss-url").toUrl();
 
     if (url.isRelative()) {
-      url = view_->page()->mainFrame()->baseUrl().resolved(url);
+      url = view_->url().resolved(url);
     }
 
     if (!url.isValid()) {

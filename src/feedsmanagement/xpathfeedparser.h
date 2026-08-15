@@ -20,8 +20,7 @@
 
 #include <QObject>
 #include <QStringList>
-
-class QWebPage;
+#include <QWebEnginePage>
 
 struct XPathNewsItem {
   QString title;
@@ -31,20 +30,6 @@ struct XPathNewsItem {
   QString author;
 };
 
-/*! Parse an HTML/XML document using XPath expressions.
- *
- *  fetchRule is a JSON object mapping field names to XPath expressions,
- *  e.g.:
- *    {"item":"//div[contains(@class,'item')]",
- *     "title":".//h2/a",
- *     "link":".//h2/a/@href",
- *     "description":".//div[contains(@class,'desc')]",
- *     "date":".//time/@datetime"}
- *
- *  The document is loaded into a hidden QWebPage and evaluated via
- *  document.evaluate() (JavaScript XPath), which supports HTML
- *  documents that a pure XML parser would reject.
- */
 class XPathFeedParser : public QObject
 {
   Q_OBJECT
@@ -52,18 +37,16 @@ public:
   explicit XPathFeedParser(QObject *parent = 0);
   ~XPathFeedParser();
 
-  /*! Parse html content using the expressions in fetchRule.
-   *  Returns a list of extracted news items. */
-  QList<XPathNewsItem> parse(const QString &html, const QString &fetchRule);
+  void parseAsync(const QString &html, const QString &fetchRule);
 
-  /*! Load the document once (needed before parse()). */
-  bool load(const QString &html);
+signals:
+  void parseFinished(const QList<XPathNewsItem> &items);
 
 private:
-  QString evalString(const QString &expression);
-  QStringList evalNodeList(const QString &expression);
+  void onHtmlLoaded(bool ok);
 
-  QWebPage *page_;
+  QString fetchRule_;
+  QWebEnginePage *page_;
 };
 
 #endif // XPATHFEEDPARSER_H

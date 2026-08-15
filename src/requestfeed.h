@@ -21,6 +21,7 @@
 #include <QDateTime>
 #include <QObject>
 #include <QQueue>
+#include <QHash>
 #include <QNetworkReply>
 #include <QTimer>
 #include <QElapsedTimer>
@@ -37,23 +38,33 @@ public:
 
   void disconnectObjects();
 
+  int numberRequests() const;
+
 public slots:
-  void requestUrl(int id, QString urlString, QDateTime date, QString userInfo = "");
+  void requestUrl(int id, QString urlString, QDateTime date,
+                  QString userInfo = "", QString proxyUrl = QString(),
+                  bool highPriority = false);
   void stopRequest();
+  void setNumberRequests(int number);
   void slotHead(const QUrl &getUrl, const int &id, const QString &feedUrl,
-                const QDateTime &date, const int &count);
+                const QDateTime &date, const int &count,
+                const QString &proxyUrl = QString());
   void slotGet(const QUrl &getUrl, const int &id, const QString &feedUrl,
-               const QDateTime &date, const int &count);
+               const QDateTime &date, const int &count,
+               const QString &proxyUrl = QString());
 
 signals:
   void getUrlDone(int result, int feedId, QString feedUrl = "",
                   QString error = "", QByteArray data = NULL,
                   QDateTime dtReply = QDateTime(), QString codecName = "");
   void signalHead(const QUrl &getUrl, const int &id, const QString &feedUrl,
-                  const QDateTime &date, const int &count = 0);
+                  const QDateTime &date, const int &count = 0,
+                  const QString &proxyUrl = QString());
   void signalGet(const QUrl &getUrl, const int &id, const QString &feedUrl,
-                 const QDateTime &date, const int &count = 0);
+                 const QDateTime &date, const int &count = 0,
+                 const QString &proxyUrl = QString());
   void setStatusFeed(int feedId, QString status);
+  void signalTaskStats(int queued, int running, int done, int failed);
 
 private slots:
   void getQueuedUrl();
@@ -61,11 +72,20 @@ private slots:
   void slotRequestTimeout();
 
 private:
-  NetworkManager *networkManager_;
+  NetworkManager *getNetworkManager(const QString &proxyUrl);
+  void emitTaskStats();
+  void countTask(int result);
+  void sendRequest(const QUrl &getUrl, int id, const QString &feedUrl,
+                   const QDateTime &date, int count, const QString &proxyUrl,
+                   bool head);
+
+  QHash<QString, NetworkManager*> networkManagers_;
 
   int timeoutRequest_;
   int numberRequests_;
   int numberRepeats_;
+  int tasksDone_;
+  int tasksFailed_;
   QTimer *timeout_;
   QTimer *getUrlTimer_;
 
@@ -73,6 +93,7 @@ private:
   QQueue<QString> feedsQueue_;
   QQueue<QDateTime> dateQueue_;
   QQueue<QString> userInfo_;
+  QQueue<QString> proxyQueue_;
 
   QList<QUrl> currentUrls_;
   QList<int> currentIds_;
@@ -81,6 +102,7 @@ private:
   QList<int> currentCount_;
   QList<bool> currentHead_;
   QList<int> currentTime_;
+  QList<QString> currentProxy_;
   QList<QUrl> requestUrl_;
   QList<QNetworkReply*> networkReply_;
   QList<QString> hostList_;

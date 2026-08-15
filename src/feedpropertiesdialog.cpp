@@ -32,10 +32,12 @@ FeedPropertiesDialog::FeedPropertiesDialog(bool isFeed, QWidget *parent)
   tabWidget->addTab(createDisplayTab(), tr("Display"));
   tabWidget->addTab(createColumnsTab(), tr("Columns"));
   int authTabIndex = tabWidget->addTab(createAuthenticationTab(), tr("Authentication"));
+  int proxyTabIndex = tabWidget->addTab(createProxyTab(), tr("Proxy"));
   tabWidget->addTab(createStatusTab(), tr("Status"));
   pageLayout->addWidget(tabWidget);
 
   if (!isFeed_) {
+    tabWidget->removeTab(proxyTabIndex);
     tabWidget->removeTab(authTabIndex);
   }
 
@@ -339,6 +341,32 @@ QWidget *FeedPropertiesDialog::createAuthenticationTab()
   return tab;
 }
 //------------------------------------------------------------------------------
+QWidget *FeedPropertiesDialog::createProxyTab()
+{
+  QWidget *tab = new QWidget();
+
+  proxy_ = new QGroupBox(this);
+  proxy_->setTitle(tr("Use a proxy for this feed:"));
+  proxy_->setCheckable(true);
+  proxy_->setChecked(false);
+
+  proxyUrl_ = new LineEdit(this);
+  proxyUrl_->setPlaceholderText("http://user:pass@host:port");
+
+  QGridLayout *proxyLayout = new QGridLayout();
+  proxyLayout->addWidget(new QLabel(tr("Proxy URL:")), 2, 0);
+  proxyLayout->addWidget(proxyUrl_, 2, 1);
+  proxy_->setLayout(proxyLayout);
+
+  QVBoxLayout *tabLayout = new QVBoxLayout(tab);
+  tabLayout->setMargin(10);
+  tabLayout->setSpacing(5);
+  tabLayout->addWidget(proxy_);
+  tabLayout->addStretch(1);
+
+  return tab;
+}
+//------------------------------------------------------------------------------
 QWidget *FeedPropertiesDialog::createStatusTab()
 {
   QWidget *tab = new QWidget();
@@ -436,6 +464,9 @@ QWidget *FeedPropertiesDialog::createStatusTab()
   authentication_->setChecked(feedProperties.authentication.on);
   user_->setText(feedProperties.authentication.user);
   pass_->setText(feedProperties.authentication.pass);
+
+  proxy_->setChecked(feedProperties.proxy.on);
+  proxyUrl_->setText(feedProperties.proxy.url);
 
   QString status = feedProperties.status.feedStatus;
   if (status.isEmpty() || (status == "0"))
@@ -569,6 +600,8 @@ FEED_PROPERTIES FeedPropertiesDialog::getFeedProperties()
 
   feedProperties.authentication.on = authentication_->isChecked();
   feedProperties.authentication.user = user_->text();
+  feedProperties.proxy.on = proxy_->isChecked();
+  feedProperties.proxy.url = proxyUrl_->text().trimmed();
   feedProperties.authentication.pass = pass_->text();
 
   return (feedProperties);

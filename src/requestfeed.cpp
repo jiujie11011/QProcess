@@ -29,10 +29,11 @@
 RequestFeed::RequestFeed(int timeoutRequest, int numberRequests,
                          int numberRepeats, QObject *parent)
   : QObject(parent)
-  , networkManager_(NULL)
   , timeoutRequest_(timeoutRequest)
   , numberRequests_(numberRequests)
   , numberRepeats_(numberRepeats)
+  , tasksDone_(0)
+  , tasksFailed_(0)
 {
   setObjectName("requestFeed_");
 
@@ -45,11 +46,11 @@ RequestFeed::RequestFeed(int timeoutRequest, int numberRequests,
   getUrlTimer_->setInterval(50);
   connect(getUrlTimer_, SIGNAL(timeout()), this, SLOT(getQueuedUrl()));
 
-  connect(this, SIGNAL(signalHead(QUrl,int,QString,QDateTime,int)),
-          SLOT(slotHead(QUrl,int,QString,QDateTime,int)),
+  connect(this, SIGNAL(signalHead(QUrl,int,QString,QDateTime,int,QString)),
+          SLOT(slotHead(QUrl,int,QString,QDateTime,int,QString)),
           Qt::QueuedConnection);
-  connect(this, SIGNAL(signalGet(QUrl,int,QString,QDateTime,int)),
-          SLOT(slotGet(QUrl,int,QString,QDateTime,int)),
+  connect(this, SIGNAL(signalGet(QUrl,int,QString,QDateTime,int,QString)),
+          SLOT(slotGet(QUrl,int,QString,QDateTime,int,QString)),
           Qt::QueuedConnection);
 }
 
@@ -61,45 +62,136 @@ RequestFeed::~RequestFeed()
 void RequestFeed::disconnectObjects()
 {
   disconnect(this);
-  if (networkManager_)
-    networkManager_->disconnect(networkManager_);
+  QHash<QString, NetworkManager*>::const_iterator it = networkManagers_.constBegin();
+  for (; it != networkManagers_.constEnd(); ++it) {
+    if (it.value())
+      it.value()->disconnect(it.value());
+  }
 }
 
 /** @brief Put URL in request queue
  *----------------------------------------------------------------------------*/
 void RequestFeed::requestUrl(int id, QString urlString,
-                              QDateTime date, QString userInfo)
+                              QDateTime date, QString userInfo,
+                              QString proxyUrl, bool highPriority)
 {
-  if (!networkManager_) {
-    networkManager_ = new NetworkManager(true, this);
-    connect(networkManager_, SIGNAL(finished(QNetworkReply*)),
-            this, SLOT(finished(QNetworkReply*)));
-  }
+  getNetworkManager(proxyUrl);
 
   if (!timeout_->isActive())
     timeout_->start();
 
-  idsQueue_.enqueue(id);
-  feedsQueue_.enqueue(urlString);
-  dateQueue_.enqueue(date);
-  userInfo_.enqueue(userInfo);
+  // Task manager: replace an existing queued entry for the same feed so the
+  // newest request wins. High-priority (manual) requests jump to queue head.
+  int queueIndex = idsQueue_.indexOf(id);
+  if (queueIndex >= 0) {
+    idsQueue_.removeAt(queueIndex);
+    feedsQueue_.removeAt(queueIndex);
+    dateQueue_.removeAt(queueIndex);
+    userInfo_.removeAt(queueIndex);
+    proxyQueue_.removeAt(queueIndex);
+  }
+
+  if (highPriority) {
+    idsQueue_.prepend(id);
+    feedsQueue_.prepend(urlString);
+    dateQueue_.prepend(date);
+    userInfo_.prepend(userInfo);
+    proxyQueue_.prepend(proxyUrl);
+  } else {
+    idsQueue_.enqueue(id);
+    feedsQueue_.enqueue(urlString);
+    dateQueue_.enqueue(date);
+    userInfo_.enqueue(userInfo);
+    proxyQueue_.enqueue(proxyUrl);
+  }
 
   if (!getUrlTimer_->isActive())
     getUrlTimer_->start();
 
+  emitTaskStats();
   qDebug() << "requestUrl() <<" << urlString << "countQueue=" << feedsQueue_.count();
+}
+
+/** @brief Get or create a NetworkManager for the given proxy URL
+ *----------------------------------------------------------------------------*/
+NetworkManager *RequestFeed::getNetworkManager(const QString &proxyUrl)
+{
+  if (networkManagers_.contains(proxyUrl))
+    return networkManagers_.value(proxyUrl);
+
+  NetworkManager *manager = new NetworkManager(true, this);
+  connect(manager, SIGNAL(finished(QNetworkReply*)),
+          this, SLOT(finished(QNetworkReply*)));
+
+  if (!proxyUrl.isEmpty()) {
+    QUrl url(proxyUrl);
+    QNetworkProxy proxy;
+    if ((url.scheme() == "socks5") || (url.scheme() == "socks"))
+      proxy.setType(QNetworkProxy::Socks5Proxy);
+    else
+      proxy.setType(QNetworkProxy::HttpProxy);
+    proxy.setHostName(url.host());
+    proxy.setPort(url.port((proxy.type() == QNetworkProxy::Socks5Proxy) ? 1080 : 8080));
+    proxy.setUser(url.userName());
+    proxy.setPassword(url.password());
+    manager->setProxy(proxy);
+  }
+
+  networkManagers_.insert(proxyUrl, manager);
+  return manager;
+}
+
+/** @brief Adjust the worker pool size (dynamic concurrency)
+ *----------------------------------------------------------------------------*/
+void RequestFeed::setNumberRequests(int number)
+{
+  if (number < 1)
+    number = 1;
+  if (number > REPLY_MAX_COUNT)
+    number = REPLY_MAX_COUNT;
+  if (numberRequests_ != number) {
+    numberRequests_ = number;
+    if (!getUrlTimer_->isActive())
+      getUrlTimer_->start();
+  }
+}
+
+int RequestFeed::numberRequests() const
+{
+  return numberRequests_;
+}
+
+/** @brief Emit current task manager statistics
+ *----------------------------------------------------------------------------*/
+void RequestFeed::emitTaskStats()
+{
+  emit signalTaskStats(feedsQueue_.count(), currentFeeds_.count(),
+                       tasksDone_, tasksFailed_);
+}
+
+/** @brief Count a finished task: result >= 0 means success
+ *----------------------------------------------------------------------------*/
+void RequestFeed::countTask(int result)
+{
+  if (result < 0)
+    ++tasksFailed_;
+  else
+    ++tasksDone_;
+  emitTaskStats();
 }
 
 void RequestFeed::stopRequest()
 {
+  dateQueue_.clear();
+  userInfo_.clear();
+  proxyQueue_.clear();
   while (!feedsQueue_.isEmpty()) {
     int feedId = idsQueue_.dequeue();
     QString feedUrl = feedsQueue_.dequeue();
-    dateQueue_.clear();
-    userInfo_.clear();
-
+    ++tasksFailed_;
     emit getUrlDone(feedsQueue_.count(), feedId, feedUrl);
   }
+  emitTaskStats();
 }
 
 /** @brief Process request queue on timer timeouts
@@ -134,67 +226,69 @@ void RequestFeed::getQueuedUrl()
       getUrl.setUserInfo(userInfo);
 //      getUrl.addQueryItem("auth", getUrl.scheme());
     }
+    QString proxyUrl = proxyQueue_.dequeue();
 
     qDebug() << "getQueuedUrl() >>" << feedUrl << "countQueue=" << feedsQueue_.count();
     QDateTime currentDate = dateQueue_.dequeue();
     if (currentDate.isValid())
-      emit signalHead(getUrl, feedId, feedUrl, currentDate);
+      emit signalHead(getUrl, feedId, feedUrl, currentDate, 0, proxyUrl);
     else
-      emit signalGet(getUrl, feedId, feedUrl, currentDate);
+      emit signalGet(getUrl, feedId, feedUrl, currentDate, 0, proxyUrl);
   }
 }
 
 /** @brief Prepare and send network request to get head
  *----------------------------------------------------------------------------*/
-void RequestFeed::slotHead(const QUrl &getUrl, const int &id, const QString &feedUrl,
-                            const QDateTime &date, const int &count)
+/** @brief Prepare and send network request (head or get)
+ *----------------------------------------------------------------------------*/
+void RequestFeed::sendRequest(const QUrl &getUrl, int id, const QString &feedUrl,
+                              const QDateTime &date, int count, const QString &proxyUrl,
+                              bool head)
 {
   if (count)
     Common::sleep(30);
 
-  qDebug() << objectName() << "::head:" << getUrl.toEncoded() << "feed:" << feedUrl << "countRepeats:" << count;
   QNetworkRequest request(getUrl);
   request.setRawHeader("User-Agent", globals.userAgent().toUtf8());
+  if (!head) {
+    request.setRawHeader("Accept", "application/atom+xml,application/rss+xml;q=0.9,application/xml;q=0.8,text/xml;q=0.7,*/*;q=0.6");
+  }
+
+  qDebug() << objectName() << (head ? "::head" : "::get") << ":" << getUrl.toEncoded()
+           << "feed:" << feedUrl << "countRepeats:" << count;
 
   currentUrls_.append(getUrl);
   currentIds_.append(id);
   currentFeeds_.append(feedUrl);
   currentDates_.append(date);
   currentCount_.append(count);
-  currentHead_.append(true);
+  currentHead_.append(head);
   currentTime_.append(timeoutRequest_);
+  currentProxy_.append(proxyUrl);
 
-  QNetworkReply *reply = networkManager_->head(request);
+  QNetworkReply *reply = head
+    ? getNetworkManager(proxyUrl)->head(request)
+    : getNetworkManager(proxyUrl)->get(request);
   reply->setProperty("feedReply", QVariant(true));
   requestUrl_.append(reply->url());
   networkReply_.append(reply);
+  emitTaskStats();
+}
+
+void RequestFeed::slotHead(const QUrl &getUrl, const int &id, const QString &feedUrl,
+                            const QDateTime &date, const int &count,
+                            const QString &proxyUrl)
+{
+  sendRequest(getUrl, id, feedUrl, date, count, proxyUrl, true);
 }
 
 /** @brief Prepare and send network request to get all data
  *----------------------------------------------------------------------------*/
 void RequestFeed::slotGet(const QUrl &getUrl, const int &id, const QString &feedUrl,
-                           const QDateTime &date, const int &count)
+                           const QDateTime &date, const int &count,
+                           const QString &proxyUrl)
 {
-  if (count)
-    Common::sleep(30);
-
-  qDebug() << objectName() << "::get:" << getUrl.toEncoded() << "feed:" << feedUrl << "countRepeats:" <<count;
-  QNetworkRequest request(getUrl);
-  request.setRawHeader("Accept", "application/atom+xml,application/rss+xml;q=0.9,application/xml;q=0.8,text/xml;q=0.7,*/*;q=0.6");
-  request.setRawHeader("User-Agent", globals.userAgent().toUtf8());
-
-  currentUrls_.append(getUrl);
-  currentIds_.append(id);
-  currentFeeds_.append(feedUrl);
-  currentDates_.append(date);
-  currentCount_.append(count);
-  currentHead_.append(false);
-  currentTime_.append(timeoutRequest_);
-
-  QNetworkReply *reply = networkManager_->get(request);
-  reply->setProperty("feedReply", QVariant(true));
-  requestUrl_.append(reply->url());
-  networkReply_.append(reply);
+  sendRequest(getUrl, id, feedUrl, date, count, proxyUrl, false);
 }
 
 /** @brief Process network reply
@@ -221,14 +315,18 @@ void RequestFeed::finished(QNetworkReply *reply)
     QDateTime feedDate = currentDates_.takeAt(currentReplyIndex);
     int count = currentCount_.takeAt(currentReplyIndex) + 1;
     bool headOk = currentHead_.takeAt(currentReplyIndex);
+    QString proxyUrl = currentProxy_.takeAt(currentReplyIndex);
 
     if (reply->error() != QNetworkReply::NoError) {
       qDebug() << "  error retrieving RSS feed:" << reply->error() << reply->errorString();
       if (!headOk) {
-        if (reply->error() == QNetworkReply::AuthenticationRequiredError)
+        if (reply->error() == QNetworkReply::AuthenticationRequiredError) {
           emit getUrlDone(-2, feedId, feedUrl, tr("Server requires authentication!"));
-        else if (reply->error() == QNetworkReply::ContentNotFoundError)
+          countTask(-2);
+        } else if (reply->error() == QNetworkReply::ContentNotFoundError) {
           emit getUrlDone(-5, feedId, feedUrl, tr("Server replied: Not Found!"));
+          countTask(-5);
+        }
         else {
           if (reply->errorString().contains("Service Temporarily Unavailable")) {
             if (!hostList_.contains(QUrl(feedUrl).host())) {
@@ -238,20 +336,21 @@ void RequestFeed::finished(QNetworkReply *reply)
           }
 
           if (count < numberRepeats_) {
-            emit signalGet(replyUrl, feedId, feedUrl, feedDate, count);
+            emit signalGet(replyUrl, feedId, feedUrl, feedDate, count, proxyUrl);
           } else {
             emit getUrlDone(-1, feedId, feedUrl, QString("%1 (%2)").arg(reply->errorString()).arg(reply->error()));
+            countTask(-1);
           }
         }
       } else {
-        emit signalGet(replyUrl, feedId, feedUrl, feedDate);
+        emit signalGet(replyUrl, feedId, feedUrl, feedDate, 0, proxyUrl);
       }
     } else {
       QUrl redirectionTarget = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
       if (redirectionTarget.isValid()) {
         if (count < (numberRepeats_ + 3)) {
           if (headOk && (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 302)) {
-            emit signalGet(replyUrl, feedId, feedUrl, feedDate);
+            emit signalGet(replyUrl, feedId, feedUrl, feedDate, 0, proxyUrl);
           } else {
             QString host(QUrl::fromEncoded(feedUrl.toUtf8()).host());
             if (redirectionTarget.host().isEmpty()) {
@@ -275,15 +374,16 @@ void RequestFeed::finished(QNetworkReply *reply)
               redirectionTarget.setScheme(QUrl(feedUrl).scheme());
             if (reply->operation() == QNetworkAccessManager::HeadOperation) {
               qDebug() << objectName() << "  head redirect..." << redirectionTarget.toString();
-              emit signalHead(redirectionTarget, feedId, feedUrl, feedDate, count);
+              emit signalHead(redirectionTarget, feedId, feedUrl, feedDate, count, proxyUrl);
             }
             else {
               qDebug() << objectName() << "  get redirect..." << redirectionTarget.toString();
-              emit signalGet(redirectionTarget, feedId, feedUrl, feedDate, count);
+              emit signalGet(redirectionTarget, feedId, feedUrl, feedDate, count, proxyUrl);
             }
           }
         } else {
           emit getUrlDone(-4, feedId, feedUrl, tr("Redirect error!"));
+          countTask(-4);
         }
       } else {
         QDateTime replyDate = reply->header(QNetworkRequest::LastModifiedHeader).toDateTime();
@@ -294,7 +394,7 @@ void RequestFeed::finished(QNetworkReply *reply)
         if ((reply->operation() == QNetworkAccessManager::HeadOperation) &&
             ((!feedDate.isValid()) || (!replyLocalDate.isValid()) ||
              (feedDate != replyLocalDate) || !replyDate.toMSecsSinceEpoch())) {
-          emit signalGet(replyUrl, feedId, feedUrl, feedDate);
+          emit signalGet(replyUrl, feedId, feedUrl, feedDate, 0, proxyUrl);
         }
         else {
           QString codecName;
@@ -324,6 +424,7 @@ void RequestFeed::finished(QNetworkReply *reply)
             data.resize(data.indexOf("</rdf:RDF>") + 10);
 
           emit getUrlDone(feedsQueue_.count(), feedId, feedUrl, "", data, replyLocalDate, codecName);
+          countTask(feedsQueue_.count());
         }
       }
     }
@@ -355,6 +456,7 @@ void RequestFeed::slotRequestTimeout()
       int count = currentCount_.takeAt(i) + 1;
       currentTime_.removeAt(i);
       currentHead_.removeAt(i);
+      QString proxyUrl = currentProxy_.takeAt(i);
 
       int replyIndex = requestUrl_.indexOf(url);
       if (replyIndex >= 0) {
@@ -363,9 +465,10 @@ void RequestFeed::slotRequestTimeout()
         reply->deleteLater();
 
         if (count < numberRepeats_) {
-          emit signalGet(replyUrl, feedId, feedUrl, feedDate, count);
+          emit signalGet(replyUrl, feedId, feedUrl, feedDate, count, proxyUrl);
         } else {
           emit getUrlDone(-3, feedId, feedUrl, tr("Request timeout!"));
+          countTask(-3);
         }
       }
     } else {

@@ -27,6 +27,10 @@
 #include "splashscreen.h"
 #include "updatefeeds.h"
 #include "VersionNo.h"
+#include "webpluginfactory.h"
+
+#include <QWebEngineProfile>
+#include <QWebEngineSettings>
 
 MainApplication::MainApplication(int &argc, char **argv)
   : QtSingleApplication(argc, argv)
@@ -91,6 +95,7 @@ MainApplication::MainApplication(int &argc, char **argv)
   setProgressSplashScreen(90);
   qWarning() << "Run application 5";
   mainWindow_->restoreFeedsOnStartUp();
+  updateFeeds_->startSpeedDetection();
   setProgressSplashScreen(100);
   qWarning() << "Run application 6";
   if (!mainWindow_->startingTray_ || !mainWindow_->showTrayIcon_) {
@@ -241,6 +246,13 @@ void MainApplication::loadSettings()
 {
   c2fLoadSettings();
   reloadUserStyleBrowser();
+
+  // 注册 URL 请求拦截器（AdBlock / ClickToFlash SWF 拦截），只注册一次，profile 持有所有权
+  static bool interceptorRegistered = false;
+  if (!interceptorRegistered) {
+    interceptorRegistered = true;
+    QWebEngineProfile::defaultProfile()->setRequestInterceptor(new WebPluginFactory());
+  }
 }
 
 void MainApplication::quitApplication()
@@ -578,7 +590,7 @@ void MainApplication::reloadUserStyleBrowser()
   Settings settings;
   settings.beginGroup("Settings");
   QString userStyleBrowser = settings.value("userStyleBrowser", QString()).toString();
-  QWebSettings::globalSettings()->setUserStyleSheetUrl(userStyleSheet(userStyleBrowser));
+  QWebEngineProfile::defaultProfile()->settings()->setUserStyleSheetUrl(userStyleSheet(userStyleBrowser));
   settings.endGroup();
 }
 

@@ -30,7 +30,8 @@
 #endif
 #endif
 #include <QtSql>
-#include <QtWebKit>
+#include <QWebEnginePage>
+#include <QWebEngineProfile>
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
 #include <QPrinter>
@@ -339,6 +340,7 @@ public slots:
   void slotSetValue(int value);
   void showMessageStatusBar(QString message, int timeout = 0);
   void slotCountsStatusBar(int unreadCount, int allCount);
+  void slotTaskStats(int queued, int running, int done, int failed);
   void slotPlaySound(const QString &path);
   void slotAddColorList(int id, const QString &color);
   void showOptionDlg(int index = -1);
@@ -354,11 +356,11 @@ public slots:
   void slotUpdateStatus(int feedId, bool changed = true);
   void setNewsFilter(QAction*, bool clicked = true);
   void slotCloseTab(int index);
-  QWebPage *createWebTab(QUrl url = QUrl());
+  QWebEnginePage *createWebTab(QUrl url = QUrl());
   void feedsModelReload(bool checkFilter = false);
   void setStatusFeed(int feedId, QString status);
-  void slotPrint(QWebFrame *frame = 0);
-  void slotPrintPreview(QWebFrame* frame = 0);
+  void slotPrint(QWebEnginePage *page = 0);
+  void slotPrintPreview(QWebEnginePage* page = 0);
 
 signals:
   void signalQuitApp();
@@ -371,7 +373,8 @@ signals:
   void signalStopUpdate();
   void signalImportFeeds(QByteArray xmlData);
   void signalRequestUrl(int feedId, QString urlString,
-                        QDateTime date, QString userInfo);
+                        QDateTime date, QString userInfo, QString proxyUrl,
+                        bool highPriority = false);
   void faviconRequestUrl(QString urlString, QString feedUrl);
   void signalIconFeedReady(QString feedUrl, QByteArray faviconData);
   void signalSetCurrentTab(int index, bool updateTab = false);
@@ -729,6 +732,7 @@ private:
   QProgressBar *progressBar_;
   QLabel *statusUnread_;
   QLabel *statusAll_;
+  QLabel *statusUpdating_;
 
   QPushButton *pushButtonNull_;
 
@@ -835,4 +839,3 @@ private:
 };
 
 #endif // MAINWINDOW_H
-

@@ -30,7 +30,6 @@ UpdateAppDialog::UpdateAppDialog(const QString &lang, QWidget *parent, bool show
   : Dialog(parent)
   , lang_(lang)
   , showDialog_(show)
-  , page_(NULL)
 {
   Settings settings;
 
@@ -92,12 +91,6 @@ void UpdateAppDialog::disconnectObjects()
 {
   disconnect(this);
   networkManagerProxy_->disconnectObjects();
-
-  if (page_ != NULL) {
-    QWebSettings::clearMemoryCaches();
-    page_->disconnect(this);
-    delete page_;
-  }
 
   delete networkManagerProxy_;
 }
