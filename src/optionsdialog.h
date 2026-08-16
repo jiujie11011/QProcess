@@ -340,6 +340,7 @@ private slots:
   void slotRssHubRemoveInstance();
   void slotRssHubCheckInstances();
   void slotRssHubFetchRemote();
+  void slotRegisterFeedProtocol();
   void slotManageSubscriptionsLabels();
   void slotTestAiConnection();
   void slotFetchAiModels();
@@ -415,6 +416,7 @@ private:
   void createGeneralWidget();
   QCheckBox *autoRunEnabled_;
   QSettings *autoRunSettings_;
+  QPushButton *registerFeedProtocolButton_;
 
   // systemTray
   void createTraySystemWidget();

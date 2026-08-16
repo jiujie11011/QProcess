@@ -19,6 +19,7 @@
 
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
@@ -432,6 +433,20 @@ void OptionsDialog::createGeneralWidget()
   autoRunEnabled_->setChecked(isAutoRun);
 
   generalLayout->addWidget(autoRunEnabled_);
+
+  registerFeedProtocolButton_ = new QPushButton(
+        tr("Set QuiteRSS as the default feed: subscriber"));
+  registerFeedProtocolButton_->setToolTip(
+        tr("Register QuiteRSS to handle feed:// links from browsers "
+           "(e.g. RSSHub-Radar). This writes to the Windows registry "
+           "for the current user only, no administrator rights needed."));
+  connect(registerFeedProtocolButton_, SIGNAL(clicked()),
+          this, SLOT(slotRegisterFeedProtocol()));
+  QHBoxLayout *feedProtocolLayout = new QHBoxLayout();
+  feedProtocolLayout->setContentsMargins(20, 0, 0, 0);
+  feedProtocolLayout->addWidget(registerFeedProtocolButton_);
+  feedProtocolLayout->addStretch();
+  generalLayout->addLayout(feedProtocolLayout);
 #endif
 
   generalLayout->addWidget(updateCheckEnabled_);
@@ -3789,4 +3804,46 @@ void OptionsDialog::slotRssHubFetchRemote()
 void OptionsDialog::slotRssHubStatusMessage(const QString &message)
 {
   QMessageBox::information(this, tr("Subscriptions"), message);
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotRegisterFeedProtocol()
+{
+#if defined(Q_OS_WIN)
+  // Register QuiteRSS as the handler for the "feed" URL protocol for the
+  // current user (HKCU, no admin rights needed). This lets browser extensions
+  // such as RSSHub-Radar launch QuiteRSS with feed:https://... URLs, which
+  // MainApplication::receiveMessage() turns into a "New Feed" action.
+  const QString exePath =
+      QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+  const QString command = "\"" + exePath + "\" \"%1\"";
+
+  QSettings reg("HKEY_CURRENT_USER\\Software\\Classes\\feed",
+                QSettings::NativeFormat);
+  reg.setValue(".", "URL:QuiteRSS Feed Subscription");
+  reg.setValue("URL Protocol", "");
+  reg.setValue("DefaultIcon/.", exePath);
+  reg.setValue("shell/open/command/.", command);
+  reg.sync();
+
+  if (reg.status() == QSettings::NoError) {
+    QMessageBox::information(
+          this, tr("Feed protocol"),
+          tr("QuiteRSS is now registered to handle feed:// links.\n\n"
+             "In RSSHub-Radar (or your browser), set the default reader "
+             "to the local/desktop application. Clicking a subscribe link "
+             "will now open QuiteRSS."));
+  } else {
+    QMessageBox::warning(
+          this, tr("Feed protocol"),
+          tr("Could not write to the Windows registry. The registration "
+             "for the feed: protocol could not be saved."));
+  }
+#else
+  QMessageBox::information(
+        this, tr("Feed protocol"),
+        tr("Automatic registration is only available on Windows. On other "
+           "platforms, configure your browser/extension to launch:\n\n"
+           "%1 \"feed:%%s\"")
+        .arg(QCoreApplication::applicationFilePath()));
+#endif
 }

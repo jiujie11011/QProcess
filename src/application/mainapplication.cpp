@@ -35,6 +35,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QCheckBox>
+#include <QRegularExpression>
 #include <QSslSocket>
 
 MainApplication::MainApplication(int &argc, char **argv)
@@ -154,14 +155,21 @@ void MainApplication::receiveMessage(const QString &message)
       }
       if (param == "--exit") mainWindow_->quitApp();
       if (param.contains("feed:", Qt::CaseInsensitive)) {
+        // Browsers/extensions pass feed URLs in several forms:
+        //   feed:https://example.com/feed.xml
+        //   feed://https://example.com/feed.xml
+        //   feed://example.com/feed.xml
+        //   feed:example.com/feed.xml
+        // Strip the "feed:" scheme and any leading slashes, then restore the
+        // real http(s) scheme if it was carried along.
+        QRegularExpression re("feed:/*(.*)", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch m = re.match(param);
+        QString url = m.hasMatch() ? m.captured(1) : param;
+        if (!url.startsWith("http://", Qt::CaseInsensitive) &&
+            !url.startsWith("https://", Qt::CaseInsensitive))
+          url.prepend("http://");
         QClipboard *clipboard = QApplication::clipboard();
-        if (param.contains("https://", Qt::CaseInsensitive)) {
-          param.remove(0, 5);
-          clipboard->setText(param);
-        } else {
-          param.remove(0, 7);
-          clipboard->setText("http://" + param);
-        }
+        clipboard->setText(url);
         mainWindow_->addFeed();
       }
     }
