@@ -398,6 +398,7 @@ public slots:
   QWebEnginePage *createWebTab(QUrl url = QUrl());
   void feedsModelReload(bool checkFilter = false);
   void setStatusFeed(int feedId, QString status);
+  void slotFeedUrlChanged(int feedId, const QString &newUrl);
   void slotPrint(QWebEnginePage *page = 0);
   void slotPrintPreview(QWebEnginePage* page = 0);
 

@@ -340,6 +340,7 @@ private slots:
   void slotRssHubRemoveInstance();
   void slotRssHubCheckInstances();
   void slotRssHubFetchRemote();
+  void slotRssHubUnfreeze();
   void slotRegisterFeedProtocol();
   void slotManageSubscriptionsLabels();
   void slotTestAiConnection();
@@ -405,6 +406,8 @@ private:
   QWidget *rsshubWidget_;
   QCheckBox *rsshubAutoSwapEnabled_;
   QListWidget *rsshubInstancesList_;
+  QListWidget *rsshubFrozenList_;
+  QPushButton *rsshubUnfreezeButton_;
   QLineEdit *rsshubRemoteUrlEdit_;
   QLabel *rsshubStatusLabel_;
   QPushButton *rsshubAddButton_;

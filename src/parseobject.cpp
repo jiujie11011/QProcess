@@ -41,8 +41,6 @@ ParseObject::ParseObject(QObject *parent)
 {
   setObjectName("parseObject_");
 
-  db_ = Database::connection("secondConnection");
-
   parseTimer_ = new QTimer(this);
   parseTimer_->setSingleShot(true);
   parseTimer_->setInterval(10);
@@ -51,6 +49,17 @@ ParseObject::ParseObject(QObject *parent)
 
   connect(this, SIGNAL(signalReadyParse(QByteArray,int,QDateTime,QString)),
           SLOT(slotParse(QByteArray,int,QDateTime,QString)));
+}
+
+QSqlDatabase ParseObject::db()
+{
+  // Each thread gets its own connection to the feeds DB file; SQLite
+  // connections are not thread-safe. The constructor used to open a shared
+  // "secondConnection" on the main thread while parseXml() runs on the worker
+  // thread, tripping Qt's thread-affinity check.
+  if (mainApp->storeDBMemory())
+    return QSqlDatabase::database();
+  return Database::connection("secondConnection");
 }
 
 ParseObject::~ParseObject()
@@ -122,7 +131,7 @@ void ParseObject::slotParse(const QByteArray &xmlData, const int &feedId,
 
   qDebug() << "=================== parseXml:start ============================";
 
-  db_.transaction();
+  db().transaction();
 
   // extract feed id, duplicate news mode and date to avoid from feed table
   parseFeedId_ = feedId;
@@ -131,7 +140,7 @@ void ParseObject::slotParse(const QByteArray &xmlData, const int &feedId,
   addSingleNewsAnyDate_ = false;
   avoidedOldSingleNews_ = false;
   avoidedOldSingleNewsDate_ = QDate::currentDate();
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   q.prepare("SELECT duplicateNewsMode, xmlUrl, addSingleNewsAnyDateOn, avoidedOldSingleNewsDateOn, avoidedOldSingleNewsDate, fetchType, fetchRule, fetchScript"
             " FROM feeds WHERE id = ?");
@@ -152,7 +161,7 @@ void ParseObject::slotParse(const QByteArray &xmlData, const int &feedId,
   if (feedUrl.isEmpty()) {
     qWarning() << QString("Feed with id = '%1' not found").arg(parseFeedId_);
     emit signalFinishUpdate(parseFeedId_, false, 0, "0");
-    db_.commit();
+    db().commit();
     return;
   }
 
@@ -275,7 +284,7 @@ void ParseObject::slotParse(const QByteArray &xmlData, const int &feedId,
   }
 
   q.finish();
-  db_.commit();
+  db().commit();
 
   emit signalFinishUpdate(parseFeedId_, feedChanged_, newCount, "0");
   {
@@ -335,7 +344,7 @@ void ParseObject::parseAtom(const QString &feedUrl, const QDomDocument &doc)
     url.setScheme(QUrl(feedUrl).scheme());
   feedItem.link = url.toString();
 
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   QString qStr ("UPDATE feeds "
                 "SET title=?, description=?, htmlUrl=?, "
@@ -466,7 +475,7 @@ void ParseObject::parseAtom(const QString &feedUrl, const QDomDocument &doc)
 void ParseObject::addAtomNewsIntoBase(NewsItemStruct *newsItem)
 {
   // search news duplicates in base
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   QString qStr;
 
@@ -595,7 +604,7 @@ void ParseObject::parseRss(const QString &feedUrl, const QDomDocument &doc)
   if (feedItem.language.isEmpty())
     feedItem.language = channel.namedItem("dc:language").toElement().text();
 
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   QString qStr("UPDATE feeds "
                "SET title=?, description=?, htmlUrl=?, "
@@ -707,7 +716,7 @@ void ParseObject::parseRss(const QString &feedUrl, const QDomDocument &doc)
 // ----------------------------------------------------------------------------
 void ParseObject::loadExistingNewsIndexes()
 {
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   q.prepare("SELECT id, guid, title, published, link_href FROM news WHERE feedId = ?");
   q.addBindValue(parseFeedId_);
@@ -849,7 +858,7 @@ void ParseObject::parseJsonFeed(const QString &feedUrl, const QByteArray &data)
     addRssNewsIntoBase(&newsItem);
   }
 
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   QString qStr("UPDATE feeds "
                "SET title=?, description=?, htmlUrl=?, "
@@ -961,7 +970,7 @@ void ParseObject::parseXPath(const QString &data, const QString &feedUrl)
 void ParseObject::addRssNewsIntoBase(NewsItemStruct *newsItem)
 {
   // search news duplicates in base
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   QString qStr;
 
@@ -1247,7 +1256,7 @@ QString ParseObject::parseDate(const QString &dateString, const QString &urlStri
  *---------------------------------------------------------------------------*/
 void ParseObject::runUserFilter(int feedId, int filterId)
 {
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   bool isAllFilters = true;
 
   if (filterId != -1) {
@@ -1277,7 +1286,7 @@ void ParseObject::runUserFilter(int feedId, int filterId)
     QStringList soundList;
     QStringList colorList;
 
-    QSqlQuery q1(db_);
+    QSqlQuery q1(db());
     q1.exec(QString("SELECT action, params FROM filterActions "
                     "WHERE idFilter=='%1'").arg(filterId));
     while (q1.next()) {
@@ -1517,7 +1526,7 @@ void ParseObject::runUserFilter(int feedId, int filterId)
     }
 
     if (q1.exec(QString("SELECT id, label FROM news").append(whereStr))) {
-      QSqlQuery q2(db_);
+      QSqlQuery q2(db());
       bool isPlaySound = false;
 
       while (q1.next()) {
@@ -1573,7 +1582,7 @@ void ParseObject::runUserFilter(int feedId, int filterId)
 int ParseObject::recountFeedCounts(int feedId, const QString &feedUrl,
                                    const QString &updated, const QString &lastBuildDate)
 {
-  QSqlQuery q(db_);
+  QSqlQuery q(db());
   q.setForwardOnly(true);
   QString htmlUrl;
   QString title;

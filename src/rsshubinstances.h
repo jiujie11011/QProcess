@@ -80,8 +80,28 @@ public:
      *  This method must be safe to call from the feed update thread: it
      *  performs NO blocking network requests, only uses the cached health
      *  information, and guards its static state with a mutex. */
-    static QString handleFeedFailure(int feedId, const QString &feedUrl,
-                                     QSqlDatabase db);
+    /** Determine if a feed URL should be swapped to a healthy instance.
+     *
+     *  This is a PURE function — NO database access, NO blocking I/O.
+     *  Returns the new feed URL (with instance part replaced), or an empty
+     *  string if no swap is needed/possible. The caller (on the update thread)
+     *  must emit a signal to the GUI thread to persist the change.
+     */
+    static QString handleFeedFailure(int feedId, const QString &feedUrl);
+
+    /** Record a failure for an instance. Returns true if the instance has now
+     *  exceeded the monthly threshold (5 failures in 30 days) and should be
+     *  frozen. */
+    static bool recordFailure(const QString &base);
+
+    /** Check if an instance is frozen (exceeded monthly failure threshold). */
+    static bool isFrozen(const QString &base);
+
+    /** Get frozen instances list (for UI). */
+    static QStringList frozenInstances();
+
+    /** Unfreeze an instance (manual override). */
+    static void unfreezeInstance(const QString &base);
 
 private:
     static QString pickHealthy(const QStringList &instances,
@@ -89,6 +109,13 @@ private:
     static QMutex mutex_;
     static QStringList healthyCache_;
     static bool healthyCacheValid_;
+
+    /** Failure record: instance base -> list of failure timestamps (ms since epoch). */
+    static QHash<QString, QList<qint64>> &failureTimestamps();
+    /** Frozen instances set (persisted to settings). */
+    static QSet<QString> &frozenInstancesSet();
+    static const int MAX_FAILURES_PER_MONTH = 5;
+    static const int MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 };
 
 #endif // RSSHUBINSTANCES_H

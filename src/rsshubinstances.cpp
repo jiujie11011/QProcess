@@ -24,6 +24,8 @@
 #include <QNetworkRequest>
 #include <QSet>
 #include <QSettings>
+#include <QDateTime>
+#include <algorithm>
 #include <QSqlQuery>
 #include <QTimer>
 #include <QUrl>
@@ -306,30 +308,27 @@ QString RssHubInstances::pickHealthy(const QStringList &instances,
   return QString();
 }
 
-QString RssHubInstances::handleFeedFailure(int feedId, const QString &feedUrl,
-                                           QSqlDatabase db)
+QString RssHubInstances::handleFeedFailure(int feedId, const QString &feedUrl)
 {
+  Q_UNUSED(feedId);
   if (!autoSwapEnabled())
-    return feedUrl;
+    return QString();
 
   QString base = instanceOfUrl(feedUrl);
   if (base.isEmpty())
-    return feedUrl;
+    return QString();
 
-  // Fast path with only cached health info: never block, never re-enter the
-  // event loop from the feed update thread.
-  {
-    QMutexLocker locker(&mutex_);
-    if (!badInstances().contains(base)) {
-      int fails = failureCounts().value(base, 0) + 1;
-      // Confirm the instance is dead only after 3 consecutive failures.
-      if (fails < 3) {
-        failureCounts().insert(base, fails);
-        return feedUrl;
-      }
-      failureCounts().insert(base, fails);
-      badInstances().insert(base);
-    }
+  // A frozen instance (monthly failure threshold exceeded) is never swapped
+  // to — it gets parked automatically.
+  if (isFrozen(base))
+    return QString();
+
+  // Record this failure. If it just crossed the monthly threshold, freeze it
+  // and don't swap (let the user decide / wait for next manual check).
+  recordFailure(base);
+  if (isFrozen(base)) {
+    qWarning() << "RSSHub instance frozen after exceeding monthly failures:" << base;
+    return QString();
   }
 
   // If we don't yet know which instances are healthy (cache not populated),
@@ -338,17 +337,63 @@ QString RssHubInstances::handleFeedFailure(int feedId, const QString &feedUrl,
   // Availability" in Settings, which populates the cache on the GUI thread.
   QString newBase = pickHealthy(loadInstances(), base);
   if (newBase.isEmpty() || newBase == base)
-    return feedUrl;
+    return QString();
 
   QString newUrl = swapInstance(feedUrl, newBase);
   if (newUrl == feedUrl)
-    return feedUrl;
-
-  QSqlQuery query(db);
-  query.prepare("UPDATE feeds SET xmlUrl = ? WHERE id = ?");
-  query.addBindValue(newUrl);
-  query.addBindValue(feedId);
-  query.exec();
+    return QString();
 
   return newUrl;
+}
+
+bool RssHubInstances::recordFailure(const QString &base)
+{
+  QMutexLocker locker(&mutex_);
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  QList<qint64> &list = failureTimestamps()[base];
+  list.append(now);
+  // Keep only failures within the rolling 30-day window.
+  list.erase(std::remove_if(list.begin(), list.end(),
+             [now](qint64 t) { return (now - t) > MONTH_MS; }),
+             list.end());
+  if (list.size() >= MAX_FAILURES_PER_MONTH) {
+    frozenInstancesSet().insert(base);
+    return true;
+  }
+  return false;
+}
+
+bool RssHubInstances::isFrozen(const QString &base)
+{
+  QMutexLocker locker(&mutex_);
+  return frozenInstancesSet().contains(base);
+}
+
+QStringList RssHubInstances::frozenInstances()
+{
+}
+
+void RssHubInstances::unfreezeInstance(const QString &base)
+{
+  QMutexLocker locker(&mutex_);
+  frozenInstancesSet().remove(base);
+  failureTimestamps().remove(base);
+}
+
+QSet<QString> &RssHubInstances::frozenInstancesSet()
+{
+  static QSet<QString> set;
+  return set;
+}
+
+QHash<QString, QList<qint64>> &RssHubInstances::failureTimestamps()
+{
+  static QHash<QString, QList<qint64>> map;
+  return map;
+}
+
+QStringList RssHubInstances::frozenInstances()
+{
+  QMutexLocker locker(&mutex_);
+  return frozenInstancesSet().values();
 }

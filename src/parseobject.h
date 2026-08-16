@@ -115,6 +115,7 @@ private:
   QString parseDate(const QString &dateString, const QString &urlString);
   int recountFeedCounts(int feedId, const QString &feedUrl,
                         const QString &updated, const QString &lastBuildDate);
+  QSqlDatabase db();  // lazy per-thread connection
 
   QSqlDatabase db_;
   QTimer *parseTimer_;

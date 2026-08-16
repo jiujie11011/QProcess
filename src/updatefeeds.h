@@ -123,6 +123,7 @@ signals:
                      QDateTime dtReply, QString codecName);
   void setStatusFeed(int feedId, QString status);
   void feedUpdated(int feedId, bool changed, int newCount, bool finish);
+  void feedUrlChanged(int feedId, const QString &newUrl);
   void signalUpdateModel(bool checkFilter = true);
   void signalUpdateNews(int refresh = NewsTabWidget::RefreshInsert);
   void signalCountsStatusBar(int unreadCount, int allCount);
@@ -148,9 +149,9 @@ private:
   QString getIdFeedsString(int idFolder, int idException = -1);
   QString getFeedProxyUrl(int feedId, const QString &proxyUrl);
   QString getFeedUserInfo(const QString &feedUrl, int auth);
+  QSqlDatabase db(); // lazy per-thread connection
 
   MainWindow *mainWindow_;
-  QSqlDatabase db_;
   QList<int> feedIdList_;
   int updateFeedsCount_;
   // Number of RSSHub instance swaps already attempted per feed, to bound the

@@ -3629,6 +3629,19 @@ void OptionsDialog::createRssHubWidget()
   layout->addLayout(listLayout);
   layout->addLayout(remoteLayout);
   layout->addWidget(rsshubStatusLabel_);
+
+  // Frozen instances (auto-disabled after too many monthly failures).
+  QLabel *frozenTitle = new QLabel(tr("Frozen instances (auto-disabled):"));
+  layout->addWidget(frozenTitle);
+  rsshubFrozenList_ = new QListWidget();
+  rsshubFrozenList_->setObjectName("rsshubFrozenList");
+  rsshubFrozenList_->setMaximumHeight(90);
+  layout->addWidget(rsshubFrozenList_);
+  rsshubUnfreezeButton_ = new QPushButton(tr("Re-enable this instance"));
+  connect(rsshubUnfreezeButton_, SIGNAL(clicked()),
+          this, SLOT(slotRssHubUnfreeze()));
+  layout->addWidget(rsshubUnfreezeButton_);
+
   layout->addStretch();
   rsshubWidget_->setLayout(layout);
 
@@ -3649,6 +3662,11 @@ void OptionsDialog::loadRssHubSettings()
   foreach (const QString &base, RssHubInstances::loadInstances()) {
     QListWidgetItem *item = new QListWidgetItem(base, rsshubInstancesList_);
     item->setFlags(item->flags() | Qt::ItemIsEditable);
+  }
+  rsshubFrozenList_->clear();
+  foreach (const QString &base, RssHubInstances::frozenInstances()) {
+    QListWidgetItem *item = new QListWidgetItem(base, rsshubFrozenList_);
+    item->setForeground(Qt::gray);
   }
   rsshubStatusLabel_->clear();
 }
@@ -3804,6 +3822,16 @@ void OptionsDialog::slotRssHubFetchRemote()
 void OptionsDialog::slotRssHubStatusMessage(const QString &message)
 {
   QMessageBox::information(this, tr("Subscriptions"), message);
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotRssHubUnfreeze()
+{
+  QListWidgetItem *item = rsshubFrozenList_->currentItem();
+  if (!item)
+    return;
+  QString base = item->text();
+  RssHubInstances::unfreezeInstance(base);
+  delete item;
 }
 //----------------------------------------------------------------------------
 void OptionsDialog::slotRegisterFeedProtocol()

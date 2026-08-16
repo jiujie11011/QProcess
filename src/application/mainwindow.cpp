@@ -9172,6 +9172,15 @@ void MainWindow::setStatusFeed(int feedId, QString status)
   }
 }
 
+void MainWindow::slotFeedUrlChanged(int feedId, const QString &newUrl)
+{
+  QSqlQuery q;
+  q.prepare("UPDATE feeds SET xmlUrl = ? WHERE id = ?");
+  q.addBindValue(newUrl);
+  q.addBindValue(feedId);
+  q.exec();
+}
+
 void MainWindow::addOurFeed()
 {
   if (mainApp->dbFileExists()) return;
