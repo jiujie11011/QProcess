@@ -28,6 +28,7 @@
 #include <QTimer>
 #include <QUrl>
 
+QMutex RssHubInstances::mutex_;
 QStringList RssHubInstances::healthyCache_;
 bool RssHubInstances::healthyCacheValid_ = false;
 
@@ -68,6 +69,7 @@ void RssHubInstances::saveInstances(const QStringList &instances)
 {
   QSettings settings;
   settings.setValue("RSSHub/instances", instances);
+  QMutexLocker locker(&mutex_);
   badInstances().clear();
   failureCounts().clear();
   healthyCacheValid_ = false;
@@ -187,37 +189,32 @@ QStringList RssHubInstances::fetchRemote(const QString &remoteUrl)
 
 void RssHubInstances::updateHealthyCache()
 {
-  healthyCache_ = checkAlive(loadInstances());
+  QStringList healthy = checkAlive(loadInstances());
+  QMutexLocker locker(&mutex_);
+  healthyCache_ = healthy;
   healthyCacheValid_ = true;
 }
 
-int RssHubInstances::failureCount(const QString &base)
+QStringList RssHubInstances::cachedHealthy()
 {
-  return failureCounts().value(base, 0);
-}
-
-void RssHubInstances::setFailureCount(const QString &base, int count)
-{
-  if (count <= 0)
-    failureCounts().remove(base);
-  else
-    failureCounts().insert(base, count);
+  QMutexLocker locker(&mutex_);
+  if (!healthyCacheValid_)
+    return QStringList();
+  return healthyCache_;
 }
 
 QString RssHubInstances::pickHealthy(const QStringList &instances,
                                      const QString &exceptBase)
 {
+  // Prefer a base already known to be alive from the cached health check.
+  // This runs on the feed update thread and must NOT block on the network,
+  // so we never fall back to a live isAlive() probe here.
+  QMutexLocker locker(&mutex_);
   if (healthyCacheValid_) {
     foreach (const QString &base, healthyCache_) {
       if (base != exceptBase)
         return base;
     }
-  }
-  foreach (const QString &base, instances) {
-    if (base == exceptBase)
-      continue;
-    if (isAlive(base))
-      return base;
   }
   return QString();
 }
@@ -232,18 +229,26 @@ QString RssHubInstances::handleFeedFailure(int feedId, const QString &feedUrl,
   if (base.isEmpty())
     return feedUrl;
 
-  if (!badInstances().contains(base)) {
-    int fails = failureCount(base) + 1;
-    setFailureCount(base, fails);
-    // Confirm the instance is dead only after 3 consecutive failures.
-    if (fails < 3)
-      return feedUrl;
-    badInstances().insert(base);
+  // Fast path with only cached health info: never block, never re-enter the
+  // event loop from the feed update thread.
+  {
+    QMutexLocker locker(&mutex_);
+    if (!badInstances().contains(base)) {
+      int fails = failureCounts().value(base, 0) + 1;
+      // Confirm the instance is dead only after 3 consecutive failures.
+      if (fails < 3) {
+        failureCounts().insert(base, fails);
+        return feedUrl;
+      }
+      failureCounts().insert(base, fails);
+      badInstances().insert(base);
+    }
   }
 
-  if (!healthyCacheValid_)
-    updateHealthyCache();
-
+  // If we don't yet know which instances are healthy (cache not populated),
+  // do not perform a blocking health check here — that would stall / crash the
+  // update thread via a nested event loop. Let the user run "Check
+  // Availability" in Settings, which populates the cache on the GUI thread.
   QString newBase = pickHealthy(loadInstances(), base);
   if (newBase.isEmpty() || newBase == base)
     return feedUrl;

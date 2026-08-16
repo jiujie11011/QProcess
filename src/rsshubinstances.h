@@ -18,6 +18,7 @@
 #ifndef RSSHUBINSTANCES_H
 #define RSSHUBINSTANCES_H
 
+#include <QMutex>
 #include <QSqlDatabase>
 #include <QString>
 #include <QStringList>
@@ -57,21 +58,30 @@ public:
     /** Fetches an instance list from a remote URL (one base per line). */
     static QStringList fetchRemote(const QString &remoteUrl);
 
-    /** Refreshes the cached healthy instance list. */
+    /** Refreshes the cached healthy instance list (synchronous, blocking).
+     *  Must be called from the GUI thread (e.g. the "Check Availability"
+     *  button) and never from the feed update thread, because it performs
+     *  blocking network requests. */
     static void updateHealthyCache();
+
+    /** Returns the cached healthy instance list, if available. */
+    static QStringList cachedHealthy();
 
     /** Handles a failed feed update. When the feed belongs to an instance
      *  that has failed repeatedly, the feed URL is swapped to a healthy
      *  instance and the database is updated. Returns the new URL, or the
-     *  original url when no swap is needed. */
+     *  original url when no swap is needed.
+     *
+     *  This method must be safe to call from the feed update thread: it
+     *  performs NO blocking network requests, only uses the cached health
+     *  information, and guards its static state with a mutex. */
     static QString handleFeedFailure(int feedId, const QString &feedUrl,
                                      QSqlDatabase db);
 
 private:
-    static int failureCount(const QString &base);
-    static void setFailureCount(const QString &base, int count);
     static QString pickHealthy(const QStringList &instances,
                                const QString &exceptBase);
+    static QMutex mutex_;
     static QStringList healthyCache_;
     static bool healthyCacheValid_;
 };

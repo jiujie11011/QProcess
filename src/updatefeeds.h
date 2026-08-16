@@ -153,6 +153,9 @@ private:
   QSqlDatabase db_;
   QList<int> feedIdList_;
   int updateFeedsCount_;
+  // Number of RSSHub instance swaps already attempted per feed, to bound the
+  // retry loop and prevent the update queue from never finishing.
+  QHash<int, int> feedSwapCounts_;
   QTimer *updateModelTimer_;
   QTimer *timerUpdateNews_;
   QTimer *saveMemoryDBDebounceTimer_;

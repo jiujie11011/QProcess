@@ -657,19 +657,26 @@ void UpdateObject::getUrlDone(int result, int feedId, QString feedUrlStr,
   }
 
   if (!data.isEmpty()) {
+    feedSwapCounts_.remove(feedId);
     emit xmlReadyParse(data, feedId, dtReply, codecName);
   } else {
     QString status = "0";
     if (result < 0) {
-      // Auto-swap failed RSSHub instance to a healthy one (if enabled)
-      QString newUrl = RssHubInstances::handleFeedFailure(feedId, feedUrlStr, db_);
-      if (newUrl != feedUrlStr) {
-        qWarning() << "RSSHub instance swapped, retrying with:" << newUrl;
-        updateFeedsCount_ = updateFeedsCount_ + 2;
-        emit signalRequestUrl(feedId, newUrl, dtReply,
-                              getFeedUserInfo(newUrl, 0),
-                              getFeedProxyUrl(feedId, QString()), true);
-        return;
+      // Auto-swap a failed RSSHub instance to a healthy one (if enabled).
+      // Bounded: each feed may swap at most MaxFeedSwaps times, otherwise the
+      // update queue would keep inflating updateFeedsCount_ and never finish.
+      const int MaxFeedSwaps = 3;
+      if (feedSwapCounts_.value(feedId, 0) < MaxFeedSwaps) {
+        QString newUrl = RssHubInstances::handleFeedFailure(feedId, feedUrlStr, db_);
+        if (newUrl != feedUrlStr) {
+          feedSwapCounts_[feedId] = feedSwapCounts_.value(feedId, 0) + 1;
+          qWarning() << "RSSHub instance swapped, retrying with:" << newUrl;
+          // Re-enter the queue normally (dedup + correct count accounting)
+          // instead of manually bumping the counter, so the feed is guaranteed
+          // to reach finishUpdate() and the progress bar completes.
+          addFeedInQueue(feedId, newUrl, dtReply, 0, QString(), true);
+          return;
+        }
       }
       status = QString("%1 %2").arg(result).arg(error);
       qWarning() << QString("Request failed: result = %1, error - %2, url - %3").
@@ -694,6 +701,10 @@ void UpdateObject::finishUpdate(int feedId, bool changed, int newCount, QString 
   if (feedIdIndex > -1) {
     feedIdList_.takeAt(feedIdIndex);
   }
+
+  // Reset the instance-swap budget so a later refresh of this feed can try
+  // swapping again, while still bounding swaps within a single update cycle.
+  feedSwapCounts_.remove(feedId);
 
   QSqlQuery q(db_);
   QString qStr = QString("UPDATE feeds SET status='%1' WHERE id=='%2'").

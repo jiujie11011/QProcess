@@ -127,6 +127,10 @@ MainWindow::MainWindow(QWidget *parent)
 
   QTimer::singleShot(5000, this, SLOT(slotUpdateAppCheck()));
   QTimer::singleShot(7000, this, SLOT(slotCheckDiskSpace()));
+  // Populate the RSSHub healthy-instance cache shortly after startup (GUI
+  // thread, where blocking is safe), so automatic instance swapping can work
+  // without the user having to click "Check Availability" manually.
+  QTimer::singleShot(10000, this, SLOT(slotCheckRssHubInstances()));
 
   connect(this, SIGNAL(signalShowNotification(bool)),
           SLOT(showNotification(bool)), Qt::QueuedConnection);
@@ -3322,6 +3326,18 @@ void MainWindow::slotCheckDiskSpace()
 #else
   Q_UNUSED(this);
 #endif
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotCheckRssHubInstances()
+{
+  if (!RssHubInstances::autoSwapEnabled())
+    return;
+  if (RssHubInstances::loadInstances().isEmpty())
+    return;
+  // Populates the healthy-instance cache with a blocking health check. Runs
+  // only on the GUI thread (deferred after startup), so it is safe here.
+  RssHubInstances::updateHealthyCache();
 }
 
 // ----------------------------------------------------------------------------

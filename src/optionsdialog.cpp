@@ -17,9 +17,12 @@
 * ============================================================ */
 #include "optionsdialog.h"
 
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QRegularExpression>
 #include <QSpinBox>
 
@@ -3563,10 +3566,67 @@ void OptionsDialog::saveRssHubSettings()
 //----------------------------------------------------------------------------
 void OptionsDialog::slotRssHubAddInstance()
 {
-  QListWidgetItem *item = new QListWidgetItem(tr("https://"), rsshubInstancesList_);
-  item->setFlags(item->flags() | Qt::ItemIsEditable);
-  rsshubInstancesList_->setCurrentItem(item);
-  rsshubInstancesList_->editItem(item);
+  QDialog dialog(this);
+  dialog.setWindowTitle(tr("Add RSSHub Instances"));
+
+  QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+  QLabel *info = new QLabel(
+        tr("Enter one instance URL per line. You may also paste a list using "
+           "commas, spaces, tabs or semicolons as separators.\n"
+           "Example:\n"
+           "  https://rsshub.app, https://rsshub.example.com\n"
+           "  https://third.example.org"), &dialog);
+  info->setWordWrap(true);
+  layout->addWidget(info);
+
+  QPlainTextEdit *editor = new QPlainTextEdit(&dialog);
+  editor->setPlaceholderText(tr("https://..."));
+  editor->setFocus();
+  layout->addWidget(editor);
+
+  QDialogButtonBox *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+  connect(buttons, SIGNAL(accepted()), &dialog, SLOT(accept()));
+  connect(buttons, SIGNAL(rejected()), &dialog, SLOT(reject()));
+  layout->addWidget(buttons);
+
+  dialog.resize(460, 260);
+  if (dialog.exec() != QDialog::Accepted)
+    return;
+
+  // Parse and normalise the input: split on newlines / commas / spaces /
+  // tabs / semicolons, trim each token and drop anything that isn't a URL.
+  QString raw = editor->toPlainText();
+  raw.replace(',', '\n').replace(';', '\n')
+     .replace('\t', '\n').replace(' ', '\n');
+  QStringList parts = raw.split('\n', QString::SkipEmptyParts);
+
+  QStringList existing;
+  for (int i = 0; i < rsshubInstancesList_->count(); ++i)
+    existing << rsshubInstancesList_->item(i)->text().trimmed();
+
+  int added = 0;
+  foreach (QString token, parts) {
+    token = token.trimmed();
+    if (token.isEmpty())
+      continue;
+    if (!(token.startsWith("http://") || token.startsWith("https://")))
+      continue;                      // ignore comments / non-URL garbage
+    if (token.endsWith('/'))
+      token.chop(1);                 // normalise trailing slash
+    if (existing.contains(token))
+      continue;                      // skip duplicates
+    QListWidgetItem *item = new QListWidgetItem(token, rsshubInstancesList_);
+    item->setFlags(item->flags() | Qt::ItemIsEditable);
+    existing << token;
+    added++;
+  }
+
+  if (added > 0)
+    rsshubStatusLabel_->setText(tr("Added %1 instance(s).").arg(added));
+  else
+    rsshubStatusLabel_->setText(tr("Nothing to add. Enter valid instance URLs."));
 }
 //----------------------------------------------------------------------------
 void OptionsDialog::slotRssHubRemoveInstance()

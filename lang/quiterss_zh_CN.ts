@@ -2957,6 +2957,32 @@ Ancient news could reappear</source>
         <translation>选项</translation>
     </message>
     <message>
+        <location filename="../src/optionsdialog.cpp" line="3569"/>
+        <source>Add RSSHub Instances</source>
+        <translation>添加 RSSHub 实例</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp" line="3574"/>
+        <source>Enter one instance URL per line. You may also paste a list using commas, spaces, tabs or semicolons as separators.
+Example:
+  https://rsshub.app, https://rsshub.example.com
+  https://third.example.org</source>
+        <translation>每行输入一个实例网址。也可以用逗号、空格、制表符或分号分隔批量粘贴。
+示例：
+  https://rsshub.app, https://rsshub.example.com
+  https://third.example.org</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp" line="3627"/>
+        <source>Added %1 instance(s).</source>
+        <translation>已添加 %1 个实例。</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp" line="3629"/>
+        <source>Nothing to add. Enter valid instance URLs.</source>
+        <translation>没有可添加的内容。请输入有效的实例网址。</translation>
+    </message>
+    <message>
         <location filename="../src/optionsdialog.cpp" line="65"/>
         <location filename="../src/optionsdialog.cpp" line="742"/>
         <location filename="../src/optionsdialog.cpp" line="1035"/>

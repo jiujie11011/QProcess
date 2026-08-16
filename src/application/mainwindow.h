@@ -367,6 +367,7 @@ public slots:
   void slotShowKeywordTrends();
   void slotSaveProgress();
   void slotCheckDiskSpace();
+  void slotCheckRssHubInstances();
   void slotFeedClicked(QModelIndex index);
   void slotFeedSelected(QModelIndex index, bool createTab = false);
   void setFeedsFilter(bool clicked = true);
