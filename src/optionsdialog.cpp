@@ -18,11 +18,14 @@
 #include "optionsdialog.h"
 
 #include <QLineEdit>
+#include <QListWidget>
+#include <QMessageBox>
 #include <QRegularExpression>
 #include <QSpinBox>
 
 #include "mainapplication.h"
 #include "labeldialog.h"
+#include "rsshubinstances.h"
 #include "settings.h"
 #include "VersionNo.h"
 
@@ -107,6 +110,15 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   treeItem.clear();
   treeItem << "13" << tr("AI");
   categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
+  treeItem.clear();
+  treeItem << "14" << tr("Data Management");
+  categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
+  treeItem.clear();
+  treeItem << "15" << tr("Manage Subscriptions");
+  categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
+  treeItem.clear();
+  treeItem << "16" << tr("RSSHub Instances");
+  categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
 
   createGeneralWidget();
 
@@ -137,6 +149,11 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   createAIWidget();
   loadAiSettings();
 
+  createDataManagementWidget();
+  createManageSubscriptionsWidget();
+  createRssHubWidget();
+  loadRssHubSettings();
+
   contentStack_ = new QStackedWidget();
   contentStack_->setObjectName("contentStack_");
   contentStack_->addWidget(generalWidget_);
@@ -153,6 +170,9 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   contentStack_->addWidget(interactionWidget_);
   contentStack_->addWidget(cleanupWidget_);
   contentStack_->addWidget(aiWidget_);
+  contentStack_->addWidget(dataManagementWidget_);
+  contentStack_->addWidget(manageSubscriptionsWidget_);
+  contentStack_->addWidget(rsshubWidget_);
 
   scrollArea_ = new QScrollArea(this);
   scrollArea_->setWidgetResizable(true);
@@ -277,6 +297,7 @@ void OptionsDialog::acceptDialog()
   applyNotifier();
   applyPass();
   saveAiSettings();
+  saveRssHubSettings();
   accept();
 }
 
@@ -2403,6 +2424,9 @@ void OptionsDialog::slotCategoriesItemClicked(QTreeWidgetItem* item, int)
     loadLabels();
   } else if (item->data(1, Qt::DisplayRole).toString() == tr("Notifications")) {
     loadNotifier();
+  } else if (item->data(1, Qt::DisplayRole).toString() ==
+             tr("Manage Subscriptions")) {
+    loadManageSubscriptions();
   }
 }
 //----------------------------------------------------------------------------
@@ -3367,4 +3391,243 @@ void OptionsDialog::selectionDownloadLocation()
                                                      | QFileDialog::DontResolveSymlinks);
   if (!dirStr.isEmpty())
     downloadLocationEdit_->setText(dirStr);
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::createDataManagementWidget()
+{
+  dataManagementWidget_ = new QWidget(this);
+  dataManagementWidget_->setObjectName("dataManagementWidget");
+
+  importFeedsButton_ = new QPushButton(tr("Import Subscriptions..."));
+  importFeedsButton_->setObjectName("importFeedsButton");
+  exportFeedsButton_ = new QPushButton(tr("Export Subscriptions..."));
+  exportFeedsButton_->setObjectName("exportFeedsButton");
+  cleanupDatabaseButton_ = new QPushButton(tr("Clean Up Database..."));
+  cleanupDatabaseButton_->setObjectName("cleanupDatabaseButton");
+
+  QLabel *infoLabel = new QLabel(tr("Import or export your subscriptions as "
+                                    "OPML, or clean up the database."));
+  infoLabel->setWordWrap(true);
+  infoLabel->setObjectName("dataManagementInfoLabel");
+
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->setContentsMargins(4, 6, 4, 6);
+  layout->addWidget(infoLabel);
+  layout->addSpacing(10);
+  layout->addWidget(importFeedsButton_);
+  layout->addSpacing(4);
+  layout->addWidget(exportFeedsButton_);
+  layout->addSpacing(4);
+  layout->addWidget(cleanupDatabaseButton_);
+  layout->addStretch();
+  dataManagementWidget_->setLayout(layout);
+
+  connect(importFeedsButton_, SIGNAL(clicked()),
+          this, SIGNAL(signalImportFeedsRequested()));
+  connect(exportFeedsButton_, SIGNAL(clicked()),
+          this, SIGNAL(signalExportFeedsRequested()));
+  connect(cleanupDatabaseButton_, SIGNAL(clicked()),
+          this, SIGNAL(signalCleanupDatabaseRequested()));
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::createManageSubscriptionsWidget()
+{
+  manageSubscriptionsWidget_ = new QWidget(this);
+  manageSubscriptionsWidget_->setObjectName("manageSubscriptionsWidget");
+
+  subscriptionsWidget_ = new SubscriptionManagerWidget(manageSubscriptionsWidget_);
+
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->setContentsMargins(0, 6, 0, 6);
+  layout->addWidget(subscriptionsWidget_);
+  manageSubscriptionsWidget_->setLayout(layout);
+
+  connect(subscriptionsWidget_, SIGNAL(addFeedRequested()),
+          this, SIGNAL(signalAddFeedRequested()));
+  connect(subscriptionsWidget_, SIGNAL(feedsChanged()),
+          this, SIGNAL(signalFeedsChanged()));
+  connect(subscriptionsWidget_, SIGNAL(manageLabelsRequested()),
+          this, SLOT(slotManageSubscriptionsLabels()));
+  connect(subscriptionsWidget_, SIGNAL(statusMessage(QString)),
+          this, SLOT(slotRssHubStatusMessage(QString)));
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::loadManageSubscriptions()
+{
+  subscriptionsWidget_->refresh();
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotManageSubscriptionsLabels()
+{
+  for (int i = 0; i < categoriesTree_->topLevelItemCount(); ++i) {
+    QTreeWidgetItem *item = categoriesTree_->topLevelItem(i);
+    if (item->data(1, Qt::DisplayRole).toString() == tr("Labels")) {
+      categoriesTree_->setCurrentItem(item, 1);
+      slotCategoriesTreeKeyUpDownPressed();
+      break;
+    }
+  }
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::createRssHubWidget()
+{
+  rsshubWidget_ = new QWidget(this);
+  rsshubWidget_->setObjectName("rsshubWidget");
+
+  rsshubAutoSwapEnabled_ = new QCheckBox(
+        tr("Automatically switch to another instance when an RSSHub instance fails"));
+  rsshubAutoSwapEnabled_->setObjectName("rsshubAutoSwapEnabled");
+
+  rsshubInstancesList_ = new QListWidget();
+  rsshubInstancesList_->setObjectName("rsshubInstancesList");
+  rsshubInstancesList_->setSortingEnabled(false);
+
+  rsshubAddButton_ = new QPushButton(tr("Add"));
+  rsshubAddButton_->setObjectName("rsshubAddButton");
+  rsshubRemoveButton_ = new QPushButton(tr("Remove"));
+  rsshubRemoveButton_->setObjectName("rsshubRemoveButton");
+  rsshubCheckButton_ = new QPushButton(tr("Check Availability"));
+  rsshubCheckButton_->setObjectName("rsshubCheckButton");
+  rsshubFetchButton_ = new QPushButton(tr("Update From URL"));
+  rsshubFetchButton_->setObjectName("rsshubFetchButton");
+
+  QLabel *remoteLabel = new QLabel(tr("Remote instance list URL:"));
+  rsshubRemoteUrlEdit_ = new QLineEdit();
+  rsshubRemoteUrlEdit_->setObjectName("rsshubRemoteUrlEdit");
+  rsshubRemoteUrlEdit_->setPlaceholderText(tr("https://example.com/instances.txt"));
+
+  rsshubStatusLabel_ = new QLabel();
+  rsshubStatusLabel_->setObjectName("rsshubStatusLabel");
+  rsshubStatusLabel_->setWordWrap(true);
+
+  QVBoxLayout *buttonLayout = new QVBoxLayout();
+  buttonLayout->setContentsMargins(0, 0, 0, 0);
+  buttonLayout->addWidget(rsshubAddButton_);
+  buttonLayout->addWidget(rsshubRemoveButton_);
+  buttonLayout->addSpacing(10);
+  buttonLayout->addWidget(rsshubCheckButton_);
+  buttonLayout->addSpacing(10);
+  buttonLayout->addWidget(rsshubFetchButton_);
+  buttonLayout->addStretch();
+
+  QHBoxLayout *listLayout = new QHBoxLayout();
+  listLayout->addWidget(rsshubInstancesList_, 1);
+  listLayout->addLayout(buttonLayout);
+
+  QHBoxLayout *remoteLayout = new QHBoxLayout();
+  remoteLayout->addWidget(remoteLabel);
+  remoteLayout->addWidget(rsshubRemoteUrlEdit_, 1);
+
+  QVBoxLayout *layout = new QVBoxLayout();
+  layout->setContentsMargins(4, 6, 4, 6);
+  layout->addWidget(rsshubAutoSwapEnabled_);
+  layout->addSpacing(10);
+  layout->addLayout(listLayout);
+  layout->addLayout(remoteLayout);
+  layout->addWidget(rsshubStatusLabel_);
+  layout->addStretch();
+  rsshubWidget_->setLayout(layout);
+
+  connect(rsshubAddButton_, SIGNAL(clicked()),
+          this, SLOT(slotRssHubAddInstance()));
+  connect(rsshubRemoveButton_, SIGNAL(clicked()),
+          this, SLOT(slotRssHubRemoveInstance()));
+  connect(rsshubCheckButton_, SIGNAL(clicked()),
+          this, SLOT(slotRssHubCheckInstances()));
+  connect(rsshubFetchButton_, SIGNAL(clicked()),
+          this, SLOT(slotRssHubFetchRemote()));
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::loadRssHubSettings()
+{
+  rsshubAutoSwapEnabled_->setChecked(RssHubInstances::autoSwapEnabled());
+  rsshubInstancesList_->clear();
+  foreach (const QString &base, RssHubInstances::loadInstances()) {
+    QListWidgetItem *item = new QListWidgetItem(base, rsshubInstancesList_);
+    item->setFlags(item->flags() | Qt::ItemIsEditable);
+  }
+  rsshubStatusLabel_->clear();
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::saveRssHubSettings()
+{
+  RssHubInstances::setAutoSwapEnabled(rsshubAutoSwapEnabled_->isChecked());
+  QStringList instances;
+  for (int i = 0; i < rsshubInstancesList_->count(); ++i)
+    instances << rsshubInstancesList_->item(i)->text().trimmed();
+  instances.removeAll(QString());
+  RssHubInstances::saveInstances(instances);
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotRssHubAddInstance()
+{
+  QListWidgetItem *item = new QListWidgetItem(tr("https://"), rsshubInstancesList_);
+  item->setFlags(item->flags() | Qt::ItemIsEditable);
+  rsshubInstancesList_->setCurrentItem(item);
+  rsshubInstancesList_->editItem(item);
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotRssHubRemoveInstance()
+{
+  QListWidgetItem *item = rsshubInstancesList_->currentItem();
+  if (item)
+    delete item;
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotRssHubCheckInstances()
+{
+  QStringList instances = RssHubInstances::loadInstances();
+  if (instances.isEmpty()) {
+    QMessageBox::information(this, tr("RSSHub Instances"),
+                             tr("Instance list is empty."));
+    return;
+  }
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+  QStringList healthy = RssHubInstances::checkAlive(instances);
+  RssHubInstances::updateHealthyCache();
+  QApplication::restoreOverrideCursor();
+
+  int checked = 0;
+  for (int i = 0; i < rsshubInstancesList_->count(); ++i) {
+    QListWidgetItem *item = rsshubInstancesList_->item(i);
+    QString base = item->text().trimmed();
+    bool ok = healthy.contains(base);
+    if (ok)
+      checked++;
+    item->setForeground(ok ? QColor(0, 140, 0) : QColor(200, 30, 30));
+    item->setToolTip(ok ? tr("Available") : tr("Unavailable"));
+  }
+  rsshubStatusLabel_->setText(tr("%1 of %2 instances available")
+                              .arg(checked).arg(instances.count()));
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotRssHubFetchRemote()
+{
+  QString url = rsshubRemoteUrlEdit_->text().trimmed();
+  if (url.isEmpty()) {
+    QMessageBox::information(this, tr("RSSHub Instances"),
+                             tr("Enter a URL of the instance list "
+                                "(one instance per line)."));
+    return;
+  }
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+  QStringList list = RssHubInstances::fetchRemote(url);
+  QApplication::restoreOverrideCursor();
+  if (list.isEmpty()) {
+    QMessageBox::warning(this, tr("RSSHub Instances"),
+                         tr("Could not fetch any instances from this URL."));
+    return;
+  }
+  for (int i = rsshubInstancesList_->count() - 1; i >= 0; --i)
+    delete rsshubInstancesList_->item(i);
+  foreach (const QString &base, list) {
+    QListWidgetItem *item = new QListWidgetItem(base, rsshubInstancesList_);
+    item->setFlags(item->flags() | Qt::ItemIsEditable);
+  }
+  rsshubStatusLabel_->setText(tr("Fetched %1 instances.").arg(list.count()));
+}
+//----------------------------------------------------------------------------
+void OptionsDialog::slotRssHubStatusMessage(const QString &message)
+{
+  QMessageBox::information(this, tr("Subscriptions"), message);
 }

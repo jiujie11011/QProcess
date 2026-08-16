@@ -352,6 +352,8 @@ public slots:
   void slotImportFeedsJson();
   void slotExportFeedsJson();
   void slotFeedsManagement();
+  void slotCleanupDatabase();
+  void slotFeedsChanged();
   void slotUndoLastMark();
   void slotShowStatistics();
   void slotShowAIDialog();

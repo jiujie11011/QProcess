@@ -29,6 +29,7 @@
 #include "dialog.h"
 #include "lineedit.h"
 #include "notificationswidget.h"
+#include "subscriptionmanagerwidget.h"
 
 #define STATIC_ICON_TRAY        0
 #define CHANGE_ICON_TRAY        1
@@ -270,11 +271,18 @@ public:
 public slots:
   void aiAutoTranslateToggled(bool checked);
   void slotTranslationEngineChanged(int index);
+  void loadManageSubscriptions();
+  void slotRssHubStatusMessage(const QString &message);
 
 signals:
   void signalCategoriesTreeKeyUpDownPressed();
   void signalShortcutTreeUpDownPressed();
   void signalPlaySound(const QString &soundPath);
+  void signalImportFeedsRequested();
+  void signalExportFeedsRequested();
+  void signalCleanupDatabaseRequested();
+  void signalAddFeedRequested();
+  void signalFeedsChanged();
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event);
@@ -322,6 +330,11 @@ private slots:
   void addWhitelist();
   void removeWhitelist();
   void selectionDownloadLocation();
+  void slotRssHubAddInstance();
+  void slotRssHubRemoveInstance();
+  void slotRssHubCheckInstances();
+  void slotRssHubFetchRemote();
+  void slotManageSubscriptionsLabels();
 
 private:
   void showEvent(QShowEvent*);
@@ -361,6 +374,32 @@ private:
   QWidget *interactionWidget_;
   QWidget *cleanupWidget_;
   QWidget *aiWidget_;
+
+  // data management
+  void createDataManagementWidget();
+  QWidget *dataManagementWidget_;
+  QPushButton *importFeedsButton_;
+  QPushButton *exportFeedsButton_;
+  QPushButton *cleanupDatabaseButton_;
+
+  // manage subscriptions
+  void createManageSubscriptionsWidget();
+  QWidget *manageSubscriptionsWidget_;
+  SubscriptionManagerWidget *subscriptionsWidget_;
+
+  // rsshub instances
+  void createRssHubWidget();
+  void loadRssHubSettings();
+  void saveRssHubSettings();
+  QWidget *rsshubWidget_;
+  QCheckBox *rsshubAutoSwapEnabled_;
+  QListWidget *rsshubInstancesList_;
+  QLineEdit *rsshubRemoteUrlEdit_;
+  QLabel *rsshubStatusLabel_;
+  QPushButton *rsshubAddButton_;
+  QPushButton *rsshubRemoveButton_;
+  QPushButton *rsshubCheckButton_;
+  QPushButton *rsshubFetchButton_;
 
   // general
   void createGeneralWidget();

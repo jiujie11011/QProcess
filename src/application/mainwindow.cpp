@@ -3090,6 +3090,30 @@ void MainWindow::slotFeedsManagement()
 }
 
 // ----------------------------------------------------------------------------
+void MainWindow::slotCleanupDatabase()
+{
+  QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+  QSqlDatabase db = QSqlDatabase::database();
+  db.transaction();
+  QSqlQuery query(db);
+  // Remove orphan news (their feed no longer exists)
+  query.exec("DELETE FROM news WHERE feedId NOT IN (SELECT id FROM feeds)");
+  db.commit();
+  // Defragment the database file
+  Database::setVacuum();
+  QApplication::restoreOverrideCursor();
+  QMessageBox::information(this, tr("Clean Up Database"),
+                           tr("Database cleaned up successfully."));
+}
+
+// ----------------------------------------------------------------------------
+void MainWindow::slotFeedsChanged()
+{
+  feedsModelReload();
+  recountCategoryCounts();
+}
+
+// ----------------------------------------------------------------------------
 void MainWindow::slotUndoLastMark()
 {
   if (!currentNewsTab) return;
@@ -3820,6 +3844,16 @@ void MainWindow::showOptionDlg(int index)
 
     connect(optionsDialog_->undoMarkButton_, SIGNAL(clicked()),
             this, SLOT(slotUndoLastMark()));
+    connect(optionsDialog_, SIGNAL(signalImportFeedsRequested()),
+            this, SLOT(slotImportFeeds()));
+    connect(optionsDialog_, SIGNAL(signalExportFeedsRequested()),
+            this, SLOT(slotExportFeeds()));
+    connect(optionsDialog_, SIGNAL(signalCleanupDatabaseRequested()),
+            this, SLOT(slotCleanupDatabase()));
+    connect(optionsDialog_, SIGNAL(signalAddFeedRequested()),
+            this, SLOT(addFeed()));
+    connect(optionsDialog_, SIGNAL(signalFeedsChanged()),
+            this, SLOT(slotFeedsChanged()));
   }
 
   settings.beginGroup("Settings");

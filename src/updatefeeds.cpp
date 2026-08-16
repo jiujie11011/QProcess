@@ -17,6 +17,8 @@
 * ============================================================ */
 #include "updatefeeds.h"
 
+#include "rsshubinstances.h"
+
 #include "mainapplication.h"
 #include "common.h"
 #include "database.h"
@@ -659,6 +661,16 @@ void UpdateObject::getUrlDone(int result, int feedId, QString feedUrlStr,
   } else {
     QString status = "0";
     if (result < 0) {
+      // Auto-swap failed RSSHub instance to a healthy one (if enabled)
+      QString newUrl = RssHubInstances::handleFeedFailure(feedId, feedUrlStr, db_);
+      if (newUrl != feedUrlStr) {
+        qWarning() << "RSSHub instance swapped, retrying with:" << newUrl;
+        updateFeedsCount_ = updateFeedsCount_ + 2;
+        emit signalRequestUrl(feedId, newUrl, dtReply,
+                              getFeedUserInfo(newUrl, 0),
+                              getFeedProxyUrl(feedId, QString()), true);
+        return;
+      }
       status = QString("%1 %2").arg(result).arg(error);
       qWarning() << QString("Request failed: result = %1, error - %2, url - %3").
                     arg(result).arg(error).arg(feedUrlStr);

@@ -2535,7 +2535,16 @@ Ancient news could reappear</source>
         <source>Show only unread news</source>
         <translation>仅显示未读新闻</translation>
     </message>
-</context>
+
+        <message>
+            <source>Clean Up Database</source>
+            <translation>清理数据库</translation>
+        </message>
+        <message>
+            <source>Database cleaned up successfully.</source>
+            <translation>数据库清理成功。</translation>
+        </message>
+    </context>
 <context>
     <name>NetworkManager</name>
     <message>
@@ -4470,7 +4479,164 @@ Ancient news could reappear</source>
         <source>Highlight code blocks in articles (auto-detect language)</source>
         <translation>高亮文章中的代码块（自动检测语言）</translation>
     </message>
-</context>
+
+        <message>
+            <source>Data Management</source>
+            <translation>数据管理</translation>
+        </message>
+        <message>
+            <source>Manage Subscriptions</source>
+            <translation>管理订阅</translation>
+        </message>
+        <message>
+            <source>RSSHub Instances</source>
+            <translation>RSSHub 实例</translation>
+        </message>
+        <message>
+            <source>Import Subscriptions...</source>
+            <translation>导入订阅源...</translation>
+        </message>
+        <message>
+            <source>Export Subscriptions...</source>
+            <translation>导出订阅源...</translation>
+        </message>
+        <message>
+            <source>Clean Up Database...</source>
+            <translation>清理数据库...</translation>
+        </message>
+        <message>
+            <source>Import or export your subscriptions as OPML, or clean up the database.</source>
+            <translation>以 OPML 格式导入或导出您的订阅源，或清理数据库。</translation>
+        </message>
+        <message>
+            <source>Add Subscription...</source>
+            <translation>添加订阅源...</translation>
+        </message>
+        <message>
+            <source>Manage Labels...</source>
+            <translation>管理标签...</translation>
+        </message>
+        <message>
+            <source>Delete Selected</source>
+            <translation>删除选中</translation>
+        </message>
+        <message>
+            <source>Select All</source>
+            <translation>全选</translation>
+        </message>
+        <message>
+            <source>Select</source>
+            <translation>选择</translation>
+        </message>
+        <message>
+            <source>Name</source>
+            <translation>名称</translation>
+        </message>
+        <message>
+            <source>Category</source>
+            <translation>分类</translation>
+        </message>
+        <message>
+            <source>Frequency</source>
+            <translation>频率</translation>
+        </message>
+        <message>
+            <source>Status</source>
+            <translation>状态</translation>
+        </message>
+        <message>
+            <source>Last Update</source>
+            <translation>最后更新</translation>
+        </message>
+        <message>
+            <source>%1 seconds</source>
+            <translation>%1 秒</translation>
+        </message>
+        <message>
+            <source>%1 minutes</source>
+            <translation>%1 分钟</translation>
+        </message>
+        <message>
+            <source>%1 hours</source>
+            <translation>%1 小时</translation>
+        </message>
+        <message>
+            <source>Default</source>
+            <translation>默认</translation>
+        </message>
+        <message>
+            <source>%1 subscriptions, %2 selected</source>
+            <translation>%1 个订阅源，已选 %2 个</translation>
+        </message>
+        <message>
+            <source>Confirm Delete</source>
+            <translation>确认删除</translation>
+        </message>
+        <message>
+            <source>Are you sure to delete selected subscriptions?</source>
+            <translation>确定要删除选中的订阅源吗？</translation>
+        </message>
+        <message>
+            <source>Selected subscriptions deleted.</source>
+            <translation>已删除选中的订阅源。</translation>
+        </message>
+        <message>
+            <source>Automatically switch to another instance when an RSSHub instance fails</source>
+            <translation>当 RSSHub 实例失效时自动切换到其他可用实例</translation>
+        </message>
+        <message>
+            <source>Add</source>
+            <translation>添加</translation>
+        </message>
+        <message>
+            <source>Remove</source>
+            <translation>删除</translation>
+        </message>
+        <message>
+            <source>Check Availability</source>
+            <translation>检查可用性</translation>
+        </message>
+        <message>
+            <source>Update From URL</source>
+            <translation>从 URL 更新</translation>
+        </message>
+        <message>
+            <source>Remote instance list URL:</source>
+            <translation>远程实例列表 URL：</translation>
+        </message>
+        <message>
+            <source>Available</source>
+            <translation>可用</translation>
+        </message>
+        <message>
+            <source>Unavailable</source>
+            <translation>不可用</translation>
+        </message>
+        <message>
+            <source>%1 of %2 instances available</source>
+            <translation>%2 个实例中 %1 个可用</translation>
+        </message>
+        <message>
+            <source>Enter a URL of the instance list (one instance per line).</source>
+            <translation>请输入实例列表的 URL（每行一个实例）。</translation>
+        </message>
+        <message>
+            <source>Could not fetch any instances from this URL.</source>
+            <translation>无法从该 URL 获取任何实例。</translation>
+        </message>
+        <message>
+            <source>Fetched %1 instances.</source>
+            <translation>已获取 %1 个实例。</translation>
+        </message>
+        <message>
+            <source>Instance list is empty.</source>
+            <translation>实例列表为空。</translation>
+        </message>
+        <message>
+            <source>Subscriptions</source>
+            <translation>订阅源</translation>
+        </message>
+    </context>
 <context>
     <name>QAbstractSpinBox</name>
     <message>
@@ -4918,4 +5084,79 @@ Ancient news could reappear</source>
         <translation>检查更新出错</translation>
     </message>
 </context>
+    <context>
+        <name>SubscriptionManagerWidget</name>
+        <message>
+            <source>Add Subscription...</source>
+            <translation>添加订阅源...</translation>
+        </message>
+        <message>
+            <source>Manage Labels...</source>
+            <translation>管理标签...</translation>
+        </message>
+        <message>
+            <source>Delete Selected</source>
+            <translation>删除选中</translation>
+        </message>
+        <message>
+            <source>Select All</source>
+            <translation>全选</translation>
+        </message>
+        <message>
+            <source>Select</source>
+            <translation>选择</translation>
+        </message>
+        <message>
+            <source>Name</source>
+            <translation>名称</translation>
+        </message>
+        <message>
+            <source>Category</source>
+            <translation>分类</translation>
+        </message>
+        <message>
+            <source>Frequency</source>
+            <translation>频率</translation>
+        </message>
+        <message>
+            <source>Status</source>
+            <translation>状态</translation>
+        </message>
+        <message>
+            <source>Last Update</source>
+            <translation>最后更新</translation>
+        </message>
+        <message>
+            <source>%1 seconds</source>
+            <translation>%1 秒</translation>
+        </message>
+        <message>
+            <source>%1 minutes</source>
+            <translation>%1 分钟</translation>
+        </message>
+        <message>
+            <source>%1 hours</source>
+            <translation>%1 小时</translation>
+        </message>
+        <message>
+            <source>Default</source>
+            <translation>默认</translation>
+        </message>
+        <message>
+            <source>%1 subscriptions, %2 selected</source>
+            <translation>%1 个订阅源，已选 %2 个</translation>
+        </message>
+        <message>
+            <source>Confirm Delete</source>
+            <translation>确认删除</translation>
+        </message>
+        <message>
+            <source>Are you sure to delete selected subscriptions?</source>
+            <translation>确定要删除选中的订阅源吗？</translation>
+        </message>
+        <message>
+            <source>Selected subscriptions deleted.</source>
+            <translation>已删除选中的订阅源。</translation>
+        </message>
+    </context>
 </TS>

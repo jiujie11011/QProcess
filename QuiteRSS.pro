@@ -53,6 +53,8 @@ HEADERS += \
     src/VersionNo.h \
     src/parseobject.h \
     src/optionsdialog.h \
+    src/rsshubinstances.h \
+    src/subscriptionmanagerwidget.h \
     src/newsview/newsview.h \
     src/newsview/newsmodel.h \
     src/newsview/newsheader.h \
@@ -145,6 +147,8 @@ HEADERS += \
 SOURCES += \
     src/parseobject.cpp \
     src/optionsdialog.cpp \
+    src/rsshubinstances.cpp \
+    src/subscriptionmanagerwidget.cpp \
     src/newsview/newsview.cpp \
     src/newsview/newsmodel.cpp \
     src/newsview/interactivemark.cpp \
