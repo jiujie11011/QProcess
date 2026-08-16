@@ -181,7 +181,10 @@ bool RssHubInstances::isAlive(const QString &base, int timeoutMs)
   // Probe the base itself (don't force a trailing slash, which can 404 on
   // path-mounted instances like https://i.scnu.edu.cn/sub). The server
   // handles a missing trailing slash with a redirect or the index page.
-  QNetworkRequest request(QUrl(base));
+  // NB: use an intermediate variable; "QNetworkRequest request(QUrl(base))"
+  // is parsed as a function declaration (most vexing parse) by GCC.
+  QUrl probeUrl(base);
+  QNetworkRequest request(probeUrl);
   request.setHeader(QNetworkRequest::UserAgentHeader,
                     QString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                             "AppleWebKit/537.36 (KHTML, like Gecko) "
