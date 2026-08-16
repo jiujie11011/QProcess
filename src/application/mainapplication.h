@@ -108,6 +108,7 @@ signals:
 
 private slots:
   void commitData(QSessionManager &manager);
+  void slotCheckSslRuntime();
 
 private:
   void createSettings();

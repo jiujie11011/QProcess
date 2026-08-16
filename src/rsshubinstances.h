@@ -35,6 +35,11 @@ public:
     /** Default instance list used when no user list is saved. */
     static QStringList defaultInstances();
 
+    /** Normalises a single instance base URL (trim, lower-case host, strip
+     *  trailing slash/query/fragment). Returns an empty string for values
+     *  that are not usable as an instance base. */
+    static QString normalizeBase(const QString &raw);
+
     /** Instances stored in settings (falls back to defaults). */
     static QStringList loadInstances();
     static void saveInstances(const QStringList &instances);

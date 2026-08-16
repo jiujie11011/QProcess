@@ -33,6 +33,9 @@
 #include <QWebEngineScript>
 #include <QWebEngineSettings>
 #include <QFile>
+#include <QMessageBox>
+#include <QCheckBox>
+#include <QSslSocket>
 
 MainApplication::MainApplication(int &argc, char **argv)
   : QtSingleApplication(argc, argv)
@@ -109,6 +112,14 @@ MainApplication::MainApplication(int &argc, char **argv)
 
   if (mainWindow_->showTrayIcon_) {
     QTimer::singleShot(0, mainWindow_->traySystem, SLOT(show()));
+  }
+
+  // Warn the user up front if the OpenSSL runtime is missing. Without it
+  // every https:// feed fails with "TLS initialization failed" (which used
+  // to be silently swallowed in the feed-update thread), so the user would
+  // only see feeds "not refreshing" with no explanation.
+  if (!QSslSocket::supportsSsl()) {
+    QTimer::singleShot(500, this, SLOT(slotCheckSslRuntime()));
   }
 
   if (updateFeedsStartUp_) {
@@ -263,6 +274,62 @@ void MainApplication::loadSettings()
   if (!interceptorRegistered) {
     interceptorRegistered = true;
     QWebEngineProfile::defaultProfile()->setRequestInterceptor(new WebPluginFactory());
+  }
+}
+
+/** @brief Warn the user if the OpenSSL runtime is unavailable
+ *
+ * Qt 5 links OpenSSL dynamically. On Windows, if libssl-1_1-x64.dll /
+ * libcrypto-1_1-x64.dll are absent next to the executable, QSslSocket cannot
+ * initialize TLS and every https:// feed fails with "TLS initialization
+ * failed". The feed-update thread used to swallow this, so surface it here.
+ *---------------------------------------------------------------------------*/
+void MainApplication::slotCheckSslRuntime()
+{
+  if (QSslSocket::supportsSsl())
+    return;
+
+  // Let the user dismiss this permanently; it only fires once per startup,
+  // but it would otherwise reappear on every launch until fixed.
+  Settings settings;
+  settings.beginGroup("SSL-Configuration");
+  if (settings.value("SkipMissingRuntimeWarning", false).toBool()) {
+    settings.endGroup();
+    return;
+  }
+  settings.endGroup();
+
+  QString details;
+#if defined(Q_OS_WIN)
+  details = tr("QuiteRSS needs the OpenSSL 1.1.x runtime libraries "
+               "(libssl-1_1-x64.dll and libcrypto-1_1-x64.dll) next to "
+               "QuiteRSS.exe to refresh HTTPS feeds.\n\n"
+               "Without them, every HTTPS subscription fails to update "
+               "(\"TLS initialization failed\"). Please reinstall QuiteRSS "
+               "or copy these two DLLs into the application folder, then "
+               "restart.");
+#else
+  details = tr("QuiteRSS cannot find an OpenSSL 1.1.x runtime, so HTTPS "
+               "feeds will fail to refresh. Please install the OpenSSL 1.1 "
+               "libraries for your system and restart QuiteRSS.");
+#endif
+
+  qWarning() << "OpenSSL runtime not found (QSslSocket::supportsSsl() == false);"
+             << "HTTPS feeds will fail to refresh. Build/OpenSSL info:"
+             << QSslSocket::sslLibraryBuildVersionString()
+             << " / " << QSslSocket::sslLibraryVersionString();
+
+  QWidget *parent = mainWindow_ ? static_cast<QWidget*>(mainWindow_) : 0;
+  QMessageBox box(QMessageBox::Warning, tr("HTTPS feeds unavailable"),
+                  details, QMessageBox::Ok, parent);
+  QCheckBox *dontShow = new QCheckBox(tr("Do not show this warning again"));
+  box.setCheckBox(dontShow);
+  box.exec();
+
+  if (dontShow->isChecked()) {
+    settings.beginGroup("SSL-Configuration");
+    settings.setValue("SkipMissingRuntimeWarning", true);
+    settings.endGroup();
   }
 }
 

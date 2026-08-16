@@ -3722,11 +3722,15 @@ void OptionsDialog::slotRssHubRemoveInstance()
 //----------------------------------------------------------------------------
 void OptionsDialog::slotRssHubCheckInstances()
 {
-  // Use the list currently shown in the dialog, not the saved one.
+  // Normalise the list currently shown in the dialog so trailing slashes
+  // and casing don't cause false negatives when matching health results.
   QStringList instances;
-  for (int i = 0; i < rsshubInstancesList_->count(); ++i)
-    instances << rsshubInstancesList_->item(i)->text().trimmed();
-  instances.removeAll(QString());
+  for (int i = 0; i < rsshubInstancesList_->count(); ++i) {
+    QString base = RssHubInstances::normalizeBase(
+        rsshubInstancesList_->item(i)->text());
+    if (!base.isEmpty() && !instances.contains(base))
+      instances << base;
+  }
   if (instances.isEmpty()) {
     QMessageBox::information(this, tr("RSSHub Instances"),
                              tr("Instance list is empty."));
@@ -3737,15 +3741,20 @@ void OptionsDialog::slotRssHubCheckInstances()
   RssHubInstances::updateHealthyCache();
   QApplication::restoreOverrideCursor();
 
+  // Re-normalise each displayed item before comparing against the healthy
+  // set, so an entry the user typed with a trailing slash still matches.
   int checked = 0;
   for (int i = 0; i < rsshubInstancesList_->count(); ++i) {
     QListWidgetItem *item = rsshubInstancesList_->item(i);
-    QString base = item->text().trimmed();
-    bool ok = healthy.contains(base);
+    QString base = RssHubInstances::normalizeBase(item->text());
+    bool valid = !base.isEmpty();
+    bool ok = valid && healthy.contains(base);
     if (ok)
       checked++;
     item->setForeground(ok ? QColor(0, 140, 0) : QColor(200, 30, 30));
-    item->setToolTip(ok ? tr("Available") : tr("Unavailable"));
+    item->setToolTip(ok ? tr("Available")
+                        : (valid ? tr("Unavailable")
+                                 : tr("Not a valid instance URL")));
   }
   rsshubStatusLabel_->setText(tr("%1 of %2 instances available")
                               .arg(checked).arg(instances.count()));

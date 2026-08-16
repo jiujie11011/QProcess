@@ -56,19 +56,84 @@ QStringList RssHubInstances::defaultInstances()
   return list;
 }
 
+/** Normalise a single instance base URL: trim whitespace, strip a single
+ *  trailing slash and lowercase the host so that duplicates that differ only
+ *  in casing/trailing slash collapse together. Returns an empty string for
+ *  values that are clearly not usable as an instance base. */
+QString RssHubInstances::normalizeBase(const QString &raw)
+{
+  QString s = raw.trimmed();
+  if (s.isEmpty())
+    return QString();
+  if (!s.startsWith("http://", Qt::CaseInsensitive) &&
+      !s.startsWith("https://", Qt::CaseInsensitive))
+    return QString();
+
+  QUrl url(s, QUrl::TolerantMode);
+  if (!url.isValid() || url.host().isEmpty())
+    return QString();
+
+  // Code-hosting sites are never RSSHub instances; users sometimes paste the
+  // source repository URL (e.g. github.com/DIYgod/RSSHub) by mistake.
+  {
+    QString host = url.host().toLower();
+    if (host == "github.com" || host == "gitlab.com" ||
+        host == "gitee.com" || host == "bitbucket.org")
+      return QString();
+  }
+
+  // Rebuild from the parsed components to normalise casing/encoding. Keep a
+  // path only when it looks like a reverse-proxy mount (e.g.
+  // "https://i.scnu.edu.cn/sub"); drop query/fragment which are meaningless
+  // for an instance base.
+  QString result = url.scheme().toLower() + "://" + url.host().toLower();
+  if (url.port() != -1)
+    result += ":" + QString::number(url.port());
+  QString path = url.path();
+  while (path.endsWith('/'))
+    path.chop(1);
+  if (!path.isEmpty())
+    result += path;
+  return result;
+}
+
 QStringList RssHubInstances::loadInstances()
 {
   QSettings settings;
-  QStringList list = settings.value("RSSHub/instances").toStringList();
-  if (list.isEmpty())
-    list = defaultInstances();
+  QStringList raw = settings.value("RSSHub/instances").toStringList();
+  if (raw.isEmpty())
+    raw = defaultInstances();
+
+  // Normalise and de-duplicate (case/trailing-slash differences), preserving
+  // first-seen order.
+  QStringList list;
+  QSet<QString> seen;
+  foreach (const QString &item, raw) {
+    QString base = normalizeBase(item);
+    if (base.isEmpty() || seen.contains(base))
+      continue;
+    seen.insert(base);
+    list << base;
+  }
   return list;
 }
 
 void RssHubInstances::saveInstances(const QStringList &instances)
 {
+  // Normalise + de-dupe before persisting so duplicate entries and
+  // non-URL garbage the user pasted do not accumulate.
+  QStringList cleaned;
+  QSet<QString> seen;
+  foreach (const QString &item, instances) {
+    QString base = normalizeBase(item);
+    if (base.isEmpty() || seen.contains(base))
+      continue;
+    seen.insert(base);
+    cleaned << base;
+  }
+
   QSettings settings;
-  settings.setValue("RSSHub/instances", instances);
+  settings.setValue("RSSHub/instances", cleaned);
   QMutexLocker locker(&mutex_);
   badInstances().clear();
   failureCounts().clear();
@@ -113,7 +178,10 @@ QString RssHubInstances::swapInstance(const QString &url, const QString &newBase
 bool RssHubInstances::isAlive(const QString &base, int timeoutMs)
 {
   QNetworkAccessManager manager;
-  QNetworkRequest request(QUrl(base + "/"));
+  // Probe the base itself (don't force a trailing slash, which can 404 on
+  // path-mounted instances like https://i.scnu.edu.cn/sub). The server
+  // handles a missing trailing slash with a redirect or the index page.
+  QNetworkRequest request(QUrl(base));
   request.setHeader(QNetworkRequest::UserAgentHeader,
                     QString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                             "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -125,16 +193,25 @@ bool RssHubInstances::isAlive(const QString &base, int timeoutMs)
   QEventLoop loop;
   QTimer timer;
   timer.setSingleShot(true);
-  QObject::connect(&timer, SIGNAL(timeout()), &loop, SLOT(quit()));
-  QObject::connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
+  bool timedOut = false;
+  QObject::connect(&timer, &QTimer::timeout, [&]() {
+    timedOut = true;
+    reply->abort();
+    loop.quit();
+  });
+  QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
   timer.start(timeoutMs);
   loop.exec();
 
   bool alive = false;
-  if (reply->isFinished() && !timer.isActive()) {
-    int code = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+  if (!timedOut && reply->isFinished()) {
+    // A reachable instance is any 2xx/3xx. TLS failures, DNS errors and the
+    // like leave the status code at 0, so they correctly read as "down".
+    int code = reply->attribute(
+        QNetworkRequest::HttpStatusCodeAttribute).toInt();
     alive = (code >= 200 && code < 400);
   }
+  reply->abort();
   reply->deleteLater();
   return alive;
 }
@@ -168,21 +245,28 @@ QStringList RssHubInstances::fetchRemote(const QString &remoteUrl)
   QEventLoop loop;
   QTimer timer;
   timer.setSingleShot(true);
-  QObject::connect(&timer, SIGNAL(timeout()), &loop, SLOT(quit()));
-  QObject::connect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
+  bool timedOut = false;
+  QObject::connect(&timer, &QTimer::timeout, [&]() {
+    timedOut = true;
+    reply->abort();
+    loop.quit();
+  });
+  QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
   timer.start(15000);
   loop.exec();
 
-  if (reply->isFinished() && !timer.isActive()) {
+  if (!timedOut && reply->isFinished() && reply->error() == QNetworkReply::NoError) {
     QByteArray body = reply->readAll();
+    QSet<QString> seen;
     foreach (const QString &line, QString::fromUtf8(body).split('\n')) {
-      QString item = line.trimmed();
-      if (item.startsWith('#'))
-        continue;
-      if (item.startsWith("http://") || item.startsWith("https://"))
-        list << item;
+      QString base = normalizeBase(line);
+      if (!base.isEmpty() && !seen.contains(base)) {
+        seen.insert(base);
+        list << base;
+      }
     }
   }
+  reply->abort();
   reply->deleteLater();
   return list;
 }
