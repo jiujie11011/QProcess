@@ -138,16 +138,20 @@ jobs:
       - name: Deploy Qt runtime (windeployqt)
         shell: pwsh
         run: |
-          $exe = "release/target/QuiteRSS.exe"
+          # Use absolute path to avoid any working-directory confusion.
+          $workspace = $PSScriptRoot
+          $exe = Join-Path $workspace "release\target\QuiteRSS.exe"
           if (-not (Test-Path $exe)) {
-            Write-Error "QuiteRSS.exe not found: $exe"
+            Write-Error "QuiteRSS.exe not found at: $exe"
+            # Show what's in release/target for debugging
+            Get-ChildItem (Join-Path $workspace "release\target") -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $_" }
             exit 1
           }
           # install-qt-action prepends the Qt bin dir to PATH, so
           # windeployqt is callable directly.
           windeployqt.exe --release --compiler-runtime $exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Get-ChildItem release/target | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Output
+          Get-ChildItem (Join-Path $workspace "release\target") | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Output
 
       - name: Deploy OpenSSL 1.1.1 runtime (required for HTTPS feeds)
         shell: pwsh
@@ -157,7 +161,8 @@ jobs:
           # with "TLS initialization failed" without these DLLs. Provision
           # them next to QuiteRSS.exe.
           $ErrorActionPreference = 'Stop'
-          $targetDir = "release/target"
+          $workspace = $PSScriptRoot
+          $targetDir = Join-Path $workspace "release\target"
           $sslLib = Join-Path $targetDir "libssl-1_1-x64.dll"
           $cryptoLib = Join-Path $targetDir "libcrypto-1_1-x64.dll"
 
