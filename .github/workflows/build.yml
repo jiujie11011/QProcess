@@ -117,8 +117,12 @@ jobs:
       - name: Build
         shell: pwsh
         run: |
-          nmake *>&1 | Tee-Object -FilePath build.log | Out-Host
+          # Avoid the PowerShell pipeline $LASTEXITCODE bug: it returns the exit
+          # code of the LAST cmdlet (Out-Host=0) not the first executable (nmake).
+          # Run nmake directly, tee its output to file, then check $LASTEXITCODE.
+          nmake *>&1 | Tee-Object -FilePath build.log
           $status = $LASTEXITCODE
+          Get-Content build.log | Out-Host  # stream to console after
           if ($status -ne 0) {
             $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path build.log)))
             Write-Output ("::error::B64_" + $b64.Substring(0, [Math]::Min(50000, $b64.Length)))
