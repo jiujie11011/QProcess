@@ -139,6 +139,7 @@ HEADERS += \
     src/network/networkmanagerproxy.h \
     src/adblock/adblockmatcher.h \
     src/feedsview/feedsproxymodel.h \
+    src/feedsview/groupbydateproxymodel.h \
     src/main/globals.h \
 
 SOURCES += \
@@ -230,7 +231,8 @@ SOURCES += \
     src/network/sslerrordialog.cpp \
     src/network/networkmanagerproxy.cpp \
     src/adblock/adblockmatcher.cpp \
-    src/feedsview/feedsproxymodel.cpp
+    src/feedsview/feedsproxymodel.cpp \
+    src/feedsview/groupbydateproxymodel.cpp
 
 INCLUDEPATH +=  $$PWD/src \
                 $$PWD/src/application \
