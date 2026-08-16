@@ -145,6 +145,54 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-ChildItem release/target | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Output
 
+      - name: Deploy OpenSSL 1.1.1 runtime (required for HTTPS feeds)
+        shell: pwsh
+        run: |
+          # Qt 5.15 requires OpenSSL 1.1.x. windeployqt does NOT copy
+          # libssl/libcrypto automatically, so every https:// feed fails
+          # with "TLS initialization failed" without these DLLs. Provision
+          # them next to QuiteRSS.exe.
+          $ErrorActionPreference = 'Stop'
+          $targetDir = "release/target"
+          $sslLib = Join-Path $targetDir "libssl-1_1-x64.dll"
+          $cryptoLib = Join-Path $targetDir "libcrypto-1_1-x64.dll"
+
+          # 1) The Qt installation may already ship OpenSSL (some Qt 5.15
+          #    distributions bundle it in bin/ or Tools/QtCreator/bin/).
+          $qtBin = (Get-Command qmake.exe).Source | Split-Path
+          $candidateDirs = @($qtBin, (Join-Path $qtBin "..\Tools\QtCreator\bin"))
+          foreach ($dir in $candidateDirs) {
+            $ssl = Join-Path $dir "libssl-1_1-x64.dll"
+            $crypto = Join-Path $dir "libcrypto-1_1-x64.dll"
+            if ((Test-Path $ssl) -and (Test-Path $crypto)) {
+              Write-Output "Copying OpenSSL DLLs from: $dir"
+              Copy-Item $ssl $targetDir
+              Copy-Item $crypto $targetDir
+              break
+            }
+          }
+
+          # 2) Fallback: download Win64 OpenSSL Light 1.1.1w installer from
+          #    Shining Light Productions and extract the runtime DLLs.
+          if (-not (Test-Path $sslLib)) {
+            Write-Output "Downloading Win64 OpenSSL Light 1.1.1w installer"
+            $exe = "Win64OpenSSL_Light-1_1_1w.exe"
+            Invoke-WebRequest -Uri "https://slproweb.com/download/$exe" -OutFile $exe
+            # Silent install to a known prefix, then copy the DLLs.
+            Start-Process -FilePath ".\$exe" -ArgumentList "/silent", "/verysilent", "/dir=$env:USERPROFILE\openssl-1_1_1w", "/suppressmsgboxes", "/norestart" -Wait
+            $installedBin = Join-Path $env:USERPROFILE "openssl-1_1_1w\bin"
+            Copy-Item (Join-Path $installedBin "libssl-1_1-x64.dll") $targetDir
+            Copy-Item (Join-Path $installedBin "libcrypto-1_1-x64.dll") $targetDir
+          }
+
+          if ((Test-Path $sslLib) -and (Test-Path $cryptoLib)) {
+            Write-Output "OpenSSL DLLs deployed:"
+            Get-Item $sslLib, $cryptoLib | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Output
+          } else {
+            Write-Error "Failed to provision OpenSSL DLLs"
+            exit 1
+          }
+
       - name: Generate and package translation files
         shell: pwsh
         run: |

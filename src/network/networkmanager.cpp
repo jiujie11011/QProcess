@@ -85,6 +85,16 @@ NetworkManager::~NetworkManager()
 
 void NetworkManager::loadSettings()
 {
+  // Detect missing OpenSSL runtime early so HTTPS feed failures are not
+  // silently reported as "TLS initialization failed". Without libssl /
+  // libcrypto, QSslSocket cannot initialize TLS and every https:// feed
+  // (e.g. RSSHub instances) fails to refresh.
+  if (!QSslSocket::supportsSsl()) {
+    qWarning() << "OpenSSL runtime not found: HTTPS feeds will fail to refresh."
+               << "Deploy libssl-1_1-x64.dll / libcrypto-1_1-x64.dll next to the executable"
+               << "(Qt 5.15 requires OpenSSL 1.1.x).";
+  }
+
 #if defined(Q_OS_WIN) || defined(Q_OS_OS2)
   QString certDir = mainApp->dataDir() + "/certificates";
   QString bundlePath = certDir + "/ca-bundle.crt";
