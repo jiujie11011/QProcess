@@ -57,6 +57,7 @@ HEADERS += \
     src/subscriptionmanagerwidget.h \
     src/newsview/newsview.h \
     src/newsview/newsmodel.h \
+    src/newsview/newstitledelegate.h \
     src/newsview/newsheader.h \
     src/aboutdialog.h \
     src/updateappdialog.h \
@@ -151,6 +152,7 @@ SOURCES += \
     src/subscriptionmanagerwidget.cpp \
     src/newsview/newsview.cpp \
     src/newsview/newsmodel.cpp \
+    src/newsview/newstitledelegate.cpp \
     src/newsview/interactivemark.cpp \
     src/newsview/imagegallerydialog.cpp \
     src/statistics/statistics.cpp \
