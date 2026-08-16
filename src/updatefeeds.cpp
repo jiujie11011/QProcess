@@ -1054,7 +1054,7 @@ QString UpdateObject::getIdFeedsString(int idFolder, int idException)
 
 /** @brief Get feeds ids list of folder \a idFolder
  *---------------------------------------------------------------------------*/
-QList<int> UpdateObject::getIdFeedsInList(QSqlDatabase &db, int idFolder)
+QList<int> UpdateObject::getIdFeedsInList(const QSqlDatabase &db, int idFolder)
 {
   QList<int> idList;
   if (idFolder <= 0) return idList;

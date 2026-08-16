@@ -78,7 +78,7 @@ public:
   explicit UpdateObject(QObject *parent = 0);
   ~UpdateObject();
 
-  static QList<int> getIdFeedsInList(QSqlDatabase &db, int idFolder);
+  static QList<int> getIdFeedsInList(const QSqlDatabase &db, int idFolder);
 
   bool isSaveMemoryDatabase;
 

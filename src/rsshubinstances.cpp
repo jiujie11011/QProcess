@@ -369,10 +369,6 @@ bool RssHubInstances::isFrozen(const QString &base)
   return frozenInstancesSet().contains(base);
 }
 
-QStringList RssHubInstances::frozenInstances()
-{
-}
-
 void RssHubInstances::unfreezeInstance(const QString &base)
 {
   QMutexLocker locker(&mutex_);
