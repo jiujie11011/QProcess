@@ -568,6 +568,28 @@ private slots:
 
   void createBackup();
 
+  // S-1: dim read news in the list
+  bool dimRead_;
+  // S-2: group news by date in the list
+  bool groupByDate_;
+  // S-3: show only unread news
+  bool unreadOnly_;
+  // S-4: warn when jumping to external link
+  bool jumpOutLinkWarn_;
+  // S-5: accent color for theme
+  QString accentColor_;
+  // S-6: reader font size / line height
+  int readerFontSize_;
+  int readerLineHeight_;
+  // S-7: custom date format
+  QString customDateFormat_;
+  // S-8: highlight code in news
+  bool highlightCode_;
+  // S-9: wide mode
+  bool wideMode_;
+  // S-10: reduce motion
+  bool reduceMotion_;
+
 private:
   void closeEvent(QCloseEvent *event);
   bool eventFilter(QObject *obj, QEvent *event);
@@ -853,28 +875,6 @@ private:
   bool changeBehaviorActionNUN_;
 
   bool recountCategoryCountsOn_;
-
-  // S-1: dim read news in the list
-  bool dimRead_;
-  // S-2: group news by date in the list
-  bool groupByDate_;
-  // S-3: show only unread news
-  bool unreadOnly_;
-  // S-4: warn when jumping to external link
-  bool jumpOutLinkWarn_;
-  // S-5: accent color for theme
-  QString accentColor_;
-  // S-6: reader font size / line height
-  int readerFontSize_;
-  int readerLineHeight_;
-  // S-7: custom date format
-  QString customDateFormat_;
-  // S-8: highlight code in news
-  bool highlightCode_;
-  // S-9: wide mode
-  bool wideMode_;
-  // S-10: reduce motion
-  bool reduceMotion_;
 
   QAction *unreadOnlyAct_;
 
