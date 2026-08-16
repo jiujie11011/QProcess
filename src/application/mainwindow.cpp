@@ -42,6 +42,7 @@
 #include "keywordtrendsdialog.h"
 #include "webpage.h"
 #include "settings.h"
+#include "rsshubinstances.h"
 
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
