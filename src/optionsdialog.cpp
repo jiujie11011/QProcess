@@ -2156,9 +2156,9 @@ void OptionsDialog::createAIWidget()
 
   aiProvider_ = new QComboBox();
   aiProvider_->addItem(tr("OpenAI"), QString("openai"));
-  aiProvider_->addItem("Ollama (local)", QString("ollama"));
-  aiProvider_->addItem("DeepSeek", QString("deepseek"));
-  aiProvider_->addItem("Moonshot", QString("moonshot"));
+  aiProvider_->addItem(tr("Ollama (local)"), QString("ollama"));
+  aiProvider_->addItem(tr("DeepSeek"), QString("deepseek"));
+  aiProvider_->addItem(tr("Moonshot"), QString("moonshot"));
   aiProvider_->addItem(tr("Zhipu GLM"), QString("zhipu"));
   aiProvider_->addItem(tr("Alibaba Qwen"), QString("qwen"));
   aiProvider_->addItem(tr("Custom"), QString("custom"));

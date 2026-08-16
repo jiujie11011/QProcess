@@ -2530,6 +2530,11 @@ Ancient news could reappear</source>
         <source>Amusingly</source>
         <translation>有趣的</translation>
     </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Show only unread news</source>
+        <translation>仅显示未读新闻</translation>
+    </message>
 </context>
 <context>
     <name>NetworkManager</name>
@@ -4149,6 +4154,321 @@ Ancient news could reappear</source>
         <location filename="../src/optionsdialog.cpp" line="2862"/>
         <source>Site without &apos;http://&apos; (ex. youtube.com)</source>
         <translation>站点地址无 &apos;http://&apos; (例如. youtube.com)</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Interaction</source>
+        <translation>交互</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Cleanup</source>
+        <translation>清理</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>AI</source>
+        <translation>AI</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Mark news as read on hover</source>
+        <translation>鼠标悬停时将新闻标记为已读</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Mark news as read when scrolled out of view</source>
+        <translation>滚动出视野时将新闻标记为已读</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Mark news as read when entering the viewport</source>
+        <translation>进入视野时将新闻标记为已读</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Skip auto-marking for starred news</source>
+        <translation>跳过已加星新闻的自动标记</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Comma-separated group IDs</source>
+        <translation>逗号分隔的分组 ID</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Comma-separated feed IDs</source>
+        <translation>逗号分隔的订阅源 ID</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Undo last bulk mark</source>
+        <translation>撤销上次批量标记</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Excluded groups:</source>
+        <translation>排除的分组：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Excluded feeds:</source>
+        <translation>排除的订阅源：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Warn before jumping to external links</source>
+        <translation>跳转到外部链接前发出警告</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Reduce animations and transitions</source>
+        <translation>减少动画和过渡效果</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Enable automatic cleanup</source>
+        <translation>启用自动清理</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>By age (days)</source>
+        <translation>按时间清理（天）</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>By count (keep N news)</source>
+        <translation>按数量清理（保留 N 条新闻）</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Recycle bin retention (days):</source>
+        <translation>回收站保留时间（天）：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Enable AI assistant</source>
+        <translation>启用 AI 助手</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>OpenAI</source>
+        <translation>OpenAI</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Ollama (local)</source>
+        <translation>Ollama（本地）</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>DeepSeek</source>
+        <translation>DeepSeek</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Moonshot</source>
+        <translation>Moonshot</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Zhipu GLM</source>
+        <translation>智谱 GLM</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Alibaba Qwen</source>
+        <translation>阿里通义千问</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Custom</source>
+        <translation>自定义</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Your API key (empty for Ollama)</source>
+        <translation>你的 API 密钥（Ollama 可留空）</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>No limit</source>
+        <translation>无限制</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Keep last 50 messages</source>
+        <translation>保留最近 50 条消息</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Keep last 200 messages</source>
+        <translation>保留最近 200 条消息</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Keep all</source>
+        <translation>全部保留</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Cache AI responses offline</source>
+        <translation>离线缓存 AI 响应</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Auto-translate articles on open</source>
+        <translation>打开文章时自动翻译</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Chinese (Simplified)</source>
+        <translation>简体中文</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Chinese (Traditional)</source>
+        <translation>繁体中文</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>English</source>
+        <translation>英语</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Japanese</source>
+        <translation>日语</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Korean</source>
+        <translation>韩语</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Russian</source>
+        <translation>俄语</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Google (free)</source>
+        <translation>谷歌（免费）</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>DeepL</source>
+        <translation>DeepL</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Baidu</source>
+        <translation>百度</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>AI (LLM)</source>
+        <translation>AI（大语言模型）</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>DeepL API key</source>
+        <translation>DeepL API 密钥</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Baidu app ID</source>
+        <translation>百度应用 ID</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Baidu secret key</source>
+        <translation>百度密钥</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Auto-generate summary on open</source>
+        <translation>打开时自动生成摘要</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Auto-generate related article recommendations on open</source>
+        <translation>打开时自动生成相关文章推荐</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Service:</source>
+        <translation>服务：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>API key:</source>
+        <translation>API 密钥：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Base URL:</source>
+        <translation>基础 URL：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Model:</source>
+        <translation>模型：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Summary length:</source>
+        <translation>摘要长度：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Max tokens:</source>
+        <translation>最大令牌数：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>History retention:</source>
+        <translation>历史记录保留：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Target language:</source>
+        <translation>目标语言：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Translation engine:</source>
+        <translation>翻译引擎：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>DeepL API key:</source>
+        <translation>DeepL API 密钥：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Baidu app ID:</source>
+        <translation>百度应用 ID：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Baidu secret key:</source>
+        <translation>百度密钥：</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Dim read news in the list</source>
+        <translation>在列表中淡化已读新闻</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Group news by date (Today / Yesterday / Earlier)</source>
+        <translation>按日期分组新闻（今天 / 昨天 / 更早）</translation>
+    </message>
+    <message>
+        <location filename="../src/optionsdialog.cpp"/>
+        <source>Highlight code blocks in articles (auto-detect language)</source>
+        <translation>高亮文章中的代码块（自动检测语言）</translation>
     </message>
 </context>
 <context>

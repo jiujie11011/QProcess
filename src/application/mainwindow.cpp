@@ -7094,8 +7094,8 @@ void MainWindow::setStyleApp(QAction *pAct)
     accentSoft        = QColor::fromRgbF(accent.redF()*0.27, accent.greenF()*0.27, accent.blueF()*0.27);
     accentSoftActive  = QColor::fromRgbF(accent.redF()*0.40, accent.greenF()*0.40, accent.blueF()*0.40);
   } else {
-    accentSoft        = accent.lighter(185);
-    accentSoftActive  = accent.lighter(165);
+    accentSoft        = accent.lighter(150);
+    accentSoftActive  = accent.lighter(130);
   }
   qss.replace("%ACCENT%", accent.name());
   qss.replace("%ACCENT_HOVER%", accentHover.name());
