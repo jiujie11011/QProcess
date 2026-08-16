@@ -573,7 +573,7 @@ QSqlDatabase Database::connection(const QString &connectionName)
   return db;
 }
 
-void Database::sqliteDBMemFile(QSqlDatabase &db, bool save)
+void Database::sqliteDBMemFile(const QSqlDatabase &db, bool save)
 {
   if (save) qWarning() << "sqliteDBMemFile(): from memory to file...";
   else qWarning() << "sqliteDBMemFile(): from file to memory...";
