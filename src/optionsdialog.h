@@ -144,6 +144,22 @@ public:
   QCheckBox *notDeleteLabeled_;
   QCheckBox *markIdenticalNewsRead_;
 
+  // S-1..S-10 reading/interface settings
+  QCheckBox *dimRead_;
+  QCheckBox *groupByDate_;
+  QCheckBox *jumpOutLinkWarn_;
+  QSpinBox *readerFontSize_;
+  QSpinBox *readerLineHeight_;
+  QCheckBox *highlightCode_;
+  QCheckBox *wideMode_;
+  QCheckBox *reduceMotion_;
+  QLineEdit *customDateFormat_;
+  QComboBox *accentColorCombo_;
+  QLineEdit *accentColorEdit_;
+
+  void selectAccentColor(const QString &color);
+  QString accentColor();
+
   QGroupBox *cleanupOnShutdownBox_;
   QCheckBox *dayCleanUpOn_;
   QSpinBox *maxDayCleanUp_;
@@ -267,6 +283,8 @@ private slots:
   void slotCategoriesItemClicked(QTreeWidgetItem* item, int);
   void slotCategoriesTreeKeyUpDownPressed();
   void manualProxyToggle(bool checked);
+  void slotCustomDateFormatChanged(int);
+  void slotAccentColorChanged(int);
   void updateProxy();
   void applyProxy();
   void acceptDialog();

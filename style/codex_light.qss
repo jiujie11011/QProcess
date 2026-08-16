@@ -49,7 +49,7 @@ QToolTip {
 #labelsTree_::item:selected, #colorsTree_::item:selected,
 #foldersTree_::item:selected, #feedsTreeFR::item:selected,
 #feedsTreeNotify_::item:selected {
-    background: #E8F1FF;
+    background: %ACCENT_SOFT%;
     color: #1E1E1E;
 }
 
@@ -60,7 +60,7 @@ QToolTip {
 #labelsTree_::item:selected:active, #colorsTree_::item:selected:active,
 #foldersTree_::item:selected:active, #feedsTreeFR::item:selected:active,
 #feedsTreeNotify_::item:selected:active {
-    background: #D6E6FF;
+    background: %ACCENT_SOFT_ACTIVE%;
 }
 
 /* ---- Header ---- */
@@ -106,7 +106,7 @@ QToolButton:hover {
 }
 
 QToolButton:pressed, QToolButton:checked {
-    background: #E8F1FF;
+    background: %ACCENT_SOFT%;
 }
 
 /* ---- Menus ---- */
@@ -165,17 +165,17 @@ QPushButton:hover {
 }
 
 QPushButton:pressed {
-    background: #E8F1FF;
+    background: %ACCENT_SOFT%;
 }
 
 QPushButton:default {
-    background: #0F62FE;
+    background: %ACCENT%;
     color: #FFFFFF;
-    border-color: #0F62FE;
+    border-color: %ACCENT%;
 }
 
 QPushButton:default:hover {
-    background: #2E77FF;
+    background: %ACCENT_HOVER%;
 }
 
 QPushButton:disabled {
@@ -191,12 +191,12 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit {
     border: 1px solid #D0D0D5;
     border-radius: 8px;
     padding: 5px 8px;
-    selection-background-color: #0F62FE;
+    selection-background-color: %ACCENT%;
 }
 
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
 QPlainTextEdit:focus, QTextEdit:focus {
-    border-color: #0F62FE;
+    border-color: %ACCENT%;
 }
 
 QComboBox::drop-down {
@@ -231,9 +231,9 @@ QCheckBox::indicator:unchecked, QRadioButton::indicator:unchecked {
 }
 
 QCheckBox::indicator:checked, QRadioButton::indicator:checked {
-    border: 1px solid #0F62FE;
+    border: 1px solid %ACCENT%;
     border-radius: 4px;
-    background: #0F62FE;
+    background: %ACCENT%;
 }
 
 /* ---- Tabs ---- */
@@ -257,7 +257,7 @@ QTabBar::tab:hover {
 }
 
 QTabBar::tab:selected {
-    background: #E8F1FF;
+    background: %ACCENT_SOFT%;
     color: #1E1E1E;
 }
 
@@ -281,7 +281,7 @@ QStatusBar::item {
 }
 
 #progressBar_::chunk, QProgressBar::chunk {
-    background: #0F62FE;
+    background: %ACCENT%;
     border-radius: 4px;
 }
 
@@ -385,12 +385,12 @@ QMessageBox {
 }
 
 #webViewProgress_::chunk {
-    background: #0F62FE;
+    background: %ACCENT%;
     width: 10px;
 }
 
 #contentLabel_ {
-    background: #0F62FE;
+    background: %ACCENT%;
     color: #FFFFFF;
     border-radius: 4px;
     padding: 2px 6px;

@@ -17,6 +17,10 @@
 * ============================================================ */
 #include "optionsdialog.h"
 
+#include <QLineEdit>
+#include <QRegularExpression>
+#include <QSpinBox>
+
 #include "mainapplication.h"
 #include "labeldialog.h"
 #include "settings.h"
@@ -201,6 +205,52 @@ void OptionsDialog::showEvent(QShowEvent*event)
   }
 
   Dialog::showEvent(event);
+}
+
+/** @brief Enable custom date format line edit when "Custom..." selected
+ *---------------------------------------------------------------------------*/
+void OptionsDialog::slotCustomDateFormatChanged(int index)
+{
+  bool custom = (formatDate_->itemData(index).toString() == "custom");
+  customDateFormat_->setEnabled(custom);
+  if (custom)
+    customDateFormat_->setFocus();
+}
+
+/** @brief Apply accent color preset to the custom hex edit
+ *---------------------------------------------------------------------------*/
+void OptionsDialog::slotAccentColorChanged(int index)
+{
+  accentColorEdit_->setText(accentColorCombo_->itemData(index).toString());
+}
+
+/** @brief Select accent color in dialog controls
+ *---------------------------------------------------------------------------*/
+void OptionsDialog::selectAccentColor(const QString &color)
+{
+  if (color.isEmpty()) {
+    accentColorCombo_->setCurrentIndex(0);
+    accentColorEdit_->clear();
+    return;
+  }
+  int idx = accentColorCombo_->findData(color);
+  accentColorCombo_->setCurrentIndex(idx >= 0 ? idx : 0);
+  accentColorEdit_->setText(color);
+}
+
+/** @brief Return currently selected accent color ("" = theme default)
+ *---------------------------------------------------------------------------*/
+QString OptionsDialog::accentColor()
+{
+  QString preset = accentColorCombo_->itemData(
+        accentColorCombo_->currentIndex()).toString();
+  if (!preset.isEmpty())
+    return preset;
+  QString hex = accentColorEdit_->text().trimmed();
+  static QRegularExpression hexRe("^#[0-9a-fA-F]{6}$");
+  if (hexRe.match(hex).hasMatch())
+    return hex.toUpper();
+  return QString();
 }
 
 void OptionsDialog::acceptDialog()
@@ -569,12 +619,16 @@ void OptionsDialog::createBrowserWidget()
   zoomLayout->addWidget(defaultZoomPages_);
   zoomLayout->addStretch();
 
+  // S-8: highlight code blocks in articles
+  highlightCode_ = new QCheckBox(tr("Highlight code blocks in articles (auto-detect language)"));
+
   QVBoxLayout *contentBrowserLayout = new QVBoxLayout();
   contentBrowserLayout->setContentsMargins(15, 0, 5, 10);
   contentBrowserLayout->addWidget(autoLoadImages_);
   contentBrowserLayout->addWidget(javaScriptEnable_);
   contentBrowserLayout->addWidget(pluginsEnable_);
   contentBrowserLayout->addLayout(zoomLayout);
+  contentBrowserLayout->addWidget(highlightCode_);
 
   QGridLayout *userStyleBrowserLayout = new QGridLayout();
   userStyleBrowserLayout->setContentsMargins(15, 0, 5, 10);
@@ -919,13 +973,58 @@ void OptionsDialog::createFeedsWidget()
 
   showDescriptionNews_ = new QCheckBox(tr("Show news description instead of loading web page"));
 
+  // S-7: custom date format
+  formatDate_->addItem(tr("Custom..."), "custom");
+  customDateFormat_ = new QLineEdit();
+  customDateFormat_->setPlaceholderText(tr("e.g. yyyy-MM-dd HH:mm"));
+  customDateFormat_->setEnabled(false);
+  connect(formatDate_, SIGNAL(currentIndexChanged(int)),
+          this, SLOT(slotCustomDateFormatChanged(int)));
+  QHBoxLayout *customDateLayout = new QHBoxLayout();
+  customDateLayout->setMargin(0);
+  customDateLayout->addWidget(customDateFormat_);
+  customDateLayout->addStretch();
+
+  // S-1: dim read news in the list
+  dimRead_ = new QCheckBox(tr("Dim read news in the list"));
+
+  // S-2: group news by date
+  groupByDate_ = new QCheckBox(tr("Group news by date (Today / Yesterday / Earlier)"));
+
+  // S-9: wide reader mode
+  wideMode_ = new QCheckBox(tr("Wide reader mode"));
+
+  // S-6: reader font size / line height
+  QHBoxLayout *readerFontLayout = new QHBoxLayout();
+  readerFontLayout->setMargin(0);
+  readerFontLayout->addWidget(new QLabel(tr("Reader font size:")));
+  readerFontSize_ = new QSpinBox();
+  readerFontSize_->setRange(0, 40);
+  readerFontSize_->setSuffix(" pt");
+  readerFontSize_->setSpecialValueText(tr("Default"));
+  readerFontLayout->addWidget(readerFontSize_);
+  readerFontLayout->addSpacing(10);
+  readerFontLayout->addWidget(new QLabel(tr("Line height:")));
+  readerLineHeight_ = new QSpinBox();
+  readerLineHeight_->setRange(0, 200);
+  readerLineHeight_->setSuffix(" %");
+  readerLineHeight_->setSpecialValueText(tr("Default"));
+  readerFontLayout->addWidget(readerLineHeight_);
+  readerFontLayout->addStretch();
+
   QVBoxLayout *displayFeedsLayout = new QVBoxLayout();
   displayFeedsLayout->addWidget(alternatingRowColorsNews_);
   displayFeedsLayout->addSpacing(10);
   displayFeedsLayout->addWidget(simplifiedDateTime_);
   displayFeedsLayout->addLayout(formatDateLayout);
+  displayFeedsLayout->addLayout(customDateLayout);
   displayFeedsLayout->addSpacing(10);
   displayFeedsLayout->addLayout(mainNewsFilterLayout);
+  displayFeedsLayout->addSpacing(10);
+  displayFeedsLayout->addWidget(dimRead_);
+  displayFeedsLayout->addWidget(groupByDate_);
+  displayFeedsLayout->addWidget(wideMode_);
+  displayFeedsLayout->addLayout(readerFontLayout);
   displayFeedsLayout->addSpacing(10);
   displayFeedsLayout->addWidget(new QLabel(tr("Style sheet for news:")));
   displayFeedsLayout->addLayout(styleSheetNewsLayout);
@@ -1796,8 +1895,37 @@ void OptionsDialog::createFontsColorsWidget()
   colorsLayout->addWidget(colorsTree_);
   colorsLayout->addLayout(colorsButtonLayout);
 
+  // S-5: accent color presets + custom hex
+  accentColorCombo_ = new QComboBox();
+  accentColorCombo_->addItem(tr("Theme default"), "");
+  accentColorCombo_->addItem(tr("Blue"), "#0F62FE");
+  accentColorCombo_->addItem(tr("Green"), "#0F9D58");
+  accentColorCombo_->addItem(tr("Red"), "#E5484D");
+  accentColorCombo_->addItem(tr("Orange"), "#F76B15");
+  accentColorCombo_->addItem(tr("Purple"), "#8E4EC6");
+  accentColorCombo_->addItem(tr("Teal"), "#0FA3A3");
+  accentColorCombo_->addItem(tr("Pink"), "#E84C88");
+  accentColorCombo_->addItem(tr("Yellow"), "#D4A72C");
+  accentColorEdit_ = new QLineEdit();
+  accentColorEdit_->setPlaceholderText("#RRGGBB");
+  accentColorEdit_->setMaxLength(7);
+  accentColorEdit_->setFixedWidth(110);
+  QHBoxLayout *accentLayout = new QHBoxLayout();
+  accentLayout->setMargin(0);
+  accentLayout->addWidget(new QLabel(tr("Accent color:")));
+  accentLayout->addWidget(accentColorCombo_);
+  accentLayout->addWidget(new QLabel(tr("Custom hex:")));
+  accentLayout->addWidget(accentColorEdit_);
+  accentLayout->addStretch();
+  connect(accentColorCombo_, SIGNAL(currentIndexChanged(int)),
+          this, SLOT(slotAccentColorChanged(int)));
+
   QWidget *colorsWidget_ = new QWidget(this);
-  colorsWidget_->setLayout(colorsLayout);
+  QVBoxLayout *colorsVLayout = new QVBoxLayout(colorsWidget_);
+  colorsVLayout->addLayout(colorsLayout);
+  colorsVLayout->addWidget(new QLabel(
+      tr("Accent color (applies to selected items, links and highlights):")));
+  colorsVLayout->addLayout(accentLayout);
 
   //! tab "Fonts Browser"
 
@@ -1969,6 +2097,13 @@ void OptionsDialog::createInteractionWidget()
   interactionLayout->addWidget(new QLabel(tr("Excluded feeds:")), 5, 0, 1, 1);
   interactionLayout->addWidget(excludedFeeds_, 5, 1, 1, 1);
   interactionLayout->addWidget(undoMarkButton_, 6, 0, 1, 1);
+
+  // S-4: warn before jumping to external links
+  jumpOutLinkWarn_ = new QCheckBox(tr("Warn before jumping to external links"));
+  // S-10: reduce animations and transitions
+  reduceMotion_ = new QCheckBox(tr("Reduce animations and transitions"));
+  interactionLayout->addWidget(jumpOutLinkWarn_, 7, 0, 1, 2);
+  interactionLayout->addWidget(reduceMotion_, 8, 0, 1, 2);
 
   interactionWidget_ = new QWidget(this);
   QVBoxLayout *layout = new QVBoxLayout(interactionWidget_);

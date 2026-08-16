@@ -1896,6 +1896,14 @@ void MainWindow::createMenu()
   newsFilterGroup_->addAction(filterNewsLastDay_);
   newsFilterGroup_->addAction(filterNewsLastWeek_);
 
+  // S-3: one-click "show only unread news" toggle
+  unreadOnlyAct_ = new QAction(tr("Show only unread news"), this);
+  unreadOnlyAct_->setObjectName("unreadOnlyAct_");
+  unreadOnlyAct_->setCheckable(true);
+  unreadOnlyAct_->setChecked(unreadOnly_);
+  connect(unreadOnlyAct_, SIGNAL(toggled(bool)),
+          this, SLOT(slotUnreadOnlyToggled(bool)));
+
   newsFilterMenu_ = new QMenu(this);
   newsFilterMenu_->addActions(newsFilterGroup_->actions());
   newsFilterMenu_->insertSeparator(filterNewsNew_);
@@ -1916,6 +1924,7 @@ void MainWindow::createMenu()
   newsMenu_->addAction(shareMenuAct_);
   newsMenu_->addSeparator();
   newsMenu_->addAction(newsFilter_);
+  newsMenu_->addAction(unreadOnlyAct_);
   newsMenu_->addMenu(newsSortByMenu_);
   newsMenu_->addSeparator();
   newsMenu_->addAction(deleteNewsAct_);
@@ -2172,6 +2181,24 @@ void MainWindow::loadSettings()
   avoidOldNews_ = settings.value("avoidOldNews", false).toBool();
   avoidedOldNewsDate_ = settings.value("avoidedOldNewsDate").toDate();
 
+  // S-1..S-10 reading/interface settings
+  dimRead_ = settings.value("dimRead", false).toBool();
+  groupByDate_ = settings.value("groupByDate", false).toBool();
+  unreadOnly_ = settings.value("unreadOnly", false).toBool();
+  jumpOutLinkWarn_ = settings.value("jumpOutLinkWarn", false).toBool();
+  accentColor_ = settings.value("accentColor", "").toString();
+  readerFontSize_ = settings.value("readerFontSize", 0).toInt();
+  readerLineHeight_ = settings.value("readerLineHeight", 0).toInt();
+  customDateFormat_ = settings.value("customDateFormat", "").toString();
+  if (!customDateFormat_.isEmpty())
+    formatDate_ = customDateFormat_;   // S-7: apply custom date format
+  highlightCode_ = settings.value("highlightCode", true).toBool();
+  wideMode_ = settings.value("wideMode", false).toBool();
+  reduceMotion_ = settings.value("reduceMotion", false).toBool();
+
+  // S-10: apply reduce-motion effects as early as possible
+  applyReduceMotionSettings();
+
   mainNewsFilter_ = settings.value("mainNewsFilter", "filterNewsAll_").toString();
 
   cleanupOnShutdown_ = settings.value("cleanupOnShutdown", true).toBool();
@@ -2349,7 +2376,7 @@ void MainWindow::loadSettings()
       settings.value("autocollapseFolder", false).toBool();
 
 #ifndef Q_OS_MAC
-  showMenuBarAct_->setChecked(settings.value("showMenuBar", false).toBool());
+  showMenuBarAct_->setChecked(settings.value("showMenuBar", true).toBool());
 #else
   showMenuBarAct_->setChecked(true);
 #endif
@@ -2520,6 +2547,19 @@ void MainWindow::saveSettings()
   settings.setValue("markIdenticalNewsRead", markIdenticalNewsRead_);
   settings.setValue("avoidOldNews", avoidOldNews_);
   settings.setValue("avoidedOldNewsDate", avoidedOldNewsDate_);
+
+  // S-1..S-10 reading/interface settings
+  settings.setValue("dimRead", dimRead_);
+  settings.setValue("groupByDate", groupByDate_);
+  settings.setValue("unreadOnly", unreadOnly_);
+  settings.setValue("jumpOutLinkWarn", jumpOutLinkWarn_);
+  settings.setValue("accentColor", accentColor_);
+  settings.setValue("readerFontSize", readerFontSize_);
+  settings.setValue("readerLineHeight", readerLineHeight_);
+  settings.setValue("customDateFormat", customDateFormat_);
+  settings.setValue("highlightCode", highlightCode_);
+  settings.setValue("wideMode", wideMode_);
+  settings.setValue("reduceMotion", reduceMotion_);
 
   settings.setValue("mainNewsFilter", mainNewsFilter_);
 
@@ -3075,7 +3115,8 @@ void MainWindow::slotShowAIDialog()
 
   AIAssistant::ArticleContext context;
   if (currentNewsTab && (currentNewsTab->type_ < NewsTabWidget::TabTypeWeb)) {
-    QModelIndex curIndex = currentNewsTab->newsView_->currentIndex();
+    QModelIndex curIndex =
+        currentNewsTab->newsIndexToSource(currentNewsTab->newsView_->currentIndex());
     if (curIndex.isValid()) {
       NewsModel *model = currentNewsTab->newsModel_;
       context.feedId = model->dataField(curIndex.row(), "feedId").toInt();
@@ -3567,7 +3608,8 @@ void MainWindow::slotUpdateFeed(int feedId, bool changed, int newCount, bool fin
 void MainWindow::slotUpdateNews(int refresh)
 {
   int newsId = newsModel_->index(
-        newsView_->currentIndex().row(), newsModel_->fieldIndex("id")).data(Qt::EditRole).toInt();
+        currentNewsTab->newsIndexToSource(newsView_->currentIndex()).row(),
+        newsModel_->fieldIndex("id")).data(Qt::EditRole).toInt();
 
   newsModel_->select();
 
@@ -3582,7 +3624,8 @@ void MainWindow::slotUpdateNews(int refresh)
   QModelIndexList indexList = newsModel_->match(index, Qt::EditRole, newsId);
   if (indexList.count()) {
     int newsRow = indexList.first().row();
-    newsView_->setCurrentIndex(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+    newsView_->setCurrentIndex(currentNewsTab->newsIndexFromSource(
+          newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
   } else {
     currentNewsTab->currentNewsIdOld = newsId;
     currentNewsTab->hideWebContent();
@@ -3720,7 +3763,8 @@ void MainWindow::slotFeedSelected(QModelIndex index, bool createTab)
   }
 
   // Focus feed news that displayed before
-  newsView_->setCurrentIndex(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+  newsView_->setCurrentIndex(currentNewsTab->newsIndexFromSource(
+        newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
   if (newsRow == -1) newsView_->verticalScrollBar()->setValue(newsRow);
 
   // Restore reading scroll position of the previously displayed news
@@ -3949,6 +3993,24 @@ void MainWindow::showOptionDlg(int index)
   optionsDialog_->notDeleteLabeled_->setChecked(notDeleteLabeled_);
   optionsDialog_->markIdenticalNewsRead_->setChecked(markIdenticalNewsRead_);
   optionsDialog_->avoidedOldNewsDateOn_->setChecked(avoidOldNews_);
+
+  // S-1..S-10 reading/interface settings
+  optionsDialog_->dimRead_->setChecked(dimRead_);
+  optionsDialog_->groupByDate_->setChecked(groupByDate_);
+  optionsDialog_->jumpOutLinkWarn_->setChecked(jumpOutLinkWarn_);
+  optionsDialog_->readerFontSize_->setValue(readerFontSize_);
+  optionsDialog_->readerLineHeight_->setValue(readerLineHeight_);
+  optionsDialog_->highlightCode_->setChecked(highlightCode_);
+  optionsDialog_->wideMode_->setChecked(wideMode_);
+  optionsDialog_->reduceMotion_->setChecked(reduceMotion_);
+  if (!customDateFormat_.isEmpty()) {
+    int idx = optionsDialog_->formatDate_->findData("custom");
+    if (idx >= 0) {
+      optionsDialog_->formatDate_->setCurrentIndex(idx);
+      optionsDialog_->customDateFormat_->setText(customDateFormat_);
+    }
+  }
+  optionsDialog_->selectAccentColor(accentColor_);
 
   if (!avoidedOldNewsDate_.isNull() && avoidedOldNewsDate_.isValid()) {
     optionsDialog_->avoidedOldNewsDate_->setSelectedDate(avoidedOldNewsDate_);
@@ -4419,9 +4481,16 @@ void MainWindow::showOptionDlg(int index)
 
   showDescriptionNews_ = optionsDialog_->showDescriptionNews_->isChecked();
 
-  formatDate_ = optionsDialog_->formatDate_->itemData(
-        optionsDialog_->formatDate_->currentIndex()).toString();
-  feedsModel_->formatDate_ = formatDate_;
+  {
+    // S-7: support custom date format (read directly from dialog,
+    // so an edited "Custom..." value is applied immediately)
+    QString dateFmt = optionsDialog_->formatDate_->itemData(
+          optionsDialog_->formatDate_->currentIndex()).toString();
+    formatDate_ = (dateFmt == "custom")
+                  ? optionsDialog_->customDateFormat_->text().trimmed()
+                  : dateFmt;
+    feedsModel_->formatDate_ = formatDate_;
+  }
   formatTime_ = optionsDialog_->formatTime_->itemData(
         optionsDialog_->formatTime_->currentIndex()).toString();
   feedsModel_->formatTime_ = formatTime_;
@@ -4433,6 +4502,28 @@ void MainWindow::showOptionDlg(int index)
   notDeleteLabeled_ = optionsDialog_->notDeleteLabeled_->isChecked();
   markIdenticalNewsRead_ = optionsDialog_->markIdenticalNewsRead_->isChecked();
   avoidOldNews_ = optionsDialog_->avoidedOldNewsDateOn_->isChecked();
+
+  // S-1..S-10 reading/interface settings
+  dimRead_ = optionsDialog_->dimRead_->isChecked();
+  groupByDate_ = optionsDialog_->groupByDate_->isChecked();
+  jumpOutLinkWarn_ = optionsDialog_->jumpOutLinkWarn_->isChecked();
+  readerFontSize_ = optionsDialog_->readerFontSize_->value();
+  readerLineHeight_ = optionsDialog_->readerLineHeight_->value();
+  highlightCode_ = optionsDialog_->highlightCode_->isChecked();
+  wideMode_ = optionsDialog_->wideMode_->isChecked();
+  reduceMotion_ = optionsDialog_->reduceMotion_->isChecked();
+  if (optionsDialog_->formatDate_->itemData(
+        optionsDialog_->formatDate_->currentIndex()).toString() == "custom") {
+    customDateFormat_ = optionsDialog_->customDateFormat_->text().trimmed();
+  } else {
+    customDateFormat_.clear();
+  }
+  QString accent = optionsDialog_->accentColor();
+  if (!accent.isEmpty()) {
+    accentColor_ = accent;
+  } else {
+    accentColor_.clear();
+  }
 
   if (!optionsDialog_->avoidedOldNewsDate_->selectedDate().isNull() && optionsDialog_->avoidedOldNewsDate_->selectedDate().isValid()) {
     avoidedOldNewsDate_ = optionsDialog_->avoidedOldNewsDate_->selectedDate();
@@ -4569,6 +4660,20 @@ void MainWindow::showOptionDlg(int index)
   notifierTextColor_ = optionsDialog_->colorsTree_->topLevelItem(21)->text(1);
   notifierBackgroundColor_ = optionsDialog_->colorsTree_->topLevelItem(22)->text(1);
 
+  // S-1: propagate dim-read flag & color to all news lists
+  applyDimReadSettings();
+
+  // S-2: propagate date grouping to all open news tabs
+  for (int i = 0; i < stackedWidget_->count(); i++) {
+    NewsTabWidget *widget = (NewsTabWidget*)stackedWidget_->widget(i);
+    if (widget->type_ < NewsTabWidget::TabTypeWeb) {
+      widget->setGroupByDate(groupByDate_);
+      // S-7: refresh date format in already open news lists
+      widget->newsModel_->formatDate_ = formatDate_;
+      widget->newsView_->viewport()->update();
+    }
+  }
+
   optionsDialog_->hide();
 
   settings.beginGroup("Settings");
@@ -4583,7 +4688,22 @@ void MainWindow::showOptionDlg(int index)
     if (currentNewsTab->type_ < NewsTabWidget::TabTypeWeb)
       currentNewsTab->newsHeader_->saveStateColumns(currentNewsTab);
     currentNewsTab->setSettings(false);
+    // S-6/S-8/S-9: re-render the article so the new reader font size,
+    // line height, code highlighting and wide-mode take effect
+    if (currentNewsTab->type_ < NewsTabWidget::TabTypeWeb) {
+      switch (newsLayout_) {
+      case 1:
+        currentNewsTab->loadNewspaper();
+        break;
+      default:
+        currentNewsTab->updateWebView(currentNewsTab->newsView_->currentIndex());
+      }
+    }
   }
+
+  // S-5: re-apply the stylesheet so a changed accent color takes effect now
+  if (styleGroup_ != NULL && styleGroup_->checkedAction() != NULL)
+    setStyleApp(styleGroup_->checkedAction());
 }
 
 void MainWindow::showSettingPageLabels()
@@ -4965,6 +5085,17 @@ void MainWindow::setFeedsFilter(bool clicked)
   setFilter = false;
 }
 
+/** @brief Toggle "show only unread news" filter (S-3)
+ *---------------------------------------------------------------------------*/
+void MainWindow::slotUnreadOnlyToggled(bool checked)
+{
+  unreadOnly_ = checked;
+  if (currentNewsTab && (currentNewsTab->type_ < NewsTabWidget::TabTypeWeb)) {
+    setNewsFilter(newsFilterGroup_->checkedAction(), false);
+    currentNewsTab->newsView_->setFocus();
+  }
+}
+
 /** @brief Set filter for news list
  *---------------------------------------------------------------------------*/
 void MainWindow::setNewsFilter(QAction* pAct, bool clicked)
@@ -4975,7 +5106,7 @@ void MainWindow::setNewsFilter(QAction* pAct, bool clicked)
     return;
   }
 
-  QModelIndex index = newsView_->currentIndex();
+  QModelIndex index = currentNewsTab->newsIndexToSource(newsView_->currentIndex());
   int feedId = currentNewsTab->feedId_;
   int newsId = newsModel_->index(
         index.row(), newsModel_->fieldIndex("id")).data(Qt::EditRole).toInt();
@@ -5014,6 +5145,10 @@ void MainWindow::setNewsFilter(QAction* pAct, bool clicked)
   } else if (pAct->objectName() == "filterNewsLastWeek_") {
     newsFilterStr.append(QString("(published >= datetime('now', '-7 day')) AND deleted = 0"));
   }
+
+  // S-3: show only unread news (one-click filter)
+  if (unreadOnly_ && (pAct->objectName() == "filterNewsAll_"))
+    newsFilterStr.append(QString(" AND read < 2"));
 
   // ... add filter from "search"
   QString filterStr = newsFilterStr;
@@ -5071,7 +5206,8 @@ void MainWindow::setNewsFilter(QAction* pAct, bool clicked)
     QModelIndexList indexList = newsModel_->match(index, Qt::EditRole, newsId);
     if (indexList.count()) {
       int newsRow = indexList.first().row();
-      newsView_->setCurrentIndex(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+      newsView_->setCurrentIndex(currentNewsTab->newsIndexFromSource(
+            newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
     } else {
       currentNewsTab->currentNewsIdOld = newsId;
       currentNewsTab->hideWebContent();
@@ -5115,7 +5251,7 @@ void MainWindow::setFeedRead(int type, int feedId, FeedReedType feedReadType,
       NewsTabWidget *widget = (NewsTabWidget*)stackedWidget_->widget(i);
       if ((widget->type_ < NewsTabWidget::TabTypeWeb) &&
           !((feedReadType == FeedReadSwitchingFeed) && (i == TAB_WIDGET_PERMANENT))) {
-        int row = widget->newsView_->currentIndex().row();
+        int row = widget->newsIndexToSource(widget->newsView_->currentIndex()).row();
         int newsId = widget->newsModel_->index(row, widget->newsModel_->fieldIndex("id")).data().toInt();
         idNewsList.removeOne(newsId);
       }
@@ -5227,7 +5363,7 @@ void MainWindow::slotRefreshNewsView(int nextUnread)
     feedsView_->setCurrentIndex(index);
     slotFeedClicked(index);
   } else {
-    int currentRow = newsView_->currentIndex().row();
+    int currentRow = currentNewsTab->newsIndexToSource(newsView_->currentIndex()).row();
 
     newsModel_->select();
 
@@ -5236,7 +5372,8 @@ void MainWindow::slotRefreshNewsView(int nextUnread)
 
     currentNewsTab->loadNewspaper(NewsTabWidget::RefreshWithPos);
 
-    newsView_->setCurrentIndex(newsModel_->index(currentRow, newsModel_->fieldIndex("title")));
+    newsView_->setCurrentIndex(currentNewsTab->newsIndexFromSource(
+          newsModel_->index(currentRow, newsModel_->fieldIndex("title"))));
   }
 }
 
@@ -6836,6 +6973,36 @@ void MainWindow::slotFeedPageDownPressed()
   slotFeedClicked(index);
 }
 
+void MainWindow::applyDimReadSettings()
+{
+  // S-1: dim read news in all news lists
+  QString dimColor = QColor(newsListTextColor_).lighter(160).name();
+  for (int i = 0; i < stackedWidget_->count(); i++) {
+    NewsTabWidget *widget = (NewsTabWidget*)stackedWidget_->widget(i);
+    if (widget->type_ < NewsTabWidget::TabTypeWeb) {
+      widget->newsModel_->dimRead_ = dimRead_;
+      widget->newsModel_->dimReadColor_ = dimColor;
+      widget->newsView_->viewport()->update();
+    }
+  }
+}
+
+void MainWindow::applyReduceMotionSettings()
+{
+  // S-10: disable UI animations and transitions
+  qApp->setEffectEnabled(Qt::UI_AnimateCombo, !reduceMotion_);
+  qApp->setEffectEnabled(Qt::UI_FadeMenu, !reduceMotion_);
+  qApp->setEffectEnabled(Qt::UI_AnimateTooltip, !reduceMotion_);
+  qApp->setEffectEnabled(Qt::UI_FadeTooltip, !reduceMotion_);
+  for (int i = 0; i < stackedWidget_->count(); i++) {
+    NewsTabWidget *widget = (NewsTabWidget*)stackedWidget_->widget(i);
+    if (widget->type_ < NewsTabWidget::TabTypeWeb) {
+      widget->webView_->settings()->setAttribute(
+        QWebEngineSettings::ScrollAnimatorEnabled, !reduceMotion_);
+    }
+  }
+}
+
 /** @brief Set application style
  *---------------------------------------------------------------------------*/
 void MainWindow::setStyleApp(QAction *pAct)
@@ -6914,7 +7081,27 @@ void MainWindow::setStyleApp(QAction *pAct)
     file.setFileName(":/style/systemStyle");
     file.open(QFile::ReadOnly);
   }
-  qApp->setStyleSheet(QLatin1String(file.readAll()));
+
+  // S-5: apply accent color placeholders
+  bool darkStyle = (pAct->objectName() == "darkStyle_");
+  QString qss = QString::fromUtf8(file.readAll());
+  QColor accent(accentColor_);
+  if (!accent.isValid())
+    accent = QColor(darkStyle ? "#3B82F6" : "#0F62FE");
+  QColor accentHover = darkStyle ? accent.lighter(130) : accent.lighter(115);
+  QColor accentSoft, accentSoftActive;
+  if (darkStyle) {
+    accentSoft        = QColor::fromRgbF(accent.redF()*0.27, accent.greenF()*0.27, accent.blueF()*0.27);
+    accentSoftActive  = QColor::fromRgbF(accent.redF()*0.40, accent.greenF()*0.40, accent.blueF()*0.40);
+  } else {
+    accentSoft        = accent.lighter(185);
+    accentSoftActive  = accent.lighter(165);
+  }
+  qss.replace("%ACCENT%", accent.name());
+  qss.replace("%ACCENT_HOVER%", accentHover.name());
+  qss.replace("%ACCENT_SOFT%", accentSoft.name());
+  qss.replace("%ACCENT_SOFT_ACTIVE%", accentSoftActive.name());
+  qApp->setStyleSheet(qss);
   file.close();
 
   mainSplitter_->setStyleSheet(
@@ -7253,6 +7440,11 @@ void MainWindow::creatFeedTab(int feedId, int feedParId)
     } else if (newsFilterGroup_->checkedAction()->objectName() == "filterNewsLastWeek_") {
       feedIdFilter.append(QString("(published >= datetime('now', '-7 day')) AND deleted = 0"));
     }
+    // S-3: show only unread news (one-click filter)
+    if (unreadOnly_ &&
+        (newsFilterGroup_->checkedAction()->objectName() == "filterNewsAll_")) {
+      feedIdFilter.append(QString(" AND read < 2"));
+    }
     widget->newsModel_->setFilter(feedIdFilter);
 
     if (widget->newsModel_->rowCount() != 0) {
@@ -7271,11 +7463,13 @@ void MainWindow::creatFeedTab(int feedId, int feedParId)
       if (indexList.count()) newsRow = indexList.first().row();
     } else if (openingFeedAction_ == 1) newsRow = 0;
 
-    widget->newsView_->setCurrentIndex(widget->newsModel_->index(newsRow, widget->newsModel_->fieldIndex("title")));
+    widget->newsView_->setCurrentIndex(widget->newsIndexFromSource(
+          widget->newsModel_->index(newsRow, widget->newsModel_->fieldIndex("title"))));
     if (newsRow == -1) widget->newsView_->verticalScrollBar()->setValue(newsRow);
 
     if ((openingFeedAction_ < 2) && openNewsWebViewOn_) {
-      widget->slotNewsViewSelected(widget->newsModel_->index(newsRow, widget->newsModel_->fieldIndex("title")));
+      widget->slotNewsViewSelected(widget->newsIndexFromSource(
+            widget->newsModel_->index(newsRow, widget->newsModel_->fieldIndex("title"))));
     } else {
       widget->slotNewsViewSelected(widget->newsModel_->index(-1, widget->newsModel_->fieldIndex("title")));
       QSqlQuery q;
@@ -7687,8 +7881,9 @@ void MainWindow::slotDeleteNewsInNotification(int feedId, int newsId)
           curIndex = newsModel_->index(i-1, newsModel_->fieldIndex("title"));
         else
           curIndex = newsModel_->index(i, newsModel_->fieldIndex("title"));
-        newsView_->setCurrentIndex(curIndex);
-        currentNewsTab->slotNewsViewSelected(curIndex);
+        QModelIndex viewIdx = currentNewsTab->newsIndexFromSource(curIndex);
+        newsView_->setCurrentIndex(viewIdx);
+        currentNewsTab->slotNewsViewSelected(viewIdx);
         break;
       }
     }
@@ -8168,11 +8363,13 @@ void MainWindow::slotCategoriesClicked(QTreeWidgetItem *item, int, bool createTa
     }
 
     // Display previous displayed news of the feed
-    newsView_->setCurrentIndex(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+    newsView_->setCurrentIndex(currentNewsTab->newsIndexFromSource(
+          newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
     if (newsRow == -1) newsView_->verticalScrollBar()->setValue(newsRow);
 
     if ((openingFeedAction_ != 2) && openNewsWebViewOn_) {
-      currentNewsTab->slotNewsViewSelected(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+      currentNewsTab->slotNewsViewSelected(currentNewsTab->newsIndexFromSource(
+            newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
     } else {
       currentNewsTab->slotNewsViewSelected(newsModel_->index(-1, newsModel_->fieldIndex("title")));
     }
@@ -8360,7 +8557,8 @@ void MainWindow::slotSavePageAs()
   QString fileName = currentNewsTab->webView_->title();
   if (newsLayout_ == 0) {
     if (fileName == "news_descriptions") {
-      int row = currentNewsTab->newsView_->currentIndex().row();
+      int row = currentNewsTab->newsIndexToSource(
+            currentNewsTab->newsView_->currentIndex()).row();
       fileName = currentNewsTab->newsModel_->dataField(row, "title").toString();
     }
   } else {
@@ -8425,7 +8623,7 @@ void MainWindow::restoreLastNews()
   QSqlQuery q;
   q.exec("SELECT id, feedId FROM news WHERE deleted=1 AND deleteDate!='' ORDER BY deleteDate DESC");
   if (q.next()) {
-    QModelIndex curIndex = newsView_->currentIndex();
+    QModelIndex curIndex = currentNewsTab->newsIndexToSource(newsView_->currentIndex());
     int newsIdCur = newsModel_->index(curIndex.row(), newsModel_->fieldIndex("id")).data().toInt();
 
     int newsId = q.value(0).toInt();
@@ -8444,7 +8642,8 @@ void MainWindow::restoreLastNews()
     QModelIndexList indexList = newsModel_->match(index, Qt::EditRole, newsIdCur);
     if (indexList.count()) {
       int newsRow = indexList.first().row();
-      newsView_->setCurrentIndex(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+      newsView_->setCurrentIndex(currentNewsTab->newsIndexFromSource(
+            newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
     }
     slotUpdateStatus(feedId);
     recountCategoryCounts();
@@ -8490,11 +8689,13 @@ void MainWindow::nextUnreadNews()
         if (!indexList.isEmpty()) newsRow = indexList.last().row();
 
         // Focus feed news that displayed before
-        newsView_->setCurrentIndex(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+        newsView_->setCurrentIndex(currentNewsTab->newsIndexFromSource(
+              newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
         if (newsRow == -1) newsView_->verticalScrollBar()->setValue(newsRow);
 
         if (openNewsWebViewOn_) {
-          currentNewsTab->slotNewsViewSelected(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+          currentNewsTab->slotNewsViewSelected(currentNewsTab->newsIndexFromSource(
+                newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
         }
       }
 
@@ -8509,9 +8710,10 @@ void MainWindow::nextUnreadNews()
   if (newsRow > (value + pageStep/2))
     newsView_->verticalScrollBar()->setValue(newsRow - pageStep/2);
 
-  QModelIndex index = newsModel_->index(newsRow, newsModel_->fieldIndex("title"));
-  newsView_->setCurrentIndex(index);
-  currentNewsTab->slotNewsViewSelected(index);
+  QModelIndex viewIdx = currentNewsTab->newsIndexFromSource(
+        newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+  newsView_->setCurrentIndex(viewIdx);
+  currentNewsTab->slotNewsViewSelected(viewIdx);
 }
 
 /** @brief Switch to previous unread news
@@ -8523,7 +8725,7 @@ void MainWindow::prevUnreadNews()
 
   int newsRow = currentNewsTab->findUnreadNews(false);
 
-  int newsRowCur = newsView_->currentIndex().row();
+  int newsRowCur = currentNewsTab->newsIndexToSource(newsView_->currentIndex()).row();
   if ((newsRow >= newsRowCur) || (newsRow == -1)) {
     if (currentNewsTab->type_ != NewsTabWidget::TabTypeFeed) return;
 
@@ -8545,9 +8747,10 @@ void MainWindow::prevUnreadNews()
   if (newsRow < (value + pageStep/2))
     newsView_->verticalScrollBar()->setValue(newsRow - pageStep/2);
 
-  QModelIndex index = newsModel_->index(newsRow, newsModel_->fieldIndex("title"));
-  newsView_->setCurrentIndex(index);
-  currentNewsTab->slotNewsViewSelected(index);
+  QModelIndex viewIdx = currentNewsTab->newsIndexFromSource(
+        newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+  newsView_->setCurrentIndex(viewIdx);
+  currentNewsTab->slotNewsViewSelected(viewIdx);
 }
 
 /** @brief Get feeds ids list string of folder \a idFolder

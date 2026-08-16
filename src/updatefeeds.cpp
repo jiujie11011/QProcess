@@ -18,6 +18,7 @@
 #include "updatefeeds.h"
 
 #include "mainapplication.h"
+#include "common.h"
 #include "database.h"
 #include "settings.h"
 #include "netspeeddetector.h"
@@ -517,6 +518,7 @@ void UpdateObject::slotImportFeeds(QByteArray xmlData)
               xmlUrlString = "http://" + xmlUrlString;
             }
           }
+          xmlUrlString = Common::normalizeFeedUrl(xmlUrlString);
 
           bool isFeedDuplicated = false;
           q.prepare("SELECT id FROM feeds WHERE xmlUrl LIKE :xmlUrl");

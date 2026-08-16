@@ -65,6 +65,8 @@ namespace Common
   QString operatingSystem();
   QString cpuArchitecture();
   QString operatingSystemLong();
+
+  QString normalizeFeedUrl(const QString &url);
 }
 
 #endif // COMMON_H

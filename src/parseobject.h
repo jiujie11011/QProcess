@@ -105,8 +105,10 @@ private slots:
 private:
   void parseAtom(const QString &feedUrl, const QDomDocument &doc);
   void parseRss(const QString &feedUrl, const QDomDocument &doc);
+  void parseJsonFeed(const QString &feedUrl, const QByteArray &data);
   void parseXPath(const QString &data, const QString &feedUrl);
   bool parseScript(const QString &data, const QString &feedUrl);
+  void loadExistingNewsIndexes();
   QString toPlainText(const QString &text);
   QString fromPlainText(QString text);
   QString getCommunity(const QDomNode &nodeContent);

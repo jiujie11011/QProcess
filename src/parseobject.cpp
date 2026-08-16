@@ -28,6 +28,9 @@
 #include <QDebug>
 #include <QDesktopServices>
 #include <QTextDocumentFragment>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #if defined(Q_OS_WIN)
 #include <windows.h>
 #endif
@@ -200,7 +203,7 @@ void ParseObject::slotParse(const QByteArray &xmlData, const int &feedId,
     if (!codecOk) {
       codecOk = false;
       QStringList codecNameList;
-      codecNameList << "UTF-8" << "Windows-1251" << "KOI8-R" << "KOI8-U"
+      codecNameList << "UTF-8" << "GB18030" << "GBK" << "Windows-1251" << "KOI8-R" << "KOI8-U"
                     << "ISO 8859-5" << "IBM 866";
       foreach (QString codecNameT, codecNameList) {
         QTextCodec *codec = QTextCodec::codecForName(codecNameT.toUtf8());
@@ -218,41 +221,21 @@ void ParseObject::slotParse(const QByteArray &xmlData, const int &feedId,
   }
 
   if (!doc.setContent(convertData, false, &errorStr, &errorLine, &errorColumn)) {
-    qWarning() << QString("Parse data error (2): url %1, id %2, line %3, column %4: %5").
-                  arg(feedUrl).arg(parseFeedId_).
-                  arg(errorLine).arg(errorColumn).arg(errorStr);
+    QString trimmed = convertData.trimmed();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      qDebug() << "Feed data is JSON, feedId =" << parseFeedId_;
+      parseJsonFeed(feedUrl, convertData.toUtf8());
+    } else {
+      qWarning() << QString("Parse data error (2): url %1, id %2, line %3, column %4: %5").
+                    arg(feedUrl).arg(parseFeedId_).
+                    arg(errorLine).arg(errorColumn).arg(errorStr);
+    }
   } else {
     QDomElement rootElem = doc.documentElement();
     feedType = rootElem.tagName();
     qDebug() << "Feed type: " << feedType;
 
-    q.prepare("SELECT id, guid, title, published, link_href FROM news WHERE feedId = ?");
-    q.addBindValue(parseFeedId_);
-    q.exec();
-    if (q.lastError().isValid()) {
-      qWarning() << __PRETTY_FUNCTION__ << __LINE__
-                 << "q.lastError(): " << q.lastError().text();
-    }
-    else {
-      existingNewsCount_ = 0;
-      while (q.next()) {
-        QString guid = q.value(1).toString();
-        QString title = q.value(2).toString();
-        QString published = q.value(3).toString();
-        QString link = q.value(4).toString();
-
-        titleList_.append(title);
-        publishedList_.append(published);
-
-        guidIndex_[guid].append(existingNewsCount_);
-        linkIndex_[link].append(existingNewsCount_);
-        titleIndex_[title].append(existingNewsCount_);
-        publishedIndex_[published].append(existingNewsCount_);
-
-        ++existingNewsCount_;
-      }
-    }
-    q.finish();
+    loadExistingNewsIndexes();
 
     if (feedType == "feed") {
       parseAtom(feedUrl, doc);
@@ -719,6 +702,176 @@ void ParseObject::parseRss(const QString &feedUrl, const QDomDocument &doc)
 
     addRssNewsIntoBase(&newsItem);
   }
+}
+
+// ----------------------------------------------------------------------------
+void ParseObject::loadExistingNewsIndexes()
+{
+  QSqlQuery q(db_);
+  q.setForwardOnly(true);
+  q.prepare("SELECT id, guid, title, published, link_href FROM news WHERE feedId = ?");
+  q.addBindValue(parseFeedId_);
+  q.exec();
+  if (q.lastError().isValid()) {
+    qWarning() << __PRETTY_FUNCTION__ << __LINE__
+               << "q.lastError(): " << q.lastError().text();
+  }
+  else {
+    existingNewsCount_ = 0;
+    while (q.next()) {
+      QString guid = q.value(1).toString();
+      QString title = q.value(2).toString();
+      QString published = q.value(3).toString();
+      QString link = q.value(4).toString();
+
+      titleList_.append(title);
+      publishedList_.append(published);
+
+      guidIndex_[guid].append(existingNewsCount_);
+      linkIndex_[link].append(existingNewsCount_);
+      titleIndex_[title].append(existingNewsCount_);
+      publishedIndex_[published].append(existingNewsCount_);
+
+      ++existingNewsCount_;
+    }
+  }
+  q.finish();
+}
+
+// ----------------------------------------------------------------------------
+void ParseObject::parseJsonFeed(const QString &feedUrl, const QByteArray &data)
+{
+  QJsonParseError parseError;
+  QJsonDocument jsonDoc = QJsonDocument::fromJson(data, &parseError);
+  if (parseError.error != QJsonParseError::NoError) {
+    qWarning() << "JSON Feed parse error (1):" << parseError.errorString()
+               << "feedUrl:" << feedUrl;
+    return;
+  }
+
+  if (!jsonDoc.isObject())
+    return;
+
+  QJsonObject root = jsonDoc.object();
+  if (!root.contains("version") || !root.contains("items"))
+    return;
+
+  loadExistingNewsIndexes();
+
+  FeedItemStruct feedItem;
+  feedItem.title = toPlainText(root.value("title").toString());
+  feedItem.description = root.value("description").toString();
+  feedItem.language = root.value("language").toString();
+  feedItem.link = root.value("home_page_url").toString();
+  QUrl url = QUrl(feedItem.link);
+  if (url.host().isEmpty())
+    url.setHost(QUrl(feedUrl).host());
+  if (url.scheme().isEmpty())
+    url.setScheme(QUrl(feedUrl).scheme());
+  feedItem.link = url.toString();
+
+  QJsonArray authors = root.value("authors").toArray();
+  if (!authors.isEmpty() && authors.first().isObject())
+    feedItem.author = toPlainText(authors.first().toObject().value("name").toString());
+
+  QJsonArray items = root.value("items").toArray();
+  for (int i = 0; i < items.size(); ++i) {
+    if (!items.at(i).isObject())
+      continue;
+    QJsonObject item = items.at(i).toObject();
+
+    NewsItemStruct newsItem;
+    newsItem.id = item.value("id").toString();
+    newsItem.title = toPlainText(item.value("title").toString());
+    newsItem.updated = parseDate(item.value("date_published").toString(), feedUrl);
+    if (newsItem.updated.isEmpty())
+      newsItem.updated = parseDate(item.value("date_modified").toString(), feedUrl);
+
+    if (feedItem.updated.isEmpty() || newsItem.updated > feedItem.updated)
+      feedItem.updated = newsItem.updated;
+
+    newsItem.link = item.value("url").toString();
+    if (newsItem.link.isEmpty())
+      newsItem.link = item.value("external_url").toString();
+    url = QUrl(newsItem.link);
+    if (url.host().isEmpty())
+      url.setHost(QUrl(feedUrl).host());
+    if (url.scheme().isEmpty())
+      url.setScheme(QUrl(feedUrl).scheme());
+    newsItem.link = url.toString();
+    newsItem.linkAlternate = newsItem.link;
+
+    QString contentHtml = item.value("content_html").toString();
+    QString contentText = item.value("content_text").toString();
+    newsItem.content = contentHtml;
+    if (newsItem.content.isEmpty())
+      newsItem.content = fromPlainText(contentText);
+
+    newsItem.description = item.value("summary").toString();
+    if (newsItem.description.isEmpty() && !contentText.isEmpty())
+      newsItem.description = fromPlainText(contentText);
+    if (newsItem.description.isEmpty() && !contentHtml.isEmpty())
+      newsItem.description = contentHtml;
+    if (newsItem.description.length() < newsItem.content.length())
+      newsItem.description = newsItem.content;
+
+    QJsonArray itemAuthors = item.value("authors").toArray();
+    if (!itemAuthors.isEmpty() && itemAuthors.first().isObject())
+      newsItem.author = toPlainText(itemAuthors.first().toObject().value("name").toString());
+    if (newsItem.author.isEmpty() && !feedItem.author.isEmpty())
+      newsItem.author = feedItem.author;
+
+    QJsonArray tags = item.value("tags").toArray();
+    for (int j = 0; j < tags.size(); ++j) {
+      if (!newsItem.category.isEmpty()) newsItem.category.append(", ");
+      newsItem.category.append(tags.at(j).toString());
+    }
+
+    QJsonArray attachments = item.value("attachments").toArray();
+    for (int j = 0; j < attachments.size(); ++j) {
+      if (!attachments.at(j).isObject())
+        continue;
+      QJsonObject att = attachments.at(j).toObject();
+      if (newsItem.eUrl.isEmpty()) {
+        newsItem.eUrl = att.value("url").toString();
+        newsItem.eType = att.value("mime_type").toString();
+      }
+    }
+
+    if (newsItem.title.isEmpty()) {
+      newsItem.title = toPlainText(newsItem.description);
+      if (newsItem.title.size() > 50) {
+        newsItem.title.resize(50);
+        newsItem.title = newsItem.title % "...";
+      }
+    }
+
+    addRssNewsIntoBase(&newsItem);
+  }
+
+  QSqlQuery q(db_);
+  q.setForwardOnly(true);
+  QString qStr("UPDATE feeds "
+               "SET title=?, description=?, htmlUrl=?, "
+               "author_name=?, pubdate=?, language=? "
+               "WHERE id==?");
+  q.prepare(qStr);
+  q.addBindValue(feedItem.title);
+  q.addBindValue(feedItem.description);
+  q.addBindValue(feedItem.link);
+  q.addBindValue(feedItem.author);
+  q.addBindValue(feedItem.updated);
+  q.addBindValue(feedItem.language);
+  q.addBindValue(parseFeedId_);
+  q.exec();
+
+  titleList_.clear();
+  publishedList_.clear();
+  guidIndex_.clear();
+  linkIndex_.clear();
+  titleIndex_.clear();
+  publishedIndex_.clear();
+  existingNewsCount_ = 0;
 }
 
 // ----------------------------------------------------------------------------

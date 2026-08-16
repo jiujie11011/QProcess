@@ -38,6 +38,7 @@
 #include "newsview.h"
 #include "webview.h"
 #include "interactivemark.h"
+#include "groupbydateproxymodel.h"
 
 class MainWindow;
 
@@ -98,6 +99,11 @@ public:
   void hideWebContent();
   QString getLinkNews(int row);
 
+  // S-2: group news by date (Today / Yesterday / Earlier)
+  void setGroupByDate(bool on);
+  QModelIndex newsIndexToSource(const QModelIndex &index) const;
+  QModelIndex newsIndexFromSource(const QModelIndex &index) const;
+
   void reduceNewsList();
   void increaseNewsList();
 
@@ -124,6 +130,7 @@ public:
   FindTextContent *findText_;
 
   NewsModel *newsModel_;
+  GroupByDateProxyModel *newsProxyModel_;
   NewsView *newsView_;
   NewsHeader *newsHeader_;
   QToolBar *newsToolBar_;
@@ -168,6 +175,7 @@ private slots:
   void slotSetItemRead(QModelIndex index, int read);
   void slotSetItemStar(QModelIndex index, int starred);
   void slotMarkReadTimeout();
+  void slotNavigationRequested(const QUrl &url);
   void slotNewsListScrolled();
   void slotInteractiveMarkRead(int count);
   void slotAutoSummaryReady(int newsId, const QString &text);
@@ -203,6 +211,7 @@ private slots:
 private:
   void createNewsList();
   void createWebWidget();
+  QModelIndex neighborNewsIndex(bool next, const QModelIndex &from = QModelIndex());
   QString getHtmlLabels(int row);
   void actionNewspaper(QUrl url);
   void maybeAutoSummarize(const QModelIndex &index, int newsId);

@@ -19,6 +19,7 @@
 #include "VersionNo.h"
 #include "mainapplication.h"
 #include "globals.h"
+#include "common.h"
 
 #include <QDebug>
 #include <QtSql>
@@ -75,6 +76,7 @@ void RequestFeed::requestUrl(int id, QString urlString,
                               QDateTime date, QString userInfo,
                               QString proxyUrl, bool highPriority)
 {
+  urlString = Common::normalizeFeedUrl(urlString);
   getNetworkManager(proxyUrl);
 
   if (!timeout_->isActive())
@@ -268,8 +270,14 @@ void RequestFeed::sendRequest(const QUrl &getUrl, int id, const QString &feedUrl
 
   QNetworkRequest request(getUrl);
   request.setRawHeader("User-Agent", globals.userAgent().toUtf8());
+  // Same-origin Referer/Origin and no-store cache control, mirroring
+  // RSSNext/Folo's headers.ts: some feeds reject requests without a referer
+  // or serve stale content from cache.
+  request.setRawHeader("Referer", getUrl.scheme().toUtf8() + "://" + getUrl.host().toUtf8() + "/");
+  request.setRawHeader("Origin", getUrl.scheme().toUtf8() + "://" + getUrl.host().toUtf8());
+  request.setRawHeader("Cache-Control", "no-store");
   if (!head) {
-    request.setRawHeader("Accept", "application/atom+xml,application/rss+xml;q=0.9,application/xml;q=0.8,text/xml;q=0.7,*/*;q=0.6");
+    request.setRawHeader("Accept", "application/feed+json,application/atom+xml,application/rss+xml;q=0.9,application/json;q=0.8,application/xml;q=0.8,text/xml;q=0.7,*/*;q=0.6");
   }
 
   qDebug() << objectName() << (head ? "::head" : "::get") << ":" << getUrl.toEncoded()
@@ -427,22 +435,29 @@ void RequestFeed::finished(QNetworkReply *reply)
 
           QByteArray data = reply->readAll();
           data = data.trimmed();
+          // Skip a UTF-8 BOM so a JSON feed with one is still detected as JSON.
+          if (data.startsWith("\xEF\xBB\xBF"))
+            data.remove(0, 3);
 
-          rx.setPattern("&(?!([a-z0-9#]+;))");
-          pos = 0;
-          while ((pos = rx.indexIn(QString::fromLatin1(data), pos)) != -1) {
-            data.replace(pos, 1, "&amp;");
-            pos += 1;
+          // JSON Feed data must not go through the XML cleanup below
+          // (entity escaping, <br> normalization, trailing-tag truncation).
+          if (!data.startsWith('{') && !data.startsWith('[')) {
+            rx.setPattern("&(?!([a-z0-9#]+;))");
+            pos = 0;
+            while ((pos = rx.indexIn(QString::fromLatin1(data), pos)) != -1) {
+              data.replace(pos, 1, "&amp;");
+              pos += 1;
+            }
+
+            data.replace("<br>", "<br/>");
+
+            if (data.indexOf("</rss>") > 0)
+              data.resize(data.indexOf("</rss>") + 6);
+            if (data.indexOf("</feed>") > 0)
+              data.resize(data.indexOf("</feed>") + 7);
+            if (data.indexOf("</rdf:RDF>") > 0)
+              data.resize(data.indexOf("</rdf:RDF>") + 10);
           }
-
-          data.replace("<br>", "<br/>");
-
-          if (data.indexOf("</rss>") > 0)
-            data.resize(data.indexOf("</rss>") + 6);
-          if (data.indexOf("</feed>") > 0)
-            data.resize(data.indexOf("</feed>") + 7);
-          if (data.indexOf("</rdf:RDF>") > 0)
-            data.resize(data.indexOf("</rdf:RDF>") + 10);
 
           emit getUrlDone(feedsQueue_.count(), feedId, feedUrl, "", data, replyLocalDate, codecName);
           countTask(feedsQueue_.count());

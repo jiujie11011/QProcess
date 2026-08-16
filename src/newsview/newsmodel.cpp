@@ -211,6 +211,10 @@ QVariant NewsModel::data(const QModelIndex &index, int role) const
     if (0 == QSqlTableModel::index(index.row(), fieldIndex("read")).data(Qt::EditRole).toInt())
       return QColor(unreadNewsTextColor_);
 
+    // S-1: dim read news in the list
+    if (dimRead_ && !dimReadColor_.isEmpty())
+      return QColor(dimReadColor_);
+
     return QColor(textColor_);
   }
   return QSqlTableModel::data(index, role);

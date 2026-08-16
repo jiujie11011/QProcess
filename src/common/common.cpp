@@ -296,3 +296,43 @@ QString Common::operatingSystemLong()
     return os;
   return os + QSL(" ") + arch;
 }
+
+/** @brief Normalize feed URLs with non-standard schemes
+ *
+ * The "rsshub://" pseudo-scheme is used by some feed aggregators to address
+ * routes on an RSSHub instance. Map it to an ordinary https:// URL so the
+ * standard HTTP stack can fetch it. Format: "rsshub://route/path" or
+ * "rsshub://host/route/path". A default host is used when none is present.
+ *----------------------------------------------------------------------------*/
+QString Common::normalizeFeedUrl(const QString &url)
+{
+  // Drop URL fragments ("#..."), which some aggregator exports add as SPA
+  // router noise; fragments are not sent to servers and can break matching.
+  QString clean = url;
+  int hashPos = clean.indexOf(QLatin1Char('#'));
+  if (hashPos >= 0)
+    clean = clean.left(hashPos);
+
+  if (!clean.startsWith(QLatin1String("rsshub://"), Qt::CaseInsensitive))
+    return clean;
+
+  QString rest = clean.mid(9);  // length of "rsshub://"
+  QString host = QSL("rsshub.app");
+  QString path = rest;
+
+  // If the first path segment looks like a host (contains a dot), use it.
+  int slashPos = rest.indexOf(QLatin1Char('/'));
+  QString first = (slashPos < 0) ? rest : rest.left(slashPos);
+  if (first.contains(QLatin1Char('.')) && !first.isEmpty()) {
+    host = first;
+    path = (slashPos < 0) ? QString() : rest.mid(slashPos + 1);
+  }
+
+  QString result = QSL("https://") + host;
+  if (!path.isEmpty()) {
+    if (!path.startsWith(QLatin1Char('/')))
+      result += QLatin1Char('/');
+    result += path;
+  }
+  return result;
+}

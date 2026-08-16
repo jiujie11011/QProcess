@@ -195,6 +195,11 @@ void NewsTabWidget::createNewsList()
   newsModel_->setFilter("feedId=-1");
   newsHeader_ = new NewsHeader(newsModel_, newsView_);
 
+  // S-2: date grouping proxy (enabled on demand)
+  newsProxyModel_ = new GroupByDateProxyModel(this);
+  newsProxyModel_->setDateColumn(newsModel_->fieldIndex("published"));
+  newsProxyModel_->setSourceModel(newsModel_);
+
   newsView_->setModel(newsModel_);
   newsView_->setHeader(newsHeader_);
 
@@ -476,6 +481,9 @@ void NewsTabWidget::createWebWidget()
   connect(webView_, SIGNAL(linkClicked(QUrl)), this, SLOT(slotLinkClicked(QUrl)));
   connect(webView_->page(), SIGNAL(linkHovered(QString,QString,QString)),
           this, SLOT(slotLinkHovered(QString,QString,QString)));
+  // S-4: warn before jumping to external links
+  connect((WebPage*)webView_->page(), SIGNAL(navigationRequested(QUrl)),
+          this, SLOT(slotNavigationRequested(QUrl)));
   connect(webView_, SIGNAL(loadProgress(int)), this, SLOT(slotSetValue(int)), Qt::QueuedConnection);
 
   connect(webView_, SIGNAL(titleChanged(QString)),
@@ -495,6 +503,104 @@ void NewsTabWidget::createWebWidget()
   connect(webView_, SIGNAL(rssChanged(bool)), locationBar_, SLOT(showRssIcon(bool)));
   connect(webView_, SIGNAL(urlChanged(QUrl)),
           this, SLOT(slotUrlChanged(QUrl)), Qt::QueuedConnection);
+}
+
+/** @brief Enable/disable date grouping in the news list (S-2)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::setGroupByDate(bool on)
+{
+  if (type_ >= TabTypeWeb)
+    return;
+  if (on) {
+    if (newsView_->model() != newsProxyModel_) {
+      newsProxyModel_->setSourceModel(newsModel_);
+      newsView_->setModel(newsProxyModel_);
+      newsView_->expandAll();
+    }
+  } else {
+    if (newsView_->model() != newsModel_)
+      newsView_->setModel(newsModel_);
+  }
+}
+
+/** @brief Convert a view index (possibly from the grouping proxy) to the
+ *         underlying news model index (S-2)
+ *---------------------------------------------------------------------------*/
+QModelIndex NewsTabWidget::newsIndexToSource(const QModelIndex &index) const
+{
+  if (index.isValid() && newsView_->model() == newsProxyModel_) {
+    QModelIndex src = newsProxyModel_->mapToSource(index);
+    if (src.isValid())
+      return src;
+  }
+  return index;
+}
+
+/** @brief Convert a source news model index back to the view index,
+ *         mapping through the grouping proxy when enabled (S-2)
+ *---------------------------------------------------------------------------*/
+QModelIndex NewsTabWidget::newsIndexFromSource(const QModelIndex &index) const
+{
+  if (index.isValid() && newsView_->model() == newsProxyModel_) {
+    QModelIndex proxyIdx = newsProxyModel_->mapFromSource(index);
+    if (proxyIdx.isValid())
+      return proxyIdx;
+  }
+  return index;
+}
+
+/** @brief Return the previous/next news index in the active view model,
+ *         skipping group header rows when grouping is enabled (S-2)
+ *---------------------------------------------------------------------------*/
+QModelIndex NewsTabWidget::neighborNewsIndex(bool next, const QModelIndex &from)
+{
+  QAbstractItemModel *model = newsView_->model();
+  if (!model)
+    return QModelIndex();
+
+  if (model == newsModel_) {
+    int row = from.isValid() ? from.row() : newsView_->currentIndex().row();
+    if (row < 0)
+      row = 0;
+    row += next ? 1 : -1;
+    if (row < 0 || row >= newsModel_->rowCount())
+      return QModelIndex();
+    return newsModel_->index(row, newsModel_->fieldIndex("title"));
+  }
+
+  if (model == newsProxyModel_) {
+    QModelIndex cur = from.isValid() ? from : newsView_->currentIndex();
+    if (!cur.isValid()) {
+      QModelIndex firstGroup = newsProxyModel_->index(0, 0);
+      if (!firstGroup.isValid())
+        return QModelIndex();
+      return newsProxyModel_->index(0, newsModel_->fieldIndex("title"), firstGroup);
+    }
+    if (!cur.parent().isValid()) {
+      // group header row: jump into first/last leaf of the group
+      int cnt = newsProxyModel_->rowCount(cur);
+      if (cnt == 0)
+        return QModelIndex();
+      int leaf = next ? 0 : cnt - 1;
+      return newsProxyModel_->index(leaf, newsModel_->fieldIndex("title"), cur);
+    }
+    QModelIndex parentIdx = cur.parent();
+    int row = cur.row() + (next ? 1 : -1);
+    if (row >= 0 && row < newsProxyModel_->rowCount(parentIdx))
+      return newsProxyModel_->index(row, newsModel_->fieldIndex("title"), parentIdx);
+    // move to the adjacent group
+    int g = parentIdx.row() + (next ? 1 : -1);
+    if (g < 0 || g >= newsProxyModel_->rowCount())
+      return QModelIndex();
+    QModelIndex ng = newsProxyModel_->index(g, 0);
+    int cnt = newsProxyModel_->rowCount(ng);
+    if (cnt == 0)
+      return QModelIndex();
+    int leaf = next ? 0 : cnt - 1;
+    return newsProxyModel_->index(leaf, newsModel_->fieldIndex("title"), ng);
+  }
+
+  return QModelIndex();
 }
 
 /** @brief Read settings from ini-file
@@ -529,6 +635,9 @@ void NewsTabWidget::setSettings(bool init, bool newTab)
       newsModel_->unreadNewsTextColor_ = mainWindow_->unreadNewsTextColor_;
       newsModel_->focusedNewsTextColor_ = mainWindow_->focusedNewsTextColor_;
       newsModel_->focusedNewsBGColor_ = mainWindow_->focusedNewsBGColor_;
+      // S-1: dim read news in the list
+      newsModel_->dimRead_ = mainWindow_->dimRead_;
+      newsModel_->dimReadColor_ = QColor(mainWindow_->newsListTextColor_).lighter(160).name();
 
       QString styleSheetNews = settings.value("Settings/styleSheetNews",
                                               mainApp->styleSheetNewsDefaultFile()).toString();
@@ -609,6 +718,9 @@ void NewsTabWidget::setSettings(bool init, bool newTab)
     }
     webView_->settings()->setAttribute(QWebEngineSettings::AutoLoadImages, autoLoadImages_);
 
+    // S-4: warn before jumping to external links
+    ((WebPage*)webView_->page())->setJumpOutLinkWarn(mainWindow_->jumpOutLinkWarn_);
+
     webView_->setZoomFactor(qreal(mainWindow_->defaultZoomPages_)/100.0);
   }
   setAutoLoadImages(false);
@@ -639,6 +751,9 @@ void NewsTabWidget::setSettings(bool init, bool newTab)
     QPalette palette = newsView_->palette();
     palette.setColor(QPalette::AlternateBase, mainWindow_->alternatingRowColors_);
     newsView_->setPalette(palette);
+
+    // S-2: apply date grouping (setGroupByDate guards against no-op re-switch)
+    setGroupByDate(mainWindow_->groupByDate_);
 
     if (!newTab)
       newsModel_->setFilter("feedId=-1");
@@ -736,6 +851,9 @@ void NewsTabWidget::slotNewsViewSelected(QModelIndex index, bool clicked)
 {
   if (mainWindow_->newsLayout_ == 1) return;
 
+  // S-2: convert grouped proxy index back to the source model
+  index = newsIndexToSource(index);
+
   int newsId = newsModel_->dataField(index.row(), "id").toInt();
   if (mainWindow_->markNewsReadOn_ && mainWindow_->markPrevNewsRead_ &&
       (newsId != currentNewsIdOld)) {
@@ -810,7 +928,7 @@ void NewsTabWidget::slotNewsListScrolled()
 {
   if (!mainWindow_->progressService_) return;
 
-  QModelIndex index = newsView_->currentIndex();
+  QModelIndex index = newsIndexToSource(newsView_->currentIndex());
   if (!index.isValid()) return;
 
   int newsId = newsModel_->dataField(index.row(), "id").toInt();
@@ -823,6 +941,7 @@ void NewsTabWidget::slotNewsListScrolled()
 // ----------------------------------------------------------------------------
 void NewsTabWidget::slotNewsViewDoubleClicked(QModelIndex index)
 {
+  index = newsIndexToSource(index);
   if (!index.isValid()) return;
 
   QUrl url = QUrl::fromEncoded(getLinkNews(index.row()).toUtf8());
@@ -832,6 +951,7 @@ void NewsTabWidget::slotNewsViewDoubleClicked(QModelIndex index)
 // ----------------------------------------------------------------------------
 void NewsTabWidget::slotNewsMiddleClicked(QModelIndex index)
 {
+  index = newsIndexToSource(index);
   if (!index.isValid()) return;
 
   if (mainWindow_->markNewsReadOn_ && mainWindow_->markCurNewsRead_)
@@ -855,25 +975,18 @@ void NewsTabWidget::slotNewsUpPressed(QModelIndex index)
 {
   if (type_ >= TabTypeWeb) return;
 
-  int row;
-  if (!index.isValid()) {
-    if (!newsView_->currentIndex().isValid())
-      row = 0;
-    else
-      row = newsView_->currentIndex().row() - 1;
-    if (row < 0)
-      return;
-    index = newsModel_->index(row, newsModel_->fieldIndex("title"));
-    newsView_->setCurrentIndex(index);
-  } else {
-    row = index.row();
-  }
+  if (!index.isValid())
+    index = neighborNewsIndex(false);
+
+  if (!index.isValid())
+    return;
 
   int value = newsView_->verticalScrollBar()->value();
   int pageStep = newsView_->verticalScrollBar()->pageStep();
-  if (row < (value + pageStep/2))
-    newsView_->verticalScrollBar()->setValue(row - pageStep/2);
+  if (index.row() < (value + pageStep/2))
+    newsView_->verticalScrollBar()->setValue(index.row() - pageStep/2);
 
+  newsView_->setCurrentIndex(index);
   slotNewsViewSelected(index);
 }
 
@@ -883,24 +996,17 @@ void NewsTabWidget::slotNewsDownPressed(QModelIndex index)
 {
   if (type_ >= TabTypeWeb) return;
 
-  int row;
-  if (!index.isValid()) {
-    if (!newsView_->currentIndex().isValid())
-      row = 0;
-    else
-      row = newsView_->currentIndex().row() + 1;
-    if (row >= newsModel_->rowCount())
-      return;
-    index = newsModel_->index(row, newsModel_->fieldIndex("title"));
-    newsView_->setCurrentIndex(index);
-  } else {
-    row = index.row();
-  }
+  if (!index.isValid())
+    index = neighborNewsIndex(true);
+
+  if (!index.isValid())
+    return;
 
   int value = newsView_->verticalScrollBar()->value();
   int pageStep = newsView_->verticalScrollBar()->pageStep();
-  if (row > (value + pageStep/2))
-    newsView_->verticalScrollBar()->setValue(row - pageStep/2);
+  if (index.row() > (value + pageStep/2))
+    newsView_->verticalScrollBar()->setValue(index.row() - pageStep/2);
+  newsView_->setCurrentIndex(index);
   slotNewsViewSelected(index);
 }
 
@@ -922,15 +1028,18 @@ void NewsTabWidget::slotNewsEndPressed(QModelIndex index)
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::slotNewsPageUpPressed(QModelIndex index)
 {
-  int row;
+  if (type_ >= TabTypeWeb) return;
+
   if (!index.isValid()) {
-    if (!newsView_->currentIndex().isValid())
-      row = 0;
-    else
-      row = newsView_->currentIndex().row() - newsView_->verticalScrollBar()->pageStep();
-    if (row < 0)
-      row = 0;
-    index = newsModel_->index(row, newsModel_->fieldIndex("title"));
+    int step = newsView_->verticalScrollBar()->pageStep();
+    QModelIndex cur = newsView_->currentIndex();
+    for (int i = 0; i < step; i++) {
+      QModelIndex prev = neighborNewsIndex(false, cur);
+      if (!prev.isValid())
+        break;
+      cur = prev;
+    }
+    index = cur;
     newsView_->setCurrentIndex(index);
   }
 
@@ -941,15 +1050,18 @@ void NewsTabWidget::slotNewsPageUpPressed(QModelIndex index)
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::slotNewsPageDownPressed(QModelIndex index)
 {
-  int row;
+  if (type_ >= TabTypeWeb) return;
+
   if (!index.isValid()) {
-    if (!newsView_->currentIndex().isValid())
-      row = 0;
-    else
-      row = newsView_->currentIndex().row() + newsView_->verticalScrollBar()->pageStep();
-    if (row >= newsModel_->rowCount())
-      row = newsModel_->rowCount()-1;
-    index = newsModel_->index(row, newsModel_->fieldIndex("title"));
+    int step = newsView_->verticalScrollBar()->pageStep();
+    QModelIndex cur = newsView_->currentIndex();
+    for (int i = 0; i < step; i++) {
+      QModelIndex nxt = neighborNewsIndex(true, cur);
+      if (!nxt.isValid())
+        break;
+      cur = nxt;
+    }
+    index = cur;
     newsView_->setCurrentIndex(index);
   }
 
@@ -961,6 +1073,7 @@ void NewsTabWidget::slotNewsPageDownPressed(QModelIndex index)
 void NewsTabWidget::slotSetItemRead(QModelIndex index, int read)
 {
   markNewsReadTimer_->stop();
+  index = newsIndexToSource(index);
   if (!index.isValid() || (newsModel_->rowCount() == 0)) return;
 
   bool changed = false;
@@ -1004,6 +1117,7 @@ void NewsTabWidget::slotSetItemRead(QModelIndex index, int read)
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::slotSetItemStar(QModelIndex index, int starred)
 {
+  index = newsIndexToSource(index);
   if (!index.isValid()) return;
 
   newsModel_->setData(index, starred);
@@ -1042,7 +1156,7 @@ void NewsTabWidget::markNewsRead()
   if (cnt == 0) return;
 
   if (cnt == 1) {
-    curIndex = indexes.at(0);
+    curIndex = newsIndexToSource(indexes.at(0));
     if (newsModel_->dataField(curIndex.row(), "read").toInt() == 0) {
       slotSetItemRead(curIndex, 1);
     } else {
@@ -1053,7 +1167,7 @@ void NewsTabWidget::markNewsRead()
 
     bool markRead = false;
     for (int i = cnt-1; i >= 0; --i) {
-      curIndex = indexes.at(i);
+      curIndex = newsIndexToSource(indexes.at(i));
       if (newsModel_->dataField(curIndex.row(), "read").toInt() == 0) {
         markRead = true;
         break;
@@ -1063,7 +1177,7 @@ void NewsTabWidget::markNewsRead()
     db_.transaction();
     QSqlQuery q;
     for (int i = cnt-1; i >= 0; --i) {
-      curIndex = indexes.at(i);
+      curIndex = newsIndexToSource(indexes.at(i));
       newsModel_->setData(
             newsModel_->index(curIndex.row(), newsModel_->fieldIndex("new")),
             0);
@@ -1111,7 +1225,9 @@ void NewsTabWidget::markAllNewsRead()
   }
   db_.commit();
 
-  int currentRow = newsView_->currentIndex().row();
+  QModelIndex curIndex = newsView_->currentIndex();
+  QModelIndex curSrcIndex = newsIndexToSource(curIndex);
+  int currentRow = curSrcIndex.isValid() ? curSrcIndex.row() : 0;
 
   newsModel_->select();
 
@@ -1120,7 +1236,14 @@ void NewsTabWidget::markAllNewsRead()
 
   loadNewspaper(RefreshWithPos);
 
-  newsView_->setCurrentIndex(newsModel_->index(currentRow, newsModel_->fieldIndex("title")));
+  if (newsView_->model() == newsProxyModel_) {
+    QModelIndex newSrc = newsModel_->index(currentRow, newsModel_->fieldIndex("title"));
+    QModelIndex newProxy = newsProxyModel_->mapFromSource(newSrc);
+    if (newProxy.isValid())
+      newsView_->setCurrentIndex(newProxy);
+  } else {
+    newsView_->setCurrentIndex(newsModel_->index(currentRow, newsModel_->fieldIndex("title")));
+  }
 
   foreach (QString feedId, feedIdList) {
     mainWindow_->slotUpdateStatus(feedId.toInt());
@@ -1160,7 +1283,7 @@ void NewsTabWidget::markNewsStar()
 
     db_.transaction();
     for (int i = cnt-1; i >= 0; --i) {
-      curIndex = indexes.at(i);
+      curIndex = newsIndexToSource(indexes.at(i));
       newsModel_->setData(curIndex, markStar);
 
       int newsId = newsModel_->dataField(curIndex.row(), "id").toInt();
@@ -1190,7 +1313,7 @@ void NewsTabWidget::deleteNews()
 
   if (type_ != TabTypeDel) {
     if (cnt == 1) {
-      curIndex = indexes.at(0);
+      curIndex = newsIndexToSource(indexes.at(0));
       if (newsModel_->dataField(curIndex.row(), "starred").toInt() &&
           mainWindow_->notDeleteStarred_)
         return;
@@ -1212,7 +1335,7 @@ void NewsTabWidget::deleteNews()
       db_.transaction();
       QSqlQuery q;
       for (int i = cnt-1; i >= 0; --i) {
-        curIndex = indexes.at(i);
+        curIndex = newsIndexToSource(indexes.at(i));
         if (newsModel_->dataField(curIndex.row(), "starred").toInt() &&
             mainWindow_->notDeleteStarred_)
           continue;
@@ -1237,7 +1360,7 @@ void NewsTabWidget::deleteNews()
     db_.transaction();
     QSqlQuery q;
     for (int i = cnt-1; i >= 0; --i) {
-      curIndex = indexes.at(i);
+      curIndex = newsIndexToSource(indexes.at(i));
 
       int newsId = newsModel_->dataField(curIndex.row(), "id").toInt();
       q.exec(QString("UPDATE news SET description='', content='', received='', "
@@ -1263,8 +1386,9 @@ void NewsTabWidget::deleteNews()
     curIndex = newsModel_->index(newsModel_->rowCount()-1, newsModel_->fieldIndex("title"));
   else
     curIndex = newsModel_->index(curIndex.row(), newsModel_->fieldIndex("title"));
-  newsView_->setCurrentIndex(curIndex);
-  slotNewsViewSelected(curIndex);
+  QModelIndex viewIdx = newsIndexFromSource(curIndex);
+  newsView_->setCurrentIndex(viewIdx);
+  slotNewsViewSelected(viewIdx);
 
   foreach (QString feedId, feedIdList) {
     mainWindow_->slotUpdateStatus(feedId.toInt());
@@ -1338,7 +1462,7 @@ void NewsTabWidget::restoreNews()
   QStringList feedIdList;
 
   if (cnt == 1) {
-    curIndex = indexes.at(0);
+    curIndex = newsIndexToSource(indexes.at(0));
     newsModel_->setData(curIndex, 0);
     newsModel_->setData(newsModel_->index(curIndex.row(), newsModel_->fieldIndex("deleteDate")), "");
     newsModel_->submitAll();
@@ -1349,7 +1473,7 @@ void NewsTabWidget::restoreNews()
     db_.transaction();
     QSqlQuery q;
     for (int i = cnt-1; i >= 0; --i) {
-      curIndex = indexes.at(i);
+      curIndex = newsIndexToSource(indexes.at(i));
       int newsId = newsModel_->dataField(curIndex.row(), "id").toInt();
       q.exec(QString("UPDATE news SET deleted=0, deleteDate='' WHERE id=='%1'").
              arg(newsId));
@@ -1373,8 +1497,9 @@ void NewsTabWidget::restoreNews()
     curIndex = newsModel_->index(newsModel_->rowCount()-1, newsModel_->fieldIndex("title"));
   else
     curIndex = newsModel_->index(curIndex.row(), newsModel_->fieldIndex("title"));
-  newsView_->setCurrentIndex(curIndex);
-  slotNewsViewSelected(curIndex);
+  QModelIndex viewIdx = newsIndexFromSource(curIndex);
+  newsView_->setCurrentIndex(viewIdx);
+  slotNewsViewSelected(viewIdx);
   mainWindow_->slotUpdateStatus(feedId_);
   mainWindow_->recountCategoryCounts();
 
@@ -1398,7 +1523,7 @@ void NewsTabWidget::slotCopyLinkNews()
   QString copyStr;
   for (int i = cnt-1; i >= 0; --i) {
     if (!copyStr.isEmpty()) copyStr.append("\n");
-    copyStr.append(getLinkNews(indexes.at(i).row()));
+    copyStr.append(getLinkNews(newsIndexToSource(indexes.at(i)).row()));
   }
 
   QClipboard *clipboard = QApplication::clipboard();
@@ -1435,6 +1560,9 @@ void NewsTabWidget::slotSort(int column, int/* order*/)
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::updateWebView(QModelIndex index)
 {
+  // S-2: convert grouped proxy index back to the source model
+  index = newsIndexToSource(index);
+
   if (!index.isValid()) {
     hideWebContent();
     return;
@@ -1633,6 +1761,32 @@ void NewsTabWidget::updateWebView(QModelIndex index)
           arg(ltr ? "ltr" : "rtl").    // direction
           arg(ltr ? "right" : "left");  // "Date" text-align
 
+      // S-6: reader font size / line height
+      if (mainWindow_->readerFontSize_ > 0)
+        cssStr.append(QString("\nbody{font-size:%1pt;}").arg(mainWindow_->readerFontSize_));
+      if (mainWindow_->readerLineHeight_ > 0)
+        cssStr.append(QString("\n.newsTable, .newsTable td{line-height:%1%;}")
+                      .arg(mainWindow_->readerLineHeight_));
+
+      // S-9: wide mode - full width vs focused reading column
+      if (mainWindow_->wideMode_)
+        cssStr.append(QString("\n.newsTable{max-width:none !important;width:100% !important;}"));
+      else
+        cssStr.append(QString("\n.newsTable{max-width:960px;margin-left:auto;margin-right:auto;}"));
+
+      // S-8: code highlighting styles
+      if (mainWindow_->highlightCode_)
+        cssStr.append(QString(
+            "\npre{background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;"
+            "padding:10px;overflow:auto;font-family:'Consolas','Menlo',monospace;"
+            "font-size:13px;line-height:1.5;}"
+            "code{font-family:'Consolas','Menlo',monospace;}"
+            ".code-hl{display:block;white-space:pre-wrap;word-break:break-word;}"
+            ".tok-kw{color:#cf222e;font-weight:600;}"
+            ".tok-st{color:#0a3069;}"
+            ".tok-nu{color:#953800;}"
+            ".tok-cm{color:#6e7781;font-style:italic;}"));
+
       if (!autoLoadImages_) {
         QzRegExp reg("<img[^>]+>", Qt::CaseInsensitive);
         content = content.remove(reg);
@@ -1659,6 +1813,22 @@ void NewsTabWidget::updateWebView(QModelIndex index)
     }
 
     htmlStr = htmlStr.replace("src=\"//", "src=\"http://");
+
+    // S-8: inject lightweight code highlighter (auto language detection)
+    if (mainWindow_->highlightCode_ && !htmlStr.isEmpty()) {
+      QFile hlFile(":/html/code_highlight");
+      if (hlFile.open(QFile::ReadOnly)) {
+        QString hlScript = QString::fromUtf8(hlFile.readAll());
+        hlFile.close();
+        QString hlTag = QString("<script type=\"text/javascript\">%1</script>").arg(hlScript);
+        if (htmlStr.contains("</head>"))
+          htmlStr = htmlStr.replace("</head>", hlTag + "</head>");
+        else if (htmlStr.contains("</body>"))
+          htmlStr = htmlStr.replace("</body>", hlTag + "</body>");
+        else
+          htmlStr.append(hlTag);
+      }
+    }
 
     emit signalSetHtmlWebView(htmlStr);
   }
@@ -1795,7 +1965,7 @@ void NewsTabWidget::slotAutoRecommendationsReady(int newsId, const QString &cont
 // ----------------------------------------------------------------------------
 void NewsTabWidget::slotShowImageGallery()
 {
-  QModelIndex index = newsView_->currentIndex();
+  QModelIndex index = newsIndexToSource(newsView_->currentIndex());
   if (!index.isValid()) return;
 
   QString content = newsModel_->dataField(index.row(), "content").toString();
@@ -2100,6 +2270,18 @@ void NewsTabWidget::hideWebContent()
   setWebToolbarVisible(false, false);
 }
 
+/** @brief Handle external link navigation request (S-4)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::slotNavigationRequested(const QUrl &url)
+{
+  if (QMessageBox::question(this, tr("Open external link"),
+        tr("Open the external link in your browser?\n\n%1").arg(url.toString()),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) {
+    return;
+  }
+  openUrl(url);
+}
+
 void NewsTabWidget::slotLinkClicked(QUrl url)
 {
   if (url.scheme() == QLatin1String("quiterss")) {
@@ -2114,7 +2296,8 @@ void NewsTabWidget::slotLinkClicked(QUrl url)
 
   if (type_ != TabTypeWeb) {
     if ((url.host().isEmpty() || (QUrl(url).host().indexOf('.') == -1)) && newsView_->currentIndex().isValid()) {
-      int row = newsView_->currentIndex().row();
+      QModelIndex curIdx = newsIndexToSource(newsView_->currentIndex());
+      int row = curIdx.row();
       int feedId = newsModel_->dataField(row, "feedId").toInt();
       QModelIndex feedIndex = feedsModel_->indexById(feedId);
       QUrl hostUrl = feedsModel_->dataField(feedIndex, "htmlUrl").toString();
@@ -2262,7 +2445,7 @@ void NewsTabWidget::openInExternalBrowserNews()
 
     for (int i = cnt-1; i >= 0; --i) {
       QSqlQuery q;
-      QModelIndex curIndex = indexes.at(i);
+      QModelIndex curIndex = newsIndexToSource(indexes.at(i));
       if (newsModel_->dataField(curIndex.row(), "read").toInt() == 0) {
         newsModel_->setData(
               newsModel_->index(curIndex.row(), newsModel_->fieldIndex("new")),
@@ -2277,9 +2460,9 @@ void NewsTabWidget::openInExternalBrowserNews()
         if (!feedIdList.contains(feedId)) feedIdList.append(feedId);
       }
 
-      QUrl url = QUrl::fromEncoded(getLinkNews(indexes.at(i).row()).toUtf8());
+      QUrl url = QUrl::fromEncoded(getLinkNews(curIndex.row()).toUtf8());
       if (url.host().isEmpty() || (QUrl(url).host().indexOf('.') == -1)) {
-        QString feedId = newsModel_->dataField(indexes.at(i).row(), "feedId").toString();
+        QString feedId = newsModel_->dataField(curIndex.row(), "feedId").toString();
         QModelIndex feedIndex = feedsModel_->indexById(feedId.toInt());
         QUrl hostUrl = feedsModel_->dataField(feedIndex, "htmlUrl").toString();
 
@@ -2381,7 +2564,7 @@ void NewsTabWidget::openNewsNewTab()
   if (cnt == 0) return;
 
   for (int i = cnt-1; i >= 0; --i) {
-    QModelIndex index = indexes.at(i);
+    QModelIndex index = newsIndexToSource(indexes.at(i));
     int row = index.row();
     if (mainWindow_->markNewsReadOn_ && mainWindow_->markCurNewsRead_)
       slotSetItemRead(index, 1);
@@ -2463,7 +2646,8 @@ void NewsTabWidget::slotFindText(const QString &text)
     webView_->findText("");
     webView_->findText(text);
   } else {
-    int newsId = newsModel_->dataField(newsView_->currentIndex().row(), "id").toInt();
+    int newsId = newsModel_->dataField(
+          newsIndexToSource(newsView_->currentIndex()).row(), "id").toInt();
 
     QString filterStr;
     switch (type_) {
@@ -2512,7 +2696,8 @@ void NewsTabWidget::slotFindText(const QString &text)
     QModelIndexList indexList = newsModel_->match(index, Qt::EditRole, newsId);
     if (indexList.count()) {
       int newsRow = indexList.first().row();
-      newsView_->setCurrentIndex(newsModel_->index(newsRow, newsModel_->fieldIndex("title")));
+      newsView_->setCurrentIndex(newsIndexFromSource(
+            newsModel_->index(newsRow, newsModel_->fieldIndex("title"))));
     } else {
       currentNewsIdOld = newsId;
       hideWebContent();
@@ -2586,7 +2771,8 @@ void NewsTabWidget::openUrlInExternalBrowser()
 
   if (type_ != TabTypeWeb) {
     if (linkUrl_.host().isEmpty() && newsView_->currentIndex().isValid()) {
-      int row = newsView_->currentIndex().row();
+      QModelIndex curIdx = newsIndexToSource(newsView_->currentIndex());
+      int row = curIdx.row();
       int feedId = newsModel_->dataField(row, "feedId").toInt();
       QModelIndex feedIndex = feedsModel_->indexById(feedId);
       QUrl hostUrl = feedsModel_->dataField(feedIndex, "htmlUrl").toString();
@@ -2619,7 +2805,7 @@ void NewsTabWidget::setLabelNews(int labelId)
   if (cnt == 0) return;
 
   if (cnt == 1) {
-    QModelIndex index = indexes.at(0);
+    QModelIndex index = newsIndexToSource(indexes.at(0));
     QString strIdLabels = index.data(Qt::EditRole).toString();
     if (!strIdLabels.contains(QString(",%1,").arg(labelId))) {
       if (strIdLabels.isEmpty()) strIdLabels.append(",");
@@ -2658,7 +2844,7 @@ void NewsTabWidget::setLabelNews(int labelId)
   } else {
     bool setLabel = false;
     for (int i = cnt-1; i >= 0; --i) {
-      QModelIndex index = indexes.at(i);
+      QModelIndex index = newsIndexToSource(indexes.at(i));
       QString strIdLabels = index.data(Qt::EditRole).toString();
       if (!strIdLabels.contains(QString(",%1,").arg(labelId))) {
         setLabel = true;
@@ -2668,7 +2854,7 @@ void NewsTabWidget::setLabelNews(int labelId)
 
     db_.transaction();
     for (int i = cnt-1; i >= 0; --i) {
-      QModelIndex index = indexes.at(i);
+      QModelIndex index = newsIndexToSource(indexes.at(i));
       QString strIdLabels = index.data(Qt::EditRole).toString();
       if (setLabel) {
         if (strIdLabels.contains(QString(",%1,").arg(labelId))) continue;
@@ -2729,7 +2915,7 @@ void NewsTabWidget::showLabelsMenu()
   for (int i = newsHeader_->count()-1; i >= 0; i--) {
     int lIdx = newsHeader_->logicalIndex(i);
     if (!newsHeader_->isSectionHidden(lIdx)) {
-      int row = newsView_->currentIndex().row();
+      int row = newsIndexToSource(newsView_->currentIndex()).row();
       slotNewslLabelClicked(newsModel_->index(row, lIdx));
       break;
     }
@@ -2761,7 +2947,7 @@ int NewsTabWidget::findUnreadNews(bool next)
 {
   int newsRow = -1;
 
-  int newsRowCur = newsView_->currentIndex().row();
+  int newsRowCur = newsIndexToSource(newsView_->currentIndex()).row();
   QModelIndex index;
   QModelIndexList indexList;
   if (next) {
@@ -2818,11 +3004,12 @@ void NewsTabWidget::slotShareNews(QAction *action)
     QString linkString;
     QString content;
     if (type_ < TabTypeWeb) {
-      title = newsModel_->dataField(indexes.at(i).row(), "title").toString();
-      linkString = getLinkNews(indexes.at(i).row());
+      int row = newsIndexToSource(indexes.at(i)).row();
+      title = newsModel_->dataField(row, "title").toString();
+      linkString = getLinkNews(row);
 
-      content = newsModel_->dataField(indexes.at(i).row(), "content").toString();
-      QString description = newsModel_->dataField(indexes.at(i).row(), "description").toString();
+      content = newsModel_->dataField(row, "content").toString();
+      QString description = newsModel_->dataField(row, "description").toString();
       if (content.isEmpty() || (description.length() > content.length())) {
         content = description;
       }
@@ -3055,7 +3242,7 @@ void NewsTabWidget::savePageAsDescript()
 {
   if (type_ >= TabTypeWeb) return;
 
-  QModelIndex curIndex = newsView_->currentIndex();
+  QModelIndex curIndex = newsIndexToSource(newsView_->currentIndex());
   if (!curIndex.isValid()) return;
 
   // QWebEnginePage::toHtml() is asynchronous - capture row data before callback

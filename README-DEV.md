@@ -116,6 +116,28 @@
 - [x] **P0-8 AI 模块**：AIAssistant + AIDialog + AI 设置页（含 Base URL）
 - [x] **可选增强**：应用内快捷键（进度保存/AI 助手）、AI 离线缓存、磁盘空间提示、进度同步接口占位
 
+## 订阅源兼容性优化（已完成）
+
+针对用户反馈的「大量订阅源在其它阅读器可刷新、QuiteRSS 识别不了」问题，基于用户上传的 OPML 导出样本（1057 个源）实测后实施以下兼容性修复：
+
+| 文件 | 改动 |
+|------|------|
+| `src/parseobject.cpp/h` | **新增 JSON Feed 解析**：`doc.setContent` 失败且内容以 `{`/`[` 开头时走 `parseJsonFeed()`（按 jsonfeed.org v1 规范：version/items/url/title/content_html/summary/tags/authors/attachments），复用 `addRssNewsIntoBase` 入库；`loadExistingNewsIndexes()` 提取原重复检测索引构建逻辑供 JSON/XML 共用 |
+| `src/requestfeed.cpp` | 请求 Accept 头加 `application/feed+json`；响应为 JSON（`{`/`[` 开头，跳过 UTF-8 BOM）时**跳过 XML 清理**（实体转义/`<br>` 归一/尾部标签截断），避免破坏 JSON 数据；`requestUrl` 入口统一 `normalizeFeedUrl` |
+| `src/common/common.cpp/h` | 新增 `Common::normalizeFeedUrl()`：去掉 URL fragment（`#...`，SPA 路由噪声，不发给服务器），并将 `rsshub://` 伪协议映射为 `https://rsshub.app/<path>`（首段含点视为自定义 host） |
+| `src/updatefeeds.cpp` | OPML 导入时对 `xmlUrl` 应用 `normalizeFeedUrl`（`rsshub://` 与带 `#` 的 URL 入库即规范） |
+| `src/addfeedwizard.cpp` | 手动添加订阅源时同样规范化 URL 后再查重/入库 |
+| `src/importexport/feedurldetector.cpp` | 内容嗅探 `isFeedContent` 支持 JSON Feed（`{` 开头且含 `"items"`）；探测请求 UA 升级为 Chrome 125、Accept 头支持 JSON |
+| `src/main/globals.cpp` | 默认 User-Agent 升级 Chrome 77 → Chrome 125，降低被站点拒识别的概率 |
+| `src/application/mainwindow.cpp` | `showMenuBar` 默认值 `false` → `true`，恢复标准菜单栏（文件/查看/信息源/消息/浏览器/工具/帮助） |
+
+实测 OPML 中仍无法刷新的源分为三类，均非本软件缺陷：
+1. **源本身失效**：`i.scnu.edu.cn/*`（49 个全部 404）、`politepaul.com/fd/*`、`rssweball.top` 部分路由、`bbs.simol.cn`（证书链不完整）、`anchor.fm`（连接中断）。
+2. **返回 HTML 非订阅源**：如 `https://www.oschina.net/project/rss`。
+3. **JSON Feed**（`tech.buzzing.cc/feed.json`、`economistnew.buzzing.cc/feed.json`）：本次新增解析后已可识别。
+
+> 注：本环境无 Qt 工具链，改动经静态审查，未编译验证。
+
 ## MrRSS 优秀设计移植计划
 
 参考 [WCY-dt/MrRSS](https://github.com/WCY-dt/MrRSS)（Go+Wails+Vue 的现代化 AI RSS 阅读器），将其中与 Qt 架构兼容的优秀设计移植到本项目。技术栈不同（无法直接搬代码），按设计理念适配实施。用户已确认纳入以下全部项目。
@@ -239,6 +261,91 @@
 | `src/newstabwidget.cpp` | `maybeAutoTranslate` 按引擎分流：非 AI 引擎走 `translationService_->translate()`，AI 引擎走原 `ai->translate()`；连接 `translationService_` 的 `translationReady` 到 `slotAutoTranslationReady`（结果写 `translatedContent` 自动复用缓存） |
 | `QuiteRSS.pro` | 注册 `translationservice` |
 
+## Folo 请求头格式借鉴分析（可继续优化）
+
+参考 [RSSNext/Folo](https://github.com/RSSNext/Folo)（用户指定）的请求头实现（`packages/internal/utils/src/headers.ts` 与 `img-proxy.ts`），与 QuiteRSS 现状对比后整理出以下可借鉴项。Folo 是 Electron 客户端 + 云服务架构，抓取走自有服务器，与本地抓取的 QuiteRSS 差异较大，仅借鉴设计理念，无法直接搬代码。
+
+### Folo 请求头核心逻辑（源码实证）
+
+```ts
+// 默认 UA
+"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+// 外发请求时剥离 Electron/Folo 客户端标识，避免被站点屏蔽
+headers["User-Agent"] = headers["User-Agent"].replace(/\s?Electron\/[\d.]+/, "").replace(/\s?Folo\/[\d.a-zA-Z-]+/, "")
+
+// Referer/Origin 策略：防盗链图片按域名注入 referer，其余默认同源
+const referer = imageRefererMatches.find((i) => i.url.test(url))?.referer
+headers.Referer = referer; headers.Origin = referer          // 匹配到防盗链规则
+headers.Referer = urlObj.origin; headers.Origin = urlObj.origin  // 默认同源
+```
+
+防盗链 referer 规则表（`img-proxy.ts`）：
+
+| 域名匹配 | referer |
+|----------|---------|
+| `*.sinaimg.cn` | `https://weibo.com` |
+| `i.pximg.net` | `https://www.pixiv.net` |
+| `cdnfile.sspai.com` | `https://sspai.com` |
+| `*.cdninstagram.com` | `https://www.instagram.com` |
+| `sp1.piokok.com` | `https://www.piokok.com` |
+| `*.xhscdn.com` | `https://www.xiaohongshu.com` |
+
+### 与 QuiteRSS 现状对比
+
+| 维度 | Folo | QuiteRSS 现状 |
+|------|------|---------------|
+| 默认 UA | Chrome 133 (macOS) | Chrome 125 (Windows，`src/main/globals.cpp:97`、`feedurldetector.cpp:90`) |
+| 客户端标识 | 外发时剥离 Electron/Folo | 无客户端标识（天然无此问题） |
+| 图片防盗链 referer | 按域名规则注入 | 无 referer 处理，防盗链图片会裂图 |
+| 默认 Referer/Origin | 同源注入 | 不设置 |
+| Cache-Control | no-store | 不设置 |
+
+### 可继续优化清单（按性价比排序）
+
+- [x] **F-2 图片防盗链 referer 注入**：在现有 Smart Referer（`webpluginfactory.cpp`）基础上增加 Folo 的防盗链域名白名单表，优先注入特定 referer（`sinaimg.cn→weibo.com`、`pximg.net→pixiv.net`、`sspai.com`、`cdninstagram.com→instagram.com`、`piokok.com`、`xhscdn.com→xiaohongshu.com`），其余跨域资源仍走"自身 host"回退。已实现。
+- [x] **F-1 默认 UA 升级到 Chrome 133**：`globals.cpp:97` 与 `feedurldetector.cpp:90` 两处 UA 同步升级。已实现。
+- [x] **F-3 默认 Referer/Origin 同源注入**：`requestfeed.cpp:sendRequest` 对 RSS/HEAD 请求默认注入同源 Referer/Origin。已实现。
+- [x] **F-4 Cache-Control: no-store**：`requestfeed.cpp:sendRequest` 请求禁用缓存。已实现。
+
+> 注：Folo 桌面端 changelog（`apps/desktop/changelog/*.md`，v0.1.2~v1.3.1）多为云服务/AI/UI 功能，与本地 RSS 抓取相关性低；已确认无其它可直接借鉴的抓取层优化。
+
+### Folo 借鉴项完成明细
+
+| 文件 | 改动 |
+|------|------|
+| `src/plugins/webpluginfactory.cpp` | 新增 `kImageRefererRules` 静态白名单表（6 条，来源 Folo `img-proxy.ts`）与 `refererForHost()` 匹配函数；Smart Referer 分支优先查白名单注入特定 referer，未命中再走原缓存回退 |
+| `src/main/globals.cpp` | 默认 User-Agent Chrome 125 → 133 |
+| `src/importexport/feedurldetector.cpp` | 探测请求 UA Chrome 125 → 133 |
+| `src/requestfeed.cpp` | `sendRequest` 为 RSS/HEAD 请求统一注入同源 Referer/Origin 与 `Cache-Control: no-store`（HEAD 探测同样生效） |
+
+## Folo 阅读与界面设置借鉴清单（待用户确认后实施）
+
+基于 [RSSNext/Folo](https://github.com/RSSNext/Folo) 设置源码（`packages/internal/shared/src/settings/interface.ts`，即设置界面数据来源）与用户截图的设置界面，整理出对 QuiteRSS 可借鉴的阅读行为类与界面外观类功能。用户已确认范围：**阅读行为类 + 界面外观类**。本清单仅记录，未实施。
+
+### 阅读行为类（对应 Folo GeneralSettings）
+
+- [x] **S-1 已读内容变暗 `dimRead`**：列表中已读新闻以更淡的样式呈现，增强视觉区分。实现：`NewsModel` 委托绘制时按 `read` 字段降低前景色/透明度，`MainWindow::applyDimReadSettings()` 全局同步开关与颜色。
+- [x] **S-2 按日期分组 `groupByDate`**：新闻列表按日期分组显示（今天/昨天/更早）。实现：新增 `GroupByDateProxyModel`（`QAbstractProxyModel` 子类），`NewsTabWidget::setGroupByDate()` 切换代理模型，视图索引经 `newsIndexToSource()/newsIndexFromSource()` 双向映射，键盘导航用 `neighborNewsIndex()` 跳过组头。
+- [x] **S-3 仅显示未读 `unreadOnly`**：一键筛选仅未读新闻。实现：`MainWindow::slotUnreadOnlyToggled()` 切换 `unreadOnly_` 后重新应用 `setNewsFilter()`，在所有未读过滤基础上叠加 `read<2` 条件。
+- [x] **S-4 外链跳转警告 `jumpOutLinkWarn`**：点击外部链接时弹出确认提示。实现：`WebPage::acceptNavigationRequest()` 拦截跨站链接（`navigationRequested` 信号）→ `NewsTabWidget::slotNavigationRequested()` 弹 `QMessageBox` 确认后打开。
+
+> 滚动/悬停标记已读（`scrollMarkUnread`/`hoverMarkUnread`）QuiteRSS 已实现（P0-5 InteractiveMarkController），无需重复借鉴。
+
+### 界面外观类（对应 Folo UISettings）
+
+- [x] **S-5 强调色 `accentColor`**：主题强调色可配置（Folo 8 色预设 + 自定义 hex）。实现：Codex Light/Dark 两套 QSS 中硬编码色替换为 `%ACCENT%`/`%ACCENT_HOVER%`/`%ACCENT_SOFT%`/`%ACCENT_SOFT_ACTIVE%` 占位符，`MainWindow::setStyleApp()` 运行时按 `accentColor_` 计算替换（暗色按 RGB 缩放、亮色 `lighter()`）。
+- [x] **S-6 阅读字号/行高调节 `contentFontSize`/`contentLineHeight`**：正文阅读字号与行距可在设置中调节。实现：OptionsDialog 新增两个 spinbox（`readerFontSize_`/`readerLineHeight_`），`updateWebView()` 在正文 CSS 尾部追加 `body{font-size:%1pt}`、`line-height:%1%`。
+- [x] **S-7 自定义日期格式 `dateFormat`**：列表与正文中的日期显示格式可配置。实现：OptionsDialog 日期格式下拉新增 `Custom...` 项 + `customDateFormat_` 输入框（`QRegularExpression` 校验），`formatDate_` 直读对话框文本，同步到 `feedsModel_`/`newsModel_`。
+- [x] **S-8 代码高亮主题 `codeHighlightThemeLight/Dark` + 猜测语言 `guessCodeLanguage`**：正文代码块按浅/深主题高亮，并自动猜测语言。实现：新增 `html/code_highlight.js`（零依赖，`guessLang()` 正则启发 + `tok-*` 类着色），`updateWebView()` 在 `</head>` 前注入，CSS 配套 `.tok-kw/.tok-st/.tok-nu/.tok-cm` 样式。
+- [x] **S-9 宽屏模式 `wideMode`**：正文内容最大宽度可切换（Folo 宽屏/窄屏）。实现：`updateWebView()` 正文 CSS 按 `wideMode_` 注入 `max-width:none !important;width:100%`（默认 `max-width:960px;margin:auto`）。
+- [x] **S-10 减少动画 `reduceMotion`**：减少界面过渡动画，降低动效敏感用户不适。实现：`MainWindow::applyReduceMotionSettings()` 在启动时调用，`qApp->setEffectEnabled()` 关闭组合框/菜单/提示动画，并关闭各 tab 的 `ScrollAnimatorEnabled`。
+
+> 自定义 CSS（`customCSS`）、内容字体族（`readerFontFamily`）、缩略图比例（`thumbnailRatio`）、强调色之外的完整主题定制：QuiteRSS 已实现自定义文章 CSS（M-5），可在此基础上扩展；其余项暂缓。
+
+### 实施状态（已全部完成）
+
+S-1..S-10 十项均已实施完毕，设置入口位于"选项 → 新闻/显示"与"选项 → 外观"（S-3 为菜单/工具栏一键开关）。OptionsDialog 确认后即时应用：S-1 同步 `applyDimReadSettings()`、S-2 对所有已开 tab `setGroupByDate()`、S-5 重刷 `setStyleApp()`、S-6/S-8/S-9 重载当前文章、S-7 刷新列表日期。
+
 ## 验证方式
 
 1. 逐行静态审查：大括号/分号平衡、变量声明与使用、头文件声明与实现对应。
@@ -323,3 +430,5 @@ exit $status
 - **进度保存**：5s 定时 + 失焦/切页/退出立即 flush；滚动只更新内存位置不重置保存截止时间。
 - **AI API Key**：仅由用户在设置页配置，代码不读取运行环境变量，不输出真实值。
 - **DB 迁移**：v18 新增列/表全部使用幂等 DDL，兼容旧 17 版库。
+- **JSON Feed 兼容**：解析器对非 XML 内容按 JSON Feed v1 处理，复用 RSS 入库函数；请求与嗅探层均声明 JSON 支持。旧库/旧配置不受影响。
+- **URL 规范化**：`Common::normalizeFeedUrl` 统一去 fragment、映射 `rsshub://`，在导入/添加/请求三条路径同时生效，保证查重与请求一致。

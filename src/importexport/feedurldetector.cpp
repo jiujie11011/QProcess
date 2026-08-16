@@ -87,7 +87,8 @@ void FeedUrlDetector::probeNext()
   // QNetworkRequest request(QUrl(urlStr)); would be read as a function
   // declaration by MSVC/GCC.
   QNetworkRequest request((QUrl(urlStr)));
-  request.setRawHeader("User-Agent", "QuiteRSS/0.19 (feed discovery)");
+  request.setRawHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
+  request.setRawHeader("Accept", "application/feed+json,application/atom+xml,application/rss+xml;q=0.9,application/json;q=0.8,application/xml;q=0.8,text/xml;q=0.7,*/*;q=0.6");
   request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                        QNetworkRequest::AlwaysNetwork);
   request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
@@ -171,11 +172,16 @@ QString FeedUrlDetector::resolveUrl(const QString &baseUrl, const QString &href)
 bool FeedUrlDetector::isFeedContent(const QByteArray &data)
 {
   QString s = QString::fromUtf8(data);
-  return s.contains(QLatin1String("<?xml")) ||
-         s.contains(QLatin1String("<rss")) ||
-         s.contains(QLatin1String("<feed")) ||
-         s.contains(QLatin1String("<atom")) ||
-         s.contains(QLatin1String("<rdf:RDF"));
+  if (s.contains(QLatin1String("<?xml")) ||
+      s.contains(QLatin1String("<rss")) ||
+      s.contains(QLatin1String("<feed")) ||
+      s.contains(QLatin1String("<atom")) ||
+      s.contains(QLatin1String("<rdf:RDF")))
+    return true;
+  QString trimmed = s.trimmed();
+  if (trimmed.startsWith(QLatin1String("{")) && trimmed.contains(QLatin1String("\"items\"")))
+    return true;
+  return false;
 }
 // ----------------------------------------------------------------------------
 void FeedUrlDetector::stop()

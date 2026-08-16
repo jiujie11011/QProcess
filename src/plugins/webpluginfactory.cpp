@@ -22,6 +22,43 @@
 #include "adblockmanager.h"
 
 #include <QWebEngineUrlRequestInfo>
+#include <QStringList>
+
+namespace {
+// Hotlink-protection referer whitelist, borrowed from RSSNext/Folo
+// (packages/internal/utils/src/img-proxy.ts). These image hosts require a
+// specific third-party referer to serve the picture; the generic "use the
+// image host itself" fallback below would still be blocked.
+struct RefererRule
+{
+  QString hostSuffix;
+  QByteArray referer;
+};
+const QList<RefererRule> kImageRefererRules = {
+  // *.sinaimg.cn -> weibo.com
+  {QStringLiteral("sinaimg.cn"), QByteArrayLiteral("https://weibo.com/")},
+  // i.pximg.net -> pixiv.net
+  {QStringLiteral("pximg.net"), QByteArrayLiteral("https://www.pixiv.net/")},
+  // cdnfile.sspai.com -> sspai.com
+  {QStringLiteral("sspai.com"), QByteArrayLiteral("https://sspai.com/")},
+  // *.cdninstagram.com -> instagram.com
+  {QStringLiteral("cdninstagram.com"), QByteArrayLiteral("https://www.instagram.com/")},
+  // sp1.piokok.com -> piokok.com
+  {QStringLiteral("piokok.com"), QByteArrayLiteral("https://www.piokok.com/")},
+  // *.xhscdn.com -> xiaohongshu.com
+  {QStringLiteral("xhscdn.com"), QByteArrayLiteral("https://www.xiaohongshu.com/")},
+};
+
+QByteArray refererForHost(const QString &hostLower)
+{
+  for (const RefererRule &rule : kImageRefererRules) {
+    if (hostLower == rule.hostSuffix ||
+        hostLower.endsWith(QLatin1Char('.') + rule.hostSuffix))
+      return rule.referer;
+  }
+  return QByteArray();
+}
+} // namespace
 
 WebPluginFactory::WebPluginFactory(QObject *parent)
   : QWebEngineUrlRequestInterceptor(parent)
@@ -79,15 +116,19 @@ void WebPluginFactory::interceptRequest(QWebEngineUrlRequestInfo &info)
           (imageHost != refHost &&
            !imageHost.endsWith("." + refHost) &&
            !refHost.endsWith("." + imageHost))) {
-        QHash<QString, QByteArray>::const_iterator it = refererCache_.constFind(imageHost);
-        QByteArray referer;
-        if (it != refererCache_.constEnd()) {
-          referer = it.value();
-        } else {
-          referer = url.scheme().toUtf8() + "://" + imageHost.toUtf8() + "/";
-          if (refererCache_.size() > 512)
-            refererCache_.clear();
-          refererCache_.insert(imageHost, referer);
+        // Prefer a hotlink-protection referer for known image CDNs, then fall
+        // back to the cached "use the image host itself" strategy.
+        QByteArray referer = refererForHost(imageHost);
+        if (referer.isEmpty()) {
+          QHash<QString, QByteArray>::const_iterator it = refererCache_.constFind(imageHost);
+          if (it != refererCache_.constEnd()) {
+            referer = it.value();
+          } else {
+            referer = url.scheme().toUtf8() + "://" + imageHost.toUtf8() + "/";
+            if (refererCache_.size() > 512)
+              refererCache_.clear();
+            refererCache_.insert(imageHost, referer);
+          }
         }
         info.setHttpHeader("Referer", referer);
       }

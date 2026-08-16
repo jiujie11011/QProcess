@@ -56,6 +56,12 @@ public:
   void addRejectedCerts(const QList<QSslCertificate> &certs);
   bool containsRejectedCerts(const QList<QSslCertificate> &certs);
 
+  // S-4: warn before jumping to external links
+  void setJumpOutLinkWarn(bool on);
+
+signals:
+  void navigationRequested(const QUrl &url);
+
 protected:
   // Override to handle custom window creation
   QWebEnginePage* createWindow(WebWindowType type) override;
@@ -70,6 +76,7 @@ private:
   QUrl lastRequestUrl_;
 
   bool adjustingScheduled_;
+  bool jumpOutLinkWarn_;
   static QList<WebPage*> livingPages_;
   QVector<AdBlockedEntry> adBlockedEntries_;
 

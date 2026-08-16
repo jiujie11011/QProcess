@@ -51,6 +51,8 @@ public:
   QString unreadNewsTextColor_;
   QString focusedNewsTextColor_;
   QString focusedNewsBGColor_;
+  bool dimRead_;
+  QString dimReadColor_;
 
 signals:
   void signalSort(int column, int order);

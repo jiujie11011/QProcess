@@ -18,6 +18,7 @@
 #include "addfeedwizard.h"
 
 #include "mainapplication.h"
+#include "common.h"
 #include "addfolderdialog.h"
 #include "authenticationdialog.h"
 #include "toolbutton.h"
@@ -390,8 +391,9 @@ void AddFeedWizard::addFeed()
   if (feedUrl.scheme().isEmpty()) {
     feedUrl.setUrl("http://" % urlFeedEdit_->text().simplified());
   }
-  feedUrlString_ = feedUrl.toString();
+  feedUrlString_ = Common::normalizeFeedUrl(feedUrl.toString());
   urlFeedEdit_->setText(feedUrlString_);
+  feedUrl = QUrl(feedUrlString_);
 
 #if QT_VERSION >= 0x040800
   if (feedUrl.host().isEmpty() && !feedUrl.isLocalFile()) {

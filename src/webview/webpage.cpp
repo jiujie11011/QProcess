@@ -34,6 +34,7 @@ QList<WebPage*> WebPage::livingPages_;
 WebPage::WebPage(QObject *parent)
   : QWebEnginePage(parent)
   , loadProgress_(-1)
+  , jumpOutLinkWarn_(false)
 {
   // Disable plugins (Flash, etc.) - WebEngine handles this differently
   settings()->setAttribute(QWebEngineSettings::PluginsEnabled, false);
@@ -59,10 +60,26 @@ void WebPage::disconnectObjects()
   disconnect(this);
 }
 
+void WebPage::setJumpOutLinkWarn(bool on)
+{
+  jumpOutLinkWarn_ = on;
+}
+
 bool WebPage::acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame)
 {
   lastRequestType_ = type;
   lastRequestUrl_ = url;
+
+  // S-4: warn before jumping to external links
+  if (jumpOutLinkWarn_ && isMainFrame &&
+      (type == NavigationTypeLinkClicked)) {
+    const QString scheme = url.scheme();
+    if ((scheme == QLatin1String("http") || scheme == QLatin1String("https")) &&
+        (url.toString(QUrl::RemoveFragment) != this->url().toString(QUrl::RemoveFragment))) {
+      emit navigationRequested(url);
+      return false;
+    }
+  }
 
   // Allow navigation
   return true;
