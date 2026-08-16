@@ -216,6 +216,10 @@ QVariant NewsModel::data(const QModelIndex &index, int role) const
       return QColor(dimReadColor_);
 
     return QColor(textColor_);
+  } else if (role == SummaryRole) {
+    // The summary lives on the row itself; the column is irrelevant.
+    return QSqlTableModel::index(index.row(),
+                                 fieldIndex("summary")).data(Qt::EditRole);
   }
   return QSqlTableModel::data(index, role);
 }

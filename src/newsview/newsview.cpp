@@ -18,6 +18,9 @@
 #include "newsview.h"
 #include "delegatewithoutfocus.h"
 
+#include <QAbstractProxyModel>
+#include <functional>
+
 NewsView::NewsView(QWidget * parent)
   : QTreeView(parent)
 {
@@ -97,17 +100,35 @@ NewsView::NewsView(QWidget * parent)
   if (dy == 0) return;
   if (!model()) return;
 
-  // Collect rows completely scrolled out of the visible area
+  // Collect rows that have been scrolled out ABOVE the visible area
+  // (scrolling down). Rows below the viewport are still unread and must
+  // NOT be marked read. Report source-model row numbers so the grouping
+  // proxy row numbers never reach the mark-read controller.
   QList<int> scrolledOutRows;
-  int rowCount = model()->rowCount();
-  int viewportHeight = viewport()->height();
-  for (int row = 0; row < rowCount; row++) {
-    QModelIndex index = model()->index(row, 0);
-    if (!index.isValid()) continue;
-    QRect rect = visualRect(index);
-    if (rect.isValid() && (rect.bottom() < 0 || rect.top() > viewportHeight))
-      scrolledOutRows.append(row);
-  }
+  QAbstractProxyModel *proxy = qobject_cast<QAbstractProxyModel*>(model());
+  std::function<void(const QModelIndex&)> collect =
+      [&](const QModelIndex &parent)
+  {
+    int count = model()->rowCount(parent);
+    for (int row = 0; row < count; row++) {
+      QModelIndex index = model()->index(row, 0, parent);
+      if (!index.isValid()) continue;
+      QRect rect = visualRect(index);
+      if (rect.isValid() && rect.bottom() < 0) {
+        if (proxy) {
+          QModelIndex src = proxy->mapToSource(index);
+          if (src.isValid())
+            scrolledOutRows.append(src.row());
+        } else {
+          scrolledOutRows.append(index.row());
+        }
+      }
+      if (model()->rowCount(index) > 0)
+        collect(index);
+    }
+  };
+  collect(QModelIndex());
+
   if (!scrolledOutRows.isEmpty())
     emit signalRowsScrolledOut(scrolledOutRows);
 }

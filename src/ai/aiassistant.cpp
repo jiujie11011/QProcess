@@ -23,6 +23,7 @@
 #include <QSqlError>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QDateTime>
 #include <QFile>
 #include <QCryptographicHash>
@@ -38,6 +39,8 @@ AIAssistant::AIAssistant(QObject *parent)
   : QObject(parent)
   , db_(Database::connection("secondConnection"))
   , currentReply_(0)
+  , pendingTestReply_(0)
+  , pendingModelsReply_(0)
   , pendingIsTranslation_(false)
   , pendingSummaryNewsId_(0)
   , pendingRecommendationsNewsId_(0)
@@ -374,10 +377,106 @@ void AIAssistant::retryLast()
 }
 
 // ----------------------------------------------------------------------------
+void AIAssistant::testConnection(const QString &baseUrl, const QString &apiKey,
+                                 const QString &model)
+{
+  const QString url = baseUrl.trimmed();
+  const QString key = apiKey.trimmed();
+  if (url.isEmpty()) {
+    emit connectionTested(false, tr("Please enter the Base URL first."));
+    return;
+  }
+  if (key.isEmpty()) {
+    emit connectionTested(false, tr("Please enter the API key first "
+                                    "(empty for local Ollama)."));
+    return;
+  }
+
+  if (pendingTestReply_) {
+    pendingTestReply_->abort();
+    pendingTestReply_ = 0;
+  }
+
+  QNetworkRequest request{QUrl(url)};
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+  request.setRawHeader("Authorization",
+                       QString("Bearer %1").arg(key).toUtf8());
+
+  QJsonObject payload;
+  payload.insert("model", model.isEmpty() ? "gpt-4o-mini" : model);
+  payload.insert("max_tokens", 1);
+  QJsonArray messages;
+  messages.append(QJsonObject{{"role", "user"}, {"content", "ping"}});
+  payload.insert("messages", messages);
+
+  pendingTestReply_ = networkManager_->post(
+        request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
+}
+
+// ----------------------------------------------------------------------------
+void AIAssistant::fetchModels(const QString &baseUrl, const QString &apiKey)
+{
+  QString url = baseUrl.trimmed();
+  if (url.isEmpty())
+    url = "https://api.openai.com/v1/chat/completions";
+  // Derive the /models endpoint from a chat/completions base URL.
+  if (url.endsWith("/chat/completions"))
+    url.chop(QString("/chat/completions").length());
+  while (url.endsWith('/'))
+    url.chop(1);
+  if (!url.endsWith("/models"))
+    url += "/models";
+
+  if (pendingModelsReply_) {
+    pendingModelsReply_->abort();
+    pendingModelsReply_ = 0;
+  }
+
+  QNetworkRequest request{QUrl(url)};
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+  const QString key = apiKey.trimmed();
+  if (!key.isEmpty())
+    request.setRawHeader("Authorization",
+                         QString("Bearer %1").arg(key).toUtf8());
+
+  pendingModelsReply_ = networkManager_->get(request);
+}
+
+// ----------------------------------------------------------------------------
 void AIAssistant::slotReplyFinished()
 {
   QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
   if (!reply) return;
+
+  if (reply == pendingTestReply_) {
+    pendingTestReply_ = 0;
+    if (reply->error() != QNetworkReply::NoError) {
+      emit connectionTested(false, reply->errorString());
+    } else {
+      reply->readAll();
+      emit connectionTested(true, tr("Connection successful. The API key and "
+                                     "Base URL are usable."));
+    }
+    reply->deleteLater();
+    return;
+  }
+
+  if (reply == pendingModelsReply_) {
+    pendingModelsReply_ = 0;
+    QStringList models;
+    if (reply->error() == QNetworkReply::NoError) {
+      QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+      QJsonArray data = doc.object().value("data").toArray();
+      foreach (const QJsonValue &value, data) {
+        const QString id = value.toObject().value("id").toString();
+        if (!id.isEmpty())
+          models.append(id);
+      }
+    }
+    reply->deleteLater();
+    emit modelsFetched(models);
+    return;
+  }
 
   if (reply != currentReply_) {
     reply->deleteLater();

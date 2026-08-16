@@ -27,6 +27,7 @@
 #include <QSpinBox>
 
 #include "mainapplication.h"
+#include "../ai/aiassistant.h"
 #include "labeldialog.h"
 #include "rsshubinstances.h"
 #include "settings.h"
@@ -40,6 +41,7 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   setWindowTitle(tr("Options"));
 
   db_ = QSqlDatabase::database();
+  aiAssistant_ = new AIAssistant(this);
 
   contentLabel_ = new QLabel();
   contentLabel_->setObjectName("contentLabel_");
@@ -114,13 +116,10 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   treeItem << "13" << tr("AI");
   categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
   treeItem.clear();
-  treeItem << "14" << tr("Data Management");
+  treeItem << "14" << tr("Manage Subscriptions");
   categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
   treeItem.clear();
-  treeItem << "15" << tr("Manage Subscriptions");
-  categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
-  treeItem.clear();
-  treeItem << "16" << tr("RSSHub Instances");
+  treeItem << "15" << tr("RSSHub Instances");
   categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
 
   createGeneralWidget();
@@ -152,7 +151,6 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   createAIWidget();
   loadAiSettings();
 
-  createDataManagementWidget();
   createManageSubscriptionsWidget();
   createRssHubWidget();
   loadRssHubSettings();
@@ -173,7 +171,6 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   contentStack_->addWidget(interactionWidget_);
   contentStack_->addWidget(cleanupWidget_);
   contentStack_->addWidget(aiWidget_);
-  contentStack_->addWidget(dataManagementWidget_);
   contentStack_->addWidget(manageSubscriptionsWidget_);
   contentStack_->addWidget(rsshubWidget_);
 
@@ -2270,6 +2267,29 @@ void OptionsDialog::createAIWidget()
   aiLayout->addWidget(aiBaseUrl_, row++, 1, 1, 1);
   aiLayout->addWidget(new QLabel(tr("Model:")), row, 0, 1, 1);
   aiLayout->addWidget(aiModel_, row++, 1, 1, 1);
+
+  aiTestButton_ = new QPushButton(tr("Test API"));
+  aiFetchModelsButton_ = new QPushButton(tr("Fetch Models"));
+  aiTestStatusLabel_ = new QLabel();
+  aiTestStatusLabel_->setTextFormat(Qt::RichText);
+  aiTestStatusLabel_->setWordWrap(true);
+
+  QHBoxLayout *aiTestRow = new QHBoxLayout();
+  aiTestRow->addWidget(aiTestButton_);
+  aiTestRow->addWidget(aiFetchModelsButton_);
+  aiTestRow->addStretch();
+
+  connect(aiTestButton_, SIGNAL(clicked()), this, SLOT(slotTestAiConnection()));
+  connect(aiFetchModelsButton_, SIGNAL(clicked()),
+          this, SLOT(slotFetchAiModels()));
+  connect(aiAssistant_, SIGNAL(connectionTested(bool, QString)),
+          this, SLOT(aiConnectionTested(bool, QString)));
+  connect(aiAssistant_, SIGNAL(modelsFetched(QStringList)),
+          this, SLOT(aiModelsFetched(QStringList)));
+
+  aiLayout->addLayout(aiTestRow, row++, 0, 1, 2);
+  aiLayout->addWidget(aiTestStatusLabel_, row++, 0, 1, 2);
+
   aiLayout->addWidget(new QLabel(tr("Summary length:")), row, 0, 1, 1);
   aiLayout->addWidget(aiSummaryLength_, row++, 1, 1, 1, Qt::AlignLeft);
   aiLayout->addWidget(new QLabel(tr("Max tokens:")), row, 0, 1, 1);
@@ -2321,7 +2341,7 @@ void OptionsDialog::loadAiSettings()
   aiDeeplKey_->setText(settings.value("AI/deeplKey").toString());
   aiBaiduAppId_->setText(settings.value("AI/baiduAppId").toString());
   aiBaiduKey_->setText(settings.value("AI/baiduKey").toString());
-  aiAutoSummary_->setChecked(settings.value("AI/autoSummary", false).toBool());
+  aiAutoSummary_->setChecked(settings.value("AI/autoSummary", true).toBool());
   aiAutoRecommend_->setChecked(settings.value("AI/autoRecommend", false).toBool());
 
   // Set provider last; block the signal so the preset filling in
@@ -2364,6 +2384,59 @@ void OptionsDialog::saveAiSettings()
   settings.setValue("AI/baiduKey", aiBaiduKey_->text());
   settings.setValue("AI/autoSummary", aiAutoSummary_->isChecked());
   settings.setValue("AI/autoRecommend", aiAutoRecommend_->isChecked());
+}
+
+//----------------------------------------------------------------------------
+void OptionsDialog::slotTestAiConnection()
+{
+  aiTestStatusLabel_->setText(tr("Testing connection..."));
+  aiTestButton_->setEnabled(false);
+  aiAssistant_->testConnection(aiBaseUrl_->text(), aiApiKey_->text(),
+                               aiModel_->currentText());
+}
+
+//----------------------------------------------------------------------------
+void OptionsDialog::aiConnectionTested(bool ok, const QString &message)
+{
+  aiTestButton_->setEnabled(true);
+  QString escaped = message;
+  escaped.replace('&', "&amp;");
+  escaped.replace('<', "&lt;");
+  escaped.replace('>', "&gt;");
+  aiTestStatusLabel_->setText(
+        ok ? QString("<font color='green'>%1</font>").arg(escaped)
+           : QString("<font color='red'>%1</font>").arg(escaped));
+}
+
+//----------------------------------------------------------------------------
+void OptionsDialog::slotFetchAiModels()
+{
+  aiTestStatusLabel_->setText(tr("Fetching available models..."));
+  aiFetchModelsButton_->setEnabled(false);
+  aiAssistant_->fetchModels(aiBaseUrl_->text(), aiApiKey_->text());
+}
+
+//----------------------------------------------------------------------------
+void OptionsDialog::aiModelsFetched(const QStringList &models)
+{
+  aiFetchModelsButton_->setEnabled(true);
+  if (models.isEmpty()) {
+    aiTestStatusLabel_->setText(
+          tr("No models were returned. Check the Base URL and API key, "
+             "then try again."));
+    return;
+  }
+  const QString current = aiModel_->currentText();
+  aiModel_->clear();
+  aiModel_->addItems(models);
+  if (!current.isEmpty()) {
+    const int idx = aiModel_->findText(current);
+    if (idx >= 0)
+      aiModel_->setCurrentIndex(idx);
+    else
+      aiModel_->setEditText(current);
+  }
+  aiTestStatusLabel_->setText(tr("Fetched %n model(s).", "", models.count()));
 }
 
 //----------------------------------------------------------------------------
@@ -3141,8 +3214,10 @@ void OptionsDialog::applyLabels()
       }
     } else {
       QString nameLabel = treeItems.at(0)->text(1);
-      if ((idLabel.toInt() <= 6) && (MainWindow::trNameLabels().at(idLabel.toInt()-1) == nameLabel)) {
-        nameLabel = MainWindow::nameLabels().at(idLabel.toInt()-1);
+      const int labelId = idLabel.toInt();
+      if ((labelId > 0) && (labelId <= 6) &&
+          (MainWindow::trNameLabels().at(labelId - 1) == nameLabel)) {
+        nameLabel = MainWindow::nameLabels().at(labelId - 1);
       }
       QPixmap icon = treeItems.at(0)->icon(1).pixmap(16, 16);
       QByteArray iconData;
@@ -3258,6 +3333,10 @@ void OptionsDialog::loadNotifier()
 void OptionsDialog::applyNotifier()
 {
   mainApp->mainWindow()->idFeedsNotifyList_.clear();
+
+  // The notifier page is loaded lazily; guard against an empty tree.
+  if (feedsTreeNotify_->topLevelItemCount() == 0)
+    return;
 
   feedsTreeNotify_->expandAll();
   QTreeWidgetItem *treeWidgetItem =
@@ -3398,32 +3477,12 @@ void OptionsDialog::selectionDownloadLocation()
 //----------------------------------------------------------------------------
 void OptionsDialog::createDataManagementWidget()
 {
-  dataManagementWidget_ = new QWidget(this);
-  dataManagementWidget_->setObjectName("dataManagementWidget");
-
   importFeedsButton_ = new QPushButton(tr("Import Subscriptions..."));
   importFeedsButton_->setObjectName("importFeedsButton");
   exportFeedsButton_ = new QPushButton(tr("Export Subscriptions..."));
   exportFeedsButton_->setObjectName("exportFeedsButton");
   cleanupDatabaseButton_ = new QPushButton(tr("Clean Up Database..."));
   cleanupDatabaseButton_->setObjectName("cleanupDatabaseButton");
-
-  QLabel *infoLabel = new QLabel(tr("Import or export your subscriptions as "
-                                    "OPML, or clean up the database."));
-  infoLabel->setWordWrap(true);
-  infoLabel->setObjectName("dataManagementInfoLabel");
-
-  QVBoxLayout *layout = new QVBoxLayout();
-  layout->setContentsMargins(4, 6, 4, 6);
-  layout->addWidget(infoLabel);
-  layout->addSpacing(10);
-  layout->addWidget(importFeedsButton_);
-  layout->addSpacing(4);
-  layout->addWidget(exportFeedsButton_);
-  layout->addSpacing(4);
-  layout->addWidget(cleanupDatabaseButton_);
-  layout->addStretch();
-  dataManagementWidget_->setLayout(layout);
 
   connect(importFeedsButton_, SIGNAL(clicked()),
           this, SIGNAL(signalImportFeedsRequested()));
@@ -3440,9 +3499,34 @@ void OptionsDialog::createManageSubscriptionsWidget()
 
   subscriptionsWidget_ = new SubscriptionManagerWidget(manageSubscriptionsWidget_);
 
+  // Data management (import/export/cleanup) merged into this page
+  createDataManagementWidget();
+
+  QFrame *separator = new QFrame(manageSubscriptionsWidget_);
+  separator->setFrameShape(QFrame::HLine);
+  separator->setFrameShadow(QFrame::Sunken);
+
+  QLabel *infoLabel = new QLabel(tr("Import or export your subscriptions as "
+                                    "OPML, or clean up the database."),
+                                 manageSubscriptionsWidget_);
+  infoLabel->setWordWrap(true);
+  infoLabel->setObjectName("dataManagementInfoLabel");
+
+  QHBoxLayout *buttonsLayout = new QHBoxLayout();
+  buttonsLayout->addWidget(importFeedsButton_);
+  buttonsLayout->addWidget(exportFeedsButton_);
+  buttonsLayout->addWidget(cleanupDatabaseButton_);
+  buttonsLayout->addStretch();
+
   QVBoxLayout *layout = new QVBoxLayout();
   layout->setContentsMargins(0, 6, 0, 6);
-  layout->addWidget(subscriptionsWidget_);
+  layout->addWidget(subscriptionsWidget_, 1);
+  layout->addSpacing(10);
+  layout->addWidget(separator);
+  layout->addSpacing(6);
+  layout->addWidget(infoLabel);
+  layout->addSpacing(6);
+  layout->addLayout(buttonsLayout);
   manageSubscriptionsWidget_->setLayout(layout);
 
   connect(subscriptionsWidget_, SIGNAL(addFeedRequested()),
@@ -3638,7 +3722,11 @@ void OptionsDialog::slotRssHubRemoveInstance()
 //----------------------------------------------------------------------------
 void OptionsDialog::slotRssHubCheckInstances()
 {
-  QStringList instances = RssHubInstances::loadInstances();
+  // Use the list currently shown in the dialog, not the saved one.
+  QStringList instances;
+  for (int i = 0; i < rsshubInstancesList_->count(); ++i)
+    instances << rsshubInstancesList_->item(i)->text().trimmed();
+  instances.removeAll(QString());
   if (instances.isEmpty()) {
     QMessageBox::information(this, tr("RSSHub Instances"),
                              tr("Instance list is empty."));

@@ -26,7 +26,7 @@
 
 #include <sqlite3.h>
 
-const int versionDB = 21;
+const int versionDB = 22;
 
 const QString kCreateFeedsTableQuery(
     "CREATE TABLE feeds("
@@ -185,7 +185,9 @@ const QString kCreateNewsTableQuery(
     "aiSummary integer default 0, "        // flag: news marked for AI summary
     // Version 19
     "translatedTitle varchar, "            // AI translated title
-    "translatedContent varchar "           // AI translated content
+    "translatedContent varchar, "          // AI translated content
+    // Version 22
+    "summary varchar "                     // AI summary text
     ")");
 
 const QString kCreateFiltersTable(
@@ -416,6 +418,10 @@ void Database::prepareDatabase()
           q.exec("ALTER TABLE feeds ADD COLUMN emailFolder varchar default 'INBOX'");
           q.exec("ALTER TABLE feeds ADD COLUMN emailAddress varchar");
           q.exec("ALTER TABLE feeds ADD COLUMN emailLastUID integer default 0");
+        }
+
+        if (dbVersion < 22) {
+          q.exec("ALTER TABLE news ADD COLUMN summary varchar");
         }
 
         createIndexes(db);

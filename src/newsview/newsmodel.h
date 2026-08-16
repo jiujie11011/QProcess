@@ -29,6 +29,11 @@ class NewsModel : public QSqlTableModel
 {
   Q_OBJECT
 public:
+  /*! Custom roles used by the news list delegate. */
+  enum NewsRole {
+    SummaryRole = Qt::UserRole + 120   //!< AI summary text (may be empty)
+  };
+
   NewsModel(QObject *parent, QTreeView *view);
   virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
   virtual QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;

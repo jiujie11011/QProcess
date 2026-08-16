@@ -84,6 +84,16 @@ public:
   /*! Retry the last failed request. */
   void retryLast();
 
+  /*! Test the connection using the given settings without touching the
+   *  persisted configuration. Results are delivered via connectionTested. */
+  void testConnection(const QString &baseUrl, const QString &apiKey,
+                      const QString &model);
+
+  /*! Fetch the model ids advertised by an OpenAI-compatible endpoint.
+   *  The models list is derived from \a baseUrl (e.g. .../v1/chat/completions
+   *  becomes .../v1/models). Results are delivered via modelsFetched. */
+  void fetchModels(const QString &baseUrl, const QString &apiKey);
+
   /*! Return recent dialog records from the dialog table.
    *  -1 for newsId or feedId matches any. */
   QList<QJsonObject> loadHistory(int feedId = -1, int newsId = -1) const;
@@ -98,6 +108,10 @@ signals:
   void summaryReady(int newsId, const QString &text);
   /*! Emitted when a requestAutoRecommendations() request completes. */
   void recommendationsReady(int newsId, const QString &content);
+  /*! Emitted when a testConnection() request completes. */
+  void connectionTested(bool ok, const QString &message);
+  /*! Emitted when a fetchModels() request completes (empty on failure). */
+  void modelsFetched(const QStringList &models);
 
 private slots:
   void slotReplyFinished();
@@ -131,6 +145,10 @@ private:
   QNetworkAccessManager *networkManager_;
   QSqlDatabase db_;
   QNetworkReply *currentReply_;
+  /*! Replies for testConnection() / fetchModels() — they use their own
+   *  settings arguments and are therefore handled outside currentReply_. */
+  QNetworkReply *pendingTestReply_;
+  QNetworkReply *pendingModelsReply_;
   QString lastPrompt_;
   QString currentCacheKey_;
   QString pendingTargetLang_;

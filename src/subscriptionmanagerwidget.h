@@ -28,9 +28,10 @@ class QTreeWidgetItem;
 
 /** @brief Manage subscriptions (feeds) inside the Options dialog.
  *
- * Lists all feeds with sortable columns (name, category, update
- * frequency, status), supports multi-select via checkboxes, and
- * provides add / delete / manage labels actions.
+ * Lists all real feeds (folders are shown via the Category column) with
+ * sortable columns (name, category, update frequency, status), supports
+ * multi-select via checkboxes, and provides add / delete / move to
+ * another group / manage labels actions.
  */
 class SubscriptionManagerWidget : public QWidget
 {
@@ -54,16 +55,20 @@ private slots:
   void updateSummary();
   void deleteSelectedItems();
   void checkSelectedStatus();
+  /** Moves all checked feeds into a (possibly new) group. */
+  void moveSelectedToGroup();
   void slotHeaderClicked(int column);
 
 private:
   void loadFeeds();
   QString categoryName(int parentId) const;
   QString frequencyText(int interval, int type) const;
+  QList<int> checkedFeedIds() const;
 
   QTreeWidget *tree_;
   QPushButton *addButton_;
   QPushButton *labelsButton_;
+  QPushButton *moveToGroupButton_;
   QPushButton *deleteButton_;
   QPushButton *checkStatusButton_;
   QPushButton *selectAllButton_;

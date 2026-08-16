@@ -2139,7 +2139,7 @@ void MainWindow::loadSettings()
 
   hoverMarkRead_ = settings.value("Interaction/hoverMarkRead", false).toBool();
   hoverMarkDelay_ = settings.value("Interaction/hoverMarkDelay", 1000).toInt();
-  scrollMarkRead_ = settings.value("Interaction/scrollMarkRead", false).toBool();
+  scrollMarkRead_ = settings.value("Interaction/scrollMarkRead", true).toBool();
   viewportMarkRead_ = settings.value("Interaction/viewportMarkRead", false).toBool();
   markExcludeOnlyStarred_ = settings.value("Interaction/markExcludeOnlyStarred", false).toBool();
   excludedGroups_ = settings.value("Interaction/excludedGroups", QStringList()).toStringList();
@@ -2165,7 +2165,7 @@ void MainWindow::loadSettings()
   aiDeeplKey_ = settings.value("AI/deeplKey").toString();
   aiBaiduAppId_ = settings.value("AI/baiduAppId").toString();
   aiBaiduKey_ = settings.value("AI/baiduKey").toString();
-  aiAutoSummary_ = settings.value("AI/autoSummary", false).toBool();
+  aiAutoSummary_ = settings.value("AI/autoSummary", true).toBool();
   aiAutoRecommend_ = settings.value("AI/autoRecommend", false).toBool();
   aiMaxTokens_ = settings.value("AI/maxTokens", 4096).toInt();
 

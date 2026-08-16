@@ -2732,6 +2732,16 @@ Ancient news could reappear</source>
         <translation>载入...(%p%)</translation>
     </message>
     <message>
+        <location filename="../src/newstabwidget.cpp" line="383"/>
+        <source>Mark News Above as Read</source>
+        <translation>将上方新闻标记为已读</translation>
+    </message>
+    <message>
+        <location filename="../src/newstabwidget.cpp" line="384"/>
+        <source>Mark News Below as Read</source>
+        <translation>将下方新闻标记为已读</translation>
+    </message>
+    <message>
         <location filename="../src/newstabwidget.cpp" line="613"/>
         <source>Home</source>
         <translation>主页</translation>
@@ -4666,7 +4676,46 @@ Example:
             <source>Subscriptions</source>
             <translation>订阅源</translation>
         </message>
+        <message>
+            <source>Test API</source>
+            <translation>测试 API</translation>
+        </message>
+        <message>
+            <source>Fetch Models</source>
+            <translation>获取模型</translation>
+        </message>
+        <message>
+            <source>Testing connection...</source>
+            <translation>正在测试连接...</translation>
+        </message>
+        <message>
+            <source>Fetching available models...</source>
+            <translation>正在获取可用模型...</translation>
+        </message>
+        <message>
+            <source>No models were returned. Check the Base URL and API key, then try again.</source>
+            <translation>未获取到任何模型。请检查基础 URL 和 API 密钥后重试。</translation>
+        </message>
+        <message>
+            <source>Fetched %n model(s).</source>
+            <translation>已获取 %n 个模型。</translation>
+        </message>
     </context>
+<context>
+    <name>AIAssistant</name>
+    <message>
+        <source>Please enter the Base URL first.</source>
+        <translation>请先输入基础 URL。</translation>
+    </message>
+    <message>
+        <source>Please enter the API key first (empty for local Ollama).</source>
+        <translation>请先输入 API 密钥（本地 Ollama 可留空）。</translation>
+    </message>
+    <message>
+        <source>Connection successful. The API key and Base URL are usable.</source>
+        <translation>连接成功。API 密钥和基础 URL 均可用。</translation>
+    </message>
+</context>
 <context>
     <name>QAbstractSpinBox</name>
     <message>
@@ -5199,6 +5248,30 @@ Example:
         <message>
             <source>Selected subscriptions deleted.</source>
             <translation>已删除选中的订阅源。</translation>
+        </message>
+        <message>
+            <source>Move to Group...</source>
+            <translation>移动到分组...</translation>
+        </message>
+        <message>
+            <source>Move to Group</source>
+            <translation>移动到分组</translation>
+        </message>
+        <message>
+            <source>Select the destination group for %n selected subscription(s):</source>
+            <translation>选择 %n 个选中订阅源的目标分组：</translation>
+        </message>
+        <message>
+            <source>(No Group)</source>
+            <translation>(无分组)</translation>
+        </message>
+        <message>
+            <source>Failed to create the new group: %1</source>
+            <translation>创建新分组失败：%1</translation>
+        </message>
+        <message>
+            <source>Moved %n subscription(s).</source>
+            <translation>已移动 %n 个订阅源。</translation>
         </message>
     </context>
 </TS>

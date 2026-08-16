@@ -36,6 +36,8 @@
 #define NEW_COUNT_ICON_TRAY     2
 #define UNREAD_COUNT_ICON_TRAY  3
 
+class AIAssistant;
+
 class OptionsDialog : public Dialog
 {
   Q_OBJECT
@@ -212,6 +214,9 @@ public:
   QCheckBox *aiAutoSummary_;
   QCheckBox *aiAutoRecommend_;
   QSpinBox *aiMaxTokens_;
+  QPushButton *aiTestButton_;
+  QPushButton *aiFetchModelsButton_;
+  QLabel *aiTestStatusLabel_;
 
   // labels
   QStringList idLabels_;
@@ -336,6 +341,10 @@ private slots:
   void slotRssHubCheckInstances();
   void slotRssHubFetchRemote();
   void slotManageSubscriptionsLabels();
+  void slotTestAiConnection();
+  void slotFetchAiModels();
+  void aiConnectionTested(bool ok, const QString &message);
+  void aiModelsFetched(const QStringList &models);
 
 private:
   void showEvent(QShowEvent*);
@@ -375,10 +384,10 @@ private:
   QWidget *interactionWidget_;
   QWidget *cleanupWidget_;
   QWidget *aiWidget_;
+  AIAssistant *aiAssistant_;
 
-  // data management
+  // data management (merged into the manage subscriptions page)
   void createDataManagementWidget();
-  QWidget *dataManagementWidget_;
   QPushButton *importFeedsButton_;
   QPushButton *exportFeedsButton_;
   QPushButton *cleanupDatabaseButton_;

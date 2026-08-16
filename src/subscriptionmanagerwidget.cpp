@@ -18,10 +18,13 @@
 #include "subscriptionmanagerwidget.h"
 
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QLabel>
+#include <QMap>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -33,6 +36,8 @@ SubscriptionManagerWidget::SubscriptionManagerWidget(QWidget *parent)
   addButton_->setObjectName("addSubscriptionButton");
   labelsButton_ = new QPushButton(tr("Manage Labels..."));
   labelsButton_->setObjectName("manageLabelsButton");
+  moveToGroupButton_ = new QPushButton(tr("Move to Group..."));
+  moveToGroupButton_->setObjectName("moveToGroupButton");
   deleteButton_ = new QPushButton(tr("Delete Selected"));
   deleteButton_->setObjectName("deleteSubscriptionButton");
   deleteButton_->setEnabled(false);
@@ -49,6 +54,7 @@ SubscriptionManagerWidget::SubscriptionManagerWidget(QWidget *parent)
   buttonLayout->setContentsMargins(0, 0, 0, 0);
   buttonLayout->addWidget(addButton_);
   buttonLayout->addWidget(labelsButton_);
+  buttonLayout->addWidget(moveToGroupButton_);
   buttonLayout->addWidget(deleteButton_);
   buttonLayout->addStretch();
   buttonLayout->addWidget(checkStatusButton_);
@@ -78,6 +84,8 @@ SubscriptionManagerWidget::SubscriptionManagerWidget(QWidget *parent)
 
   connect(addButton_, SIGNAL(clicked()), this, SIGNAL(addFeedRequested()));
   connect(labelsButton_, SIGNAL(clicked()), this, SIGNAL(manageLabelsRequested()));
+  connect(moveToGroupButton_, SIGNAL(clicked()),
+          this, SLOT(moveSelectedToGroup()));
   connect(deleteButton_, SIGNAL(clicked()), this, SLOT(deleteSelectedItems()));
   connect(checkStatusButton_, SIGNAL(clicked()), this, SLOT(checkSelectedStatus()));
   connect(selectAllButton_, SIGNAL(toggled(bool)),
@@ -130,6 +138,89 @@ void SubscriptionManagerWidget::checkSelectedStatus()
   emit checkStatusRequested(feedIds);
 }
 
+QList<int> SubscriptionManagerWidget::checkedFeedIds() const
+{
+  QList<int> feedIds;
+  for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
+    QTreeWidgetItem *item = tree_->topLevelItem(i);
+    if (item->checkState(0) == Qt::Checked)
+      feedIds.append(item->data(0, Qt::UserRole).toInt());
+  }
+  return feedIds;
+}
+
+void SubscriptionManagerWidget::moveSelectedToGroup()
+{
+  const QList<int> feedIds = checkedFeedIds();
+  if (feedIds.isEmpty()) {
+    emit statusMessage(tr("No subscriptions selected."));
+    return;
+  }
+
+  QSqlDatabase db = QSqlDatabase::database();
+  QSqlQuery query(db);
+
+  // Build the list of existing groups (folders).
+  QMap<QString, int> groupIds;
+  QStringList groupNames;
+  query.exec("SELECT id, text FROM feeds "
+             "WHERE (xmlUrl IS NULL OR xmlUrl = '') "
+             "ORDER BY text COLLATE NOCASE");
+  while (query.next()) {
+    groupIds.insert(query.value(1).toString(), query.value(0).toInt());
+    groupNames << query.value(1).toString();
+  }
+  groupNames.prepend(tr("(No Group)"));
+
+  bool ok = false;
+  QString choice = QInputDialog::getItem(
+        this, tr("Move to Group"),
+        tr("Select the destination group for %n selected subscription(s):", "",
+           feedIds.count()),
+        groupNames, 0, true, &ok);
+  if (!ok || choice.trimmed().isEmpty())
+    return;
+  choice = choice.trimmed();
+
+  int parentId = 0;
+  if (groupIds.contains(choice)) {
+    parentId = groupIds.value(choice);
+  } else if (choice != tr("(No Group)")) {
+    // Create a new folder with the typed name.
+    query.prepare("INSERT INTO feeds (text, title, hasChildren, parentId, rowToParent) "
+                  "VALUES (?, ?, 1, 0, 0)");
+    query.addBindValue(choice);
+    query.addBindValue(choice);
+    if (!query.exec()) {
+      emit statusMessage(tr("Failed to create the new group: %1")
+                         .arg(query.lastError().text()));
+      return;
+    }
+    parentId = query.lastInsertId().toInt();
+  }
+
+  db.transaction();
+  foreach (int feedId, feedIds) {
+    query.prepare("SELECT COALESCE(MAX(rowToParent), 0) + 1 FROM feeds "
+                  "WHERE parentId = ?");
+    query.addBindValue(parentId);
+    int rowToParent = 1;
+    if (query.exec() && query.next())
+      rowToParent = query.value(0).toInt();
+
+    query.prepare("UPDATE feeds SET parentId = ?, rowToParent = ? WHERE id = ?");
+    query.addBindValue(parentId);
+    query.addBindValue(rowToParent);
+    query.addBindValue(feedId);
+    query.exec();
+  }
+  db.commit();
+
+  emit feedsChanged();
+  refresh();
+  emit statusMessage(tr("Moved %n subscription(s).", "", feedIds.count()));
+}
+
 QString SubscriptionManagerWidget::categoryName(int parentId) const
 {
   if (parentId <= 0)
@@ -164,9 +255,13 @@ void SubscriptionManagerWidget::loadFeeds()
 
   QSqlDatabase db = QSqlDatabase::database();
   QSqlQuery query(db);
+  // Only real feeds belong here. Folders (groups) are rows with an empty
+  // xmlUrl and must not be mixed into the Name column.
   query.exec("SELECT id, text, xmlUrl, parentId, updateInterval, "
              "updateIntervalType, status, updated "
-             "FROM feeds WHERE hasChildren == 0 ORDER BY text COLLATE NOCASE");
+             "FROM feeds WHERE hasChildren == 0 "
+             "AND xmlUrl IS NOT NULL AND xmlUrl != '' "
+             "ORDER BY text COLLATE NOCASE");
 
   int total = 0;
   while (query.next()) {

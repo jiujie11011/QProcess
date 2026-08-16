@@ -23,6 +23,7 @@
 #include "webpage.h"
 #include "localsummary.h"
 #include "imagegallerydialog.h"
+#include "newsview/newstitledelegate.h"
 
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -203,6 +204,11 @@ void NewsTabWidget::createNewsList()
   newsView_->setModel(newsModel_);
   newsView_->setHeader(newsHeader_);
 
+  // Render AI summaries as a second line under the title.
+  newsView_->setItemDelegateForColumn(
+        newsModel_->fieldIndex("title"),
+        new NewsTitleDelegate(newsView_));
+
   connect(newsView_->verticalScrollBar(), SIGNAL(valueChanged(int)),
           this, SLOT(slotNewsListScrolled()));
 
@@ -361,6 +367,28 @@ void NewsTabWidget::showContextMenuNews(const QPoint &pos)
   menu.addAction(mainWindow_->openNewsNewTabAct_);
   menu.addSeparator();
   menu.addAction(mainWindow_->markNewsRead_);
+  {
+    // Mark above/below as read, relative to the row under the cursor
+    QModelIndex index = newsView_->indexAt(pos);
+    if (!index.isValid())
+      index = newsView_->currentIndex();
+    int sourceRow = -1;
+    if (newsView_->model() == newsProxyModel_) {
+      QModelIndex src = newsProxyModel_->mapToSource(index);
+      if (src.isValid())
+        sourceRow = src.row();
+    } else {
+      sourceRow = index.row();
+    }
+    if (sourceRow >= 0) {
+      QAction *markAboveAct = menu.addAction(tr("Mark News Above as Read"));
+      QAction *markBelowAct = menu.addAction(tr("Mark News Below as Read"));
+      connect(markAboveAct, &QAction::triggered, this,
+              [this, sourceRow]() { interactiveMarkController_->markAboveRead(sourceRow); });
+      connect(markBelowAct, &QAction::triggered, this,
+              [this, sourceRow]() { interactiveMarkController_->markBelowRead(sourceRow); });
+    }
+  }
   menu.addAction(mainWindow_->markAllNewsRead_);
   menu.addSeparator();
   menu.addAction(mainWindow_->markStarAct_);
@@ -1909,9 +1937,27 @@ void NewsTabWidget::slotAutoSummaryReady(int newsId, const QString &text)
   if (newsId <= 0 || text.trimmed().isEmpty()) return;
 
   QSqlQuery q(db_);
-  q.prepare("UPDATE news SET aiSummary=1 WHERE id=?");
+  q.prepare("UPDATE news SET aiSummary=1, summary=? WHERE id=?");
+  q.addBindValue(text);
   q.addBindValue(newsId);
   q.exec();
+
+  if (!newsModel_) return;
+
+  // Refresh the in-memory row so the list shows the summary immediately
+  // without a full model reload.
+  const QModelIndex startIndex =
+      newsModel_->index(0, newsModel_->fieldIndex("id"));
+  const QModelIndexList indexList = newsModel_->match(
+        startIndex, Qt::EditRole, newsId);
+  if (indexList.isEmpty())
+    return;
+  const int row = indexList.first().row();
+  newsModel_->setData(
+        newsModel_->index(row, newsModel_->fieldIndex("summary")), text);
+  newsModel_->setData(
+        newsModel_->index(row, newsModel_->fieldIndex("aiSummary")), 1);
+  newsModel_->submitAll();
 }
 
 // ----------------------------------------------------------------------------

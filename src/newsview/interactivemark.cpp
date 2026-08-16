@@ -155,6 +155,29 @@ void InteractiveMarkController::markRowsRead(const QList<int> &rows, bool record
 }
 
 // ----------------------------------------------------------------------------
+void InteractiveMarkController::markAboveRead(int sourceRow)
+{
+  if (sourceRow <= 0) return;
+  if (isReadLaterView_) return;
+
+  QList<int> rows;
+  for (int row = 0; row < sourceRow; row++)
+    rows.append(row);
+  markRowsRead(rows, true);
+}
+
+// ----------------------------------------------------------------------------
+void InteractiveMarkController::markBelowRead(int sourceRow)
+{
+  if (isReadLaterView_) return;
+
+  QList<int> rows;
+  for (int row = sourceRow + 1; row < model_->rowCount(); row++)
+    rows.append(row);
+  markRowsRead(rows, true);
+}
+
+// ----------------------------------------------------------------------------
 void InteractiveMarkController::markRowRead(int row)
 {
   QList<int> rows;

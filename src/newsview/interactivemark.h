@@ -57,6 +57,14 @@ public:
   /*! Whether an undo is currently available. */
   bool canUndo() const { return !lastBulkMarkedIds_.isEmpty(); }
 
+  /*! Mark all source rows above (0..sourceRow-1) the given row as read.
+   *  Used by the news-list context menu. */
+  void markAboveRead(int sourceRow);
+
+  /*! Mark all source rows below (sourceRow+1..end) the given row as read.
+   *  Used by the news-list context menu. */
+  void markBelowRead(int sourceRow);
+
 public slots:
   void slotHoverRowChanged(int row);
   void slotRowsScrolledOut(QList<int> rows);
