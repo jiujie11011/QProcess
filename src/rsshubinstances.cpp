@@ -76,7 +76,7 @@ void RssHubInstances::saveInstances(const QStringList &instances)
 bool RssHubInstances::autoSwapEnabled()
 {
   QSettings settings;
-  return settings.value("RSSHub/enabled", false).toBool();
+  return settings.value("RSSHub/enabled", true).toBool();
 }
 
 void RssHubInstances::setAutoSwapEnabled(bool enabled)

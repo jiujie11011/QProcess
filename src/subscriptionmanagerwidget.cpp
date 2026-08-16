@@ -36,6 +36,8 @@ SubscriptionManagerWidget::SubscriptionManagerWidget(QWidget *parent)
   deleteButton_ = new QPushButton(tr("Delete Selected"));
   deleteButton_->setObjectName("deleteSubscriptionButton");
   deleteButton_->setEnabled(false);
+  checkStatusButton_ = new QPushButton(tr("Check Status"));
+  checkStatusButton_->setObjectName("checkSubscriptionStatusButton");
   selectAllButton_ = new QPushButton(tr("Select All"));
   selectAllButton_->setObjectName("selectAllSubscriptionsButton");
   selectAllButton_->setCheckable(true);
@@ -49,6 +51,7 @@ SubscriptionManagerWidget::SubscriptionManagerWidget(QWidget *parent)
   buttonLayout->addWidget(labelsButton_);
   buttonLayout->addWidget(deleteButton_);
   buttonLayout->addStretch();
+  buttonLayout->addWidget(checkStatusButton_);
   buttonLayout->addWidget(selectAllButton_);
 
   tree_ = new QTreeWidget();
@@ -76,12 +79,55 @@ SubscriptionManagerWidget::SubscriptionManagerWidget(QWidget *parent)
   connect(addButton_, SIGNAL(clicked()), this, SIGNAL(addFeedRequested()));
   connect(labelsButton_, SIGNAL(clicked()), this, SIGNAL(manageLabelsRequested()));
   connect(deleteButton_, SIGNAL(clicked()), this, SLOT(deleteSelectedItems()));
+  connect(checkStatusButton_, SIGNAL(clicked()), this, SLOT(checkSelectedStatus()));
   connect(selectAllButton_, SIGNAL(toggled(bool)),
           this, SLOT(selectAllItems(bool)));
+  connect(tree_->header(), SIGNAL(sectionClicked(int)),
+          this, SLOT(slotHeaderClicked(int)));
   connect(tree_, SIGNAL(itemChanged(QTreeWidgetItem*,int)),
           this, SLOT(updateSummary()));
   connect(tree_, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
           this, SLOT(updateSummary()));
+}
+
+void SubscriptionManagerWidget::selectAllItems(bool checked)
+{
+  for (int i = 0; i < tree_->topLevelItemCount(); ++i)
+    tree_->topLevelItem(i)->setCheckState(0, checked ? Qt::Checked : Qt::Unchecked);
+  selectAllButton_->blockSignals(true);
+  selectAllButton_->setChecked(checked);
+  selectAllButton_->blockSignals(false);
+  updateSummary();
+}
+
+void SubscriptionManagerWidget::slotHeaderClicked(int column)
+{
+  if (column != 0)
+    return;
+  bool allChecked = true;
+  for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
+    if (tree_->topLevelItem(i)->checkState(0) != Qt::Checked) {
+      allChecked = false;
+      break;
+    }
+  }
+  selectAllItems(!allChecked);
+}
+
+void SubscriptionManagerWidget::checkSelectedStatus()
+{
+  QList<int> feedIds;
+  for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
+    QTreeWidgetItem *item = tree_->topLevelItem(i);
+    if (item->checkState(0) == Qt::Checked)
+      feedIds.append(item->data(0, Qt::UserRole).toInt());
+  }
+  if (feedIds.isEmpty()) {
+    emit statusMessage(tr("No subscriptions selected."));
+    return;
+  }
+  emit statusMessage(tr("Checking %n subscription(s)...", "", feedIds.count()));
+  emit checkStatusRequested(feedIds);
 }
 
 QString SubscriptionManagerWidget::categoryName(int parentId) const
@@ -155,14 +201,6 @@ void SubscriptionManagerWidget::loadFeeds()
   }
 
   Q_UNUSED(total);
-  updateSummary();
-}
-
-void SubscriptionManagerWidget::selectAllItems(bool checked)
-{
-  for (int i = 0; i < tree_->topLevelItemCount(); ++i)
-    tree_->topLevelItem(i)->setCheckState(0,
-        checked ? Qt::Checked : Qt::Unchecked);
   updateSummary();
 }
 

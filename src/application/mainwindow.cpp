@@ -3854,6 +3854,8 @@ void MainWindow::showOptionDlg(int index)
             this, SLOT(addFeed()));
     connect(optionsDialog_, SIGNAL(signalFeedsChanged()),
             this, SLOT(slotFeedsChanged()));
+    connect(optionsDialog_, SIGNAL(signalCheckStatusRequested(QList<int>)),
+            this, SLOT(slotCheckStatus(QList<int>)));
   }
 
   settings.beginGroup("Settings");
@@ -4890,6 +4892,31 @@ void MainWindow::slotGetFeed()
       }
     }
   }
+}
+
+/** @brief Re-check the status of the given feeds (from Manage Subscriptions)
+ *---------------------------------------------------------------------------*/
+void MainWindow::slotCheckStatus(QList<int> feedIds)
+{
+  if (feedIds.isEmpty())
+    return;
+
+  int count = 0;
+  foreach (int feedId, feedIds) {
+    QModelIndex index = feedsModel_->indexById(feedId);
+    if (!index.isValid())
+      continue;
+    if (feedsModel_->dataField(index, "disableUpdate").toBool())
+      continue;
+    count++;
+    emit signalGetFeed(feedsModel_->dataField(index, "id").toInt(),
+                       feedsModel_->dataField(index, "xmlUrl").toString(),
+                       feedsModel_->dataField(index, "lastBuildDate").toDateTime(),
+                       feedsModel_->dataField(index, "authentication").toInt());
+  }
+
+  if (count > 0)
+    statusBar()->showMessage(tr("Checking %n subscription(s)...", "", count), 5000);
 }
 
 /** @brief Process update all feeds action

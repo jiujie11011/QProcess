@@ -283,6 +283,7 @@ signals:
   void signalCleanupDatabaseRequested();
   void signalAddFeedRequested();
   void signalFeedsChanged();
+  void signalCheckStatusRequested(const QList<int> &feedIds);
 
 protected:
   bool eventFilter(QObject *obj, QEvent *event);

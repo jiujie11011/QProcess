@@ -18,6 +18,7 @@
 #ifndef SUBSCRIPTIONMANAGERWIDGET_H
 #define SUBSCRIPTIONMANAGERWIDGET_H
 
+#include <QList>
 #include <QWidget>
 
 class QLabel;
@@ -45,11 +46,15 @@ signals:
   void manageLabelsRequested();
   void feedsChanged();
   void statusMessage(const QString &message);
+  /** Request a status check (re-fetch) for the given feed ids. */
+  void checkStatusRequested(const QList<int> &feedIds);
 
 private slots:
   void selectAllItems(bool checked);
   void updateSummary();
   void deleteSelectedItems();
+  void checkSelectedStatus();
+  void slotHeaderClicked(int column);
 
 private:
   void loadFeeds();
@@ -60,6 +65,7 @@ private:
   QPushButton *addButton_;
   QPushButton *labelsButton_;
   QPushButton *deleteButton_;
+  QPushButton *checkStatusButton_;
   QPushButton *selectAllButton_;
   QLabel *summaryLabel_;
 };

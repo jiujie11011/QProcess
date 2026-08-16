@@ -3446,6 +3446,8 @@ void OptionsDialog::createManageSubscriptionsWidget()
           this, SIGNAL(signalAddFeedRequested()));
   connect(subscriptionsWidget_, SIGNAL(feedsChanged()),
           this, SIGNAL(signalFeedsChanged()));
+  connect(subscriptionsWidget_, SIGNAL(checkStatusRequested(QList<int>)),
+          this, SIGNAL(signalCheckStatusRequested(QList<int>)));
   connect(subscriptionsWidget_, SIGNAL(manageLabelsRequested()),
           this, SLOT(slotManageSubscriptionsLabels()));
   connect(subscriptionsWidget_, SIGNAL(statusMessage(QString)),

@@ -1954,6 +1954,10 @@ Ancient news could reappear</source>
         <translation>停止更新信息源</translation>
     </message>
     <message>
+        <source>Checking %n subscription(s)...</source>
+        <translation>正在检查 %n 个订阅...</translation>
+    </message>
+    <message>
         <location filename="../src/application/mainwindow.cpp" line="4924"/>
         <source>Open News Description</source>
         <translation>打开新闻描述</translation>
@@ -5097,6 +5101,18 @@ Ancient news could reappear</source>
         <message>
             <source>Delete Selected</source>
             <translation>删除选中</translation>
+        </message>
+        <message>
+            <source>Check Status</source>
+            <translation>检查状态</translation>
+        </message>
+        <message>
+            <source>No subscriptions selected.</source>
+            <translation>未选中任何订阅。</translation>
+        </message>
+        <message>
+            <source>Checking %n subscription(s)...</source>
+            <translation>正在检查 %n 个订阅...</translation>
         </message>
         <message>
             <source>Select All</source>

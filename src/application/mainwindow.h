@@ -354,6 +354,7 @@ public slots:
   void slotFeedsManagement();
   void slotCleanupDatabase();
   void slotFeedsChanged();
+  void slotCheckStatus(QList<int> feedIds);
   void slotUndoLastMark();
   void slotShowStatistics();
   void slotShowAIDialog();
