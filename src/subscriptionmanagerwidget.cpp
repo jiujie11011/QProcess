@@ -148,7 +148,7 @@ void SubscriptionManagerWidget::loadFeeds()
     item->setData(4, Qt::UserRole, status);
 
     QString updated = query.value(7).toString();
-    item->setText(5, updated.section('T', 0, 0) % " " %
+    item->setText(5, updated.section('T', 0, 0) + " " +
                        updated.section('T', 1, 1).section('.', 0, 0));
     item->setTextAlignment(0, Qt::AlignCenter);
     total++;

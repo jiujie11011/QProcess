@@ -54,10 +54,11 @@ jobs:
         run: |
           # GitHub Actions runs bash with -e -o pipefail by default; the
           # pipeline below would abort the script before diagnostics if
-          # make fails, so disable errexit around it.
+          # make fails, so disable errexit around it. Use PIPESTATUS so
+          # `status` reflects make's exit code, not tee's.
           set +e
           make -j$(nproc) 2>&1 | tee build.log
-          status=$?
+          status=${PIPESTATUS[0]}
           set -e
           if [ $status -ne 0 ]; then
             echo "::error::DBG make_status=$status log_lines=$(wc -l < build.log 2>/dev/null || echo 0)"
