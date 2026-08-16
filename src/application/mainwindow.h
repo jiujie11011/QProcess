@@ -576,6 +576,9 @@ private slots:
 
   void slotOpenHomeFeed();
   void sortedByTitleFeedsTree();
+  void sortedByUnreadFeedsTree();
+  void sortedByUpdatedFeedsTree();
+  void sortFeedsTree(const QString &orderBy);
 
   void showNewsMenu();
   void showNewsSortByMenu();
@@ -678,6 +681,8 @@ private:
   QAction *markAllFeedsRead_;
   QAction *indentationFeedsTreeAct_;
   QAction *sortedByTitleFeedsTreeAct_;
+  QAction *sortFeedsByUnreadAct_;
+  QAction *sortFeedsByUpdatedAct_;
   QAction *collapseAllFoldersAct_;
   QAction *expandAllFoldersAct_;
   QAction *exitAct_;

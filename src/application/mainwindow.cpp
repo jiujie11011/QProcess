@@ -1034,6 +1034,14 @@ void MainWindow::createActions()
   connect(sortedByTitleFeedsTreeAct_, SIGNAL(triggered()),
           this, SLOT(sortedByTitleFeedsTree()));
 
+  sortFeedsByUnreadAct_ = new QAction(this);
+  connect(sortFeedsByUnreadAct_, SIGNAL(triggered()),
+          this, SLOT(sortedByUnreadFeedsTree()));
+
+  sortFeedsByUpdatedAct_ = new QAction(this);
+  connect(sortFeedsByUpdatedAct_, SIGNAL(triggered()),
+          this, SLOT(sortedByUpdatedFeedsTree()));
+
   collapseAllFoldersAct_ = new QAction(this);
   collapseAllFoldersAct_->setObjectName("collapseAllFolderAct");
   collapseAllFoldersAct_->setIcon(QIcon(":/images/bulletMinus"));
@@ -1867,7 +1875,11 @@ void MainWindow::createMenu()
   feedMenu_->addSeparator();
   feedMenu_->addAction(feedsFilter_);
   feedMenu_->addMenu(feedsColumnsMenu_);
-  feedMenu_->addAction(sortedByTitleFeedsTreeAct_);
+  QMenu *sortFeedsMenu = new QMenu(tr("Sort"), this);
+  sortFeedsMenu->addAction(sortedByTitleFeedsTreeAct_);
+  sortFeedsMenu->addAction(sortFeedsByUnreadAct_);
+  sortFeedsMenu->addAction(sortFeedsByUpdatedAct_);
+  feedMenu_->addMenu(sortFeedsMenu);
   feedMenu_->addAction(indentationFeedsTreeAct_);
   feedMenu_->addSeparator();
   feedMenu_->addAction(deleteFeedAct_);
@@ -5938,6 +5950,8 @@ void MainWindow::retranslateStrings()
 
   openHomeFeedAct_->setText(tr("Open Homepage Feed"));
   sortedByTitleFeedsTreeAct_->setText(tr("Sort by Name"));
+  sortFeedsByUnreadAct_->setText(tr("Sort by Unread Count"));
+  sortFeedsByUpdatedAct_->setText(tr("Sort by Update Time"));
   collapseAllFoldersAct_->setText(tr("Collapse All Folders"));
   expandAllFoldersAct_->setText(tr("Expand All Folders"));
   nextFolderAct_->setText(tr("Next Folder"));
@@ -7562,6 +7576,7 @@ void MainWindow::creatFeedTab(int feedId, int feedParId)
  *---------------------------------------------------------------------------*/
 void MainWindow::slotOpenNewsWebView()
 {
+  if (!newsView_ || !currentNewsTab) return;
   if (!newsView_->hasFocus()) return;
   currentNewsTab->slotNewsViewSelected(newsView_->currentIndex());
 }
@@ -7618,6 +7633,7 @@ void MainWindow::restoreNews()
 // ----------------------------------------------------------------------------
 void MainWindow::openInBrowserNews()
 {
+  if (!currentNewsTab) return;
   currentNewsTab->openInBrowserNews();
 }
 // ----------------------------------------------------------------------------
@@ -8943,6 +8959,29 @@ void MainWindow::slotOpenHomeFeed()
  *---------------------------------------------------------------------------*/
 void MainWindow::sortedByTitleFeedsTree()
 {
+  sortFeedsTree(QStringLiteral("text COLLATE LOCALE"));
+}
+
+/** @brief Sort feed and folders by unread news count (descending)
+ *---------------------------------------------------------------------------*/
+void MainWindow::sortedByUnreadFeedsTree()
+{
+  sortFeedsTree(QStringLiteral("unread DESC, text COLLATE LOCALE"));
+}
+
+/** @brief Sort feed and folders by last update time (descending)
+ *---------------------------------------------------------------------------*/
+void MainWindow::sortedByUpdatedFeedsTree()
+{
+  sortFeedsTree(QStringLiteral("updated DESC, text COLLATE LOCALE"));
+}
+
+/** @brief Sort feed and folders inside every group by the given ORDER BY
+ *  clause. Updates the rowToParent column recursively (folders included),
+ *  then reloads the feeds tree model.
+ *---------------------------------------------------------------------------*/
+void MainWindow::sortFeedsTree(const QString &orderBy)
+{
   QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
 
   QList<int> parentIdsPotential;
@@ -8952,7 +8991,7 @@ void MainWindow::sortedByTitleFeedsTree()
 
     // Search children of parent <parentId>
     QSqlQuery q;
-    q.prepare(QString("SELECT id, xmlUrl FROM feeds WHERE parentId=? ORDER BY text COLLATE LOCALE"));
+    q.prepare(QString("SELECT id, xmlUrl FROM feeds WHERE parentId=? ORDER BY %1").arg(orderBy));
     q.addBindValue(parentId);
     q.exec();
 

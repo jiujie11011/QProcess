@@ -60,8 +60,17 @@ double similarity(const QStringList &a, const QStringList &b)
 QString LocalSummarizer::summarize(const QString &text, int sentenceCount)
 {
   QStringList sentences = splitSentences(text);
+
+  // Hard cap on the number of sentences. The TextRank graph below is O(N^2);
+  // without a cap, pathological long articles freeze the UI thread (this runs
+  // synchronously while the user opens the article).
+  const int kMaxSentences = 300;
+  const bool truncated = (sentences.size() > kMaxSentences);
+  if (truncated)
+    sentences = sentences.mid(0, kMaxSentences);
+
   if (sentences.size() <= sentenceCount)
-    return text;
+    return truncated ? sentences.join(" ") : text;
 
   // Build token lists per sentence.
   QVector<QStringList> tokens(sentences.size());
@@ -75,29 +84,40 @@ QString LocalSummarizer::summarize(const QString &text, int sentenceCount)
   int total = sentences.size();
   double d = 0.85; // TextRank damping factor
 
-  // Iterative TextRank over sentence similarity graph.
+  // Precompute the pair-wise similarity matrix once and the outgoing strength
+  // of every sentence. This turns the naive O(iter * N^3) TextRank loop into
+  // O(N^2) and keeps article opening responsive even for 300 sentences.
+  QVector<QVector<double> > simMat(total, QVector<double>(total, 0.0));
+  for (int i = 0; i < total; ++i) {
+    for (int j = i + 1; j < total; ++j) {
+      double sim = similarity(tokens[i], tokens[j]);
+      simMat[i][j] = sim;
+      simMat[j][i] = sim;
+    }
+  }
+  QVector<double> outStrength(total, 0.0);
+  for (int i = 0; i < total; ++i) {
+    double out = 0.0;
+    for (int j = 0; j < total; ++j)
+      out += simMat[i][j];
+    outStrength[i] = out;
+  }
+
+  // Iterative TextRank over the precomputed similarity graph.
   QVector<double> score(total, 1.0);
   for (int iter = 0; iter < 30; ++iter) {
     QVector<double> next(total, 0.0);
     for (int i = 0; i < total; ++i) {
       double incoming = 0.0;
-      double outgoingSum = 0.0;
       for (int j = 0; j < total; ++j) {
         if (i == j) continue;
-        double sim = similarity(tokens[i], tokens[j]);
+        double sim = simMat[i][j];
         if (sim <= 0.0) continue;
-        // Outgoing strength of sentence j.
-        double out = 0.0;
-        for (int k = 0; k < total; ++k) {
-          if (j == k) continue;
-          out += similarity(tokens[j], tokens[k]);
-        }
+        double out = outStrength[j];
         if (out > 0.0)
           incoming += sim * score[j] / out;
       }
       next[i] = (1.0 - d) + d * incoming;
-      outgoingSum = 0.0; // keep unused-variable check satisfied
-      Q_UNUSED(outgoingSum)
     }
     score = next;
   }
@@ -161,7 +181,8 @@ QStringList LocalSummarizer::splitSentences(const QString &text)
   for (int i = 0; i < text.size(); ++i) {
     QChar c = text.at(i);
     current.append(c);
-    if (c == '.' || c == '!' || c == '?' || c == '\n' || c == '\r') {
+    if (c == '.' || c == '!' || c == '?' || c == '\n' || c == '\r' ||
+        c == '。' || c == '！' || c == '？') {
       QString s = current.simplified();
       if (!s.isEmpty()) out << s;
       current.clear();

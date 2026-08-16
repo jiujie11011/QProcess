@@ -161,6 +161,8 @@ void AIDialog::loadRecommendations()
 // ----------------------------------------------------------------------------
 void AIDialog::slotAnchorClicked(const QUrl &url)
 {
+  if (url.isEmpty() || !url.isValid())
+    return;
   QDesktopServices::openUrl(url);
 }
 

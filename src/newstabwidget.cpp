@@ -973,6 +973,8 @@ void NewsTabWidget::slotNewsViewDoubleClicked(QModelIndex index)
   if (!index.isValid()) return;
 
   QUrl url = QUrl::fromEncoded(getLinkNews(index.row()).toUtf8());
+  if (url.isEmpty() || !url.isValid())
+    return;
   slotLinkClicked(url);
 }
 
@@ -994,6 +996,8 @@ void NewsTabWidget::slotNewsMiddleClicked(QModelIndex index)
   }
 
   QUrl url = QUrl::fromEncoded(getLinkNews(index.row()).toUtf8());
+  if (url.isEmpty() || !url.isValid())
+    return;
   slotLinkClicked(url);
 }
 
@@ -1615,8 +1619,18 @@ void NewsTabWidget::updateWebView(QModelIndex index)
       locationBar_->setText(newsUrl.toString());
       setWebToolbarVisible(true, false);
 
-      webView_->history()->clear();
-      webView_->load(newsUrl);
+      if (newsUrl.isEmpty() || !newsUrl.isValid()) {
+        // No link (or malformed link) for this news item: show a blank
+        // page instead of handing an empty QUrl to QWebEngineView::load(),
+        // which can crash the renderer in Qt 5.15.
+        webView_->stop();
+        webView_->history()->clear();
+        webView_->setHtml(QString());
+      } else {
+        webView_->stop();
+        webView_->history()->clear();
+        webView_->load(newsUrl);
+      }
     } else {
       openUrl(newsUrl);
     }
@@ -2304,6 +2318,11 @@ void NewsTabWidget::loadNewspaper(int refresh)
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::slotSetHtmlWebView(const QString &html)
 {
+  // Stop any in-flight navigation first. Calling history()->clear() while a
+  // page is still loading is a known QtWebEngine 5.15 crash trigger when the
+  // user quickly switches between articles (e.g. double-clicking to "read the
+  // full article" right after opening another one).
+  webView_->stop();
   webView_->history()->clear();
   webView_->setHtml(html);
 }
@@ -2340,6 +2359,9 @@ void NewsTabWidget::slotLinkClicked(QUrl url)
     return;
   }
 
+  if (url.isEmpty() || !url.isValid())
+    return;
+
   if (type_ != TabTypeWeb) {
     if ((url.host().isEmpty() || (QUrl(url).host().indexOf('.') == -1)) && newsView_->currentIndex().isValid()) {
       QModelIndex curIdx = newsIndexToSource(newsView_->currentIndex());
@@ -2360,6 +2382,8 @@ void NewsTabWidget::slotLinkClicked(QUrl url)
         locationBar_->setText(url.toString());
         setWebToolbarVisible(true, false);
       }
+      // Interrupt any in-progress navigation before starting a new one.
+      webView_->stop();
       webView_->load(url);
     } else {
       if ((webView_->buttonClick_ == MIDDLE_BUTTON) ||
@@ -3401,9 +3425,13 @@ void NewsTabWidget::actionNewspaper(QUrl url)
         QModelIndex feedIndex = feedsModel_->indexById(feedId.toInt());
         QUrl hostUrl = feedsModel_->dataField(feedIndex, "htmlUrl").toString();
 
-        url.setScheme(hostUrl.scheme());
-        url.setHost(hostUrl.host());
+        if (!hostUrl.isEmpty()) {
+          url.setScheme(hostUrl.scheme());
+          url.setHost(hostUrl.host());
+        }
       }
+      if (url.isEmpty() || !url.isValid())
+        return;
       openUrl(url);
     } else if (url.host() == "delete.action.ui") {
       newsView_->selectionModel()->clearSelection();
