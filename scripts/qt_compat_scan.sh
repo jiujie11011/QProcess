@@ -78,6 +78,7 @@ if [[ $STRICT -eq 1 ]]; then
   report "QScreen::devicePixelRatio() 前置 QWindow (Qt6 新增形态; Qt5 是 QWidget::devicePixelRatio)" "$(scan_src_only "\.devicePixelRatio\(\)")"
   report "QModelIndex::child() (Qt6 移除 -> model()->index(row,col,parent), 用 QMODELINDEX_CHILD)" "$(scan_src_only "\.child\(")"
   report "QWebEnginePage::createStandardContextMenu() (Qt6 移除 -> QWebEngineView 同方法, 用 QWEBENGINE_STD_CONTEXTMENU)" "$(scan_src_only "createStandardContextMenu")"
+  report "QTime 计时器用法 (Qt6 移除 QTime::start/elapsed -> QElapsedTimer; 声明后 200 字符内调用)" "$(grep -rnP "QTime\s+(\w+)\s*;(\n|.){0,200}?\b\1\.(start|elapsed)\(" "$ROOT/src" --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "qt6compat\.h" || true)"
   echo ""
   if [[ $found -eq 1 ]]; then
     echo -e "${RED}严格模式发现必炸项, 请修复后再提交${NC}"
@@ -113,6 +114,7 @@ report "QMouseEvent::globalPosition() 裸用 (Qt6 新增; Qt5 是 globalPos() ->
 report "QSinglePointEvent::position() 裸用 (Qt6 新增; Qt5 是 pos() -> QEVENT_POS)" "$(scan_src_only "\.position\(\)\.toPoint\(\)")"
 report "QModelIndex::child() 裸用 (Qt6 移除 -> model()->index(row,col,parent), 用 QMODELINDEX_CHILD)" "$(scan_src_only "\.child\(")"
 report "QWebEnginePage::createStandardContextMenu() 裸用 (Qt6 移除 -> QWebEngineView 同方法, 用 QWEBENGINE_STD_CONTEXTMENU)" "$(scan_src_only "createStandardContextMenu")"
+report "QTime 计时器用法 (Qt6 移除 QTime::start/elapsed -> QElapsedTimer; 声明后 200 字符内调用)" "$(grep -rnP "QTime\s+(\w+)\s*;(\n|.){0,200}?\b\1\.(start|elapsed)\(" "$ROOT/src" --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "qt6compat\.h" || true)"
 
 # --- B 级：编译通过但行为可能异常 ---
 echo -e "${YELLOW}=== B 级：编译通过但需回归验证 ===${NC}"

@@ -18,7 +18,12 @@
 #ifndef QT6COMPAT_H
 #define QT6COMPAT_H
 
-#include <QtCore/qglobal.h>
+// NOTE: must be <QtGlobal>, NOT <QtCore/qglobal.h>. Qt5's qmake INCPATH only
+// lists module include dirs (-I.../include/QtCore, .../include/QtWidgets, ...)
+// and has no Qt root include dir, so the module-prefixed form fails to resolve
+// on Qt5 while the plain <QtGlobal> resolves from the QtCore module dir on both
+// toolkits.
+#include <QtGlobal>
 
 // Qt 6 still ships `foreach`/Q_FOREACH (in qforeach.h, via QtGlobal) but
 // marks it deprecated, and for non-implicitly-shared containers (QJsonArray,

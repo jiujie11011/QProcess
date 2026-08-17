@@ -321,7 +321,16 @@ jobs:
             }
             exit $status
           }
-          .\tst_common.exe
+          # Windows qmake defaults to debug_and_release, so the exe lands in
+          # the release\ subdir even when building only the release config.
+          if (-not (Test-Path ".\release\tst_common.exe")) {
+            Write-Output "::error::tst_common.exe not found in .\release\. CWD: $(Get-Location)"
+            Get-ChildItem -Recurse -Filter tst_common.exe -ErrorAction SilentlyContinue | ForEach-Object {
+              Write-Output ("::error::found " + $_.FullName)
+            }
+            exit 1
+          }
+          .\release\tst_common.exe
           exit $LASTEXITCODE
 
       - name: Deploy Qt runtime (windeployqt)

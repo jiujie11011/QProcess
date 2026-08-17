@@ -43,6 +43,7 @@
 #include <QFtp>
 #endif
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QNetworkReply>
 #include <QAuthenticator>
 
@@ -94,7 +95,10 @@ private:
   QNetworkReply *reply_;
   FtpDownloader *ftpDownloader_;
   QString fileName_;
-  QTime downloadTimer_;
+  // QTime::start()/elapsed() were removed in Qt 6; QElapsedTimer has the same
+  // ms-semantics (start() + elapsed()). remTime_ below stays QTime (it is a
+  // wall-clock remaining-time, used with addSecs()/toString()).
+  QElapsedTimer downloadTimer_;
   QTime remTime_;
   QTimer updateInfoTimer_;
   QFile outputFile_;
