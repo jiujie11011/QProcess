@@ -91,9 +91,20 @@ QWebEnginePage* WebPage::createWindow(WebWindowType type)
   return mainApp->mainWindow()->createWebTab();
 }
 
+WebView* WebPage::associatedView() const
+{
+#if defined(QT6)
+  // Qt6 移除了 QWebEnginePage::view()；WebPage 的 QObject parent 即关联的 WebView
+  // （webview.cpp 中通过 new WebPage(this) 建立父子关系）
+  return qobject_cast<WebView*>(parent());
+#else
+  return qobject_cast<WebView*>(view());
+#endif
+}
+
 void WebPage::scheduleAdjustPage()
 {
-  WebView* webView = qobject_cast<WebView*>(view());
+  WebView* webView = associatedView();
   if (!webView) {
     return;
   }
@@ -127,7 +138,7 @@ void WebPage::finished(bool ok)
   if (adjustingScheduled_) {
     adjustingScheduled_ = false;
 
-    WebView* webView = qobject_cast<WebView*>(view());
+    WebView* webView = associatedView();
     if (webView) {
       const QSize &originalSize = webView->size();
       QSize newSize(originalSize.width() - 1, originalSize.height() - 1);

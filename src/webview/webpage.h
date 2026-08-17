@@ -23,6 +23,7 @@
 #include <QSslCertificate>
 
 class AdBlockRule;
+class WebView;
 
 class WebPage : public QWebEnginePage
 {
@@ -58,6 +59,9 @@ public:
 
   // S-4: warn before jumping to external links
   void setJumpOutLinkWarn(bool on);
+
+  // 关联的 WebView（Qt5 经 QWebEnginePage::view()；Qt6 该 API 已移除，改走 parent()）
+  WebView* associatedView() const;
 
 signals:
   void navigationRequested(const QUrl &url);

@@ -91,7 +91,12 @@ void FeedUrlDetector::probeNext()
   request.setRawHeader("Accept", "application/feed+json,application/atom+xml,application/rss+xml;q=0.9,application/json;q=0.8,application/xml;q=0.8,text/xml;q=0.7,*/*;q=0.6");
   request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                        QNetworkRequest::AlwaysNetwork);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  // Qt6 移除了 FollowRedirectsAttribute，改用重定向策略
+  request.setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
+#else
   request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
+#endif
   currentReply_ = networkManager_->get(request);
 }
 // ----------------------------------------------------------------------------

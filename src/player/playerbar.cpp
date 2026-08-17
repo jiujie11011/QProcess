@@ -171,7 +171,8 @@ void PlayerBar::setupPlayer()
         }
     });
 #else
-    connect(player_, SIGNAL(stateChanged(QMediaPlayer::State)), this, [this](QMediaPlayer::State state) {
+    // Qt5 也有 stateChanged 信号（无同名成员，& 无歧义）
+    connect(player_, &QMediaPlayer::stateChanged, this, [this](QMediaPlayer::State state) {
         emit playbackStateChanged(state);
         updateControls();
         if (state == QMediaPlayer::StoppedState && !userSeeking_) {
@@ -199,7 +200,9 @@ void PlayerBar::setupPlayer()
         stop();
     });
 #else
-    connect(player_, SIGNAL(error(QMediaPlayer::Error)), this, [this] {
+    // Qt5：error 既是信号也是同名 getter，需 static_cast 指定信号签名
+    connect(player_, static_cast<void (QMediaPlayer::*)(QMediaPlayer::Error)>(&QMediaPlayer::error),
+            this, [this](QMediaPlayer::Error) {
         emit errorOccurred(player_->errorString());
         stop();
     });

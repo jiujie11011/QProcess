@@ -25,7 +25,9 @@
 #include <QtSql/qsqlresult.h>
 
 class QVariant;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 template <typename T> class QVector;
+#endif
 
 class SqlCachedResultPrivate;
 
