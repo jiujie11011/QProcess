@@ -901,7 +901,8 @@ void MainWindow::createCodexLayout()
         break;
     }
   });
-  connect(navRail_, &NavRail::settingsRequested, this, &MainWindow::showOptionDlg);
+  // settingsRequested 无参，showOptionDlg 带默认参数——PMF connect 静态检查不认默认参数，需 lambda 中转
+  connect(navRail_, &NavRail::settingsRequested, this, [this]() { showOptionDlg(); });
   connect(navRail_, &NavRail::syncAccountRequested, this, [this]() {
     showMessageStatusBar(tr("Account sync is not available yet"), 4000);
   });
