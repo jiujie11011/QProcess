@@ -2,7 +2,7 @@
 REVFILE = src/VersionRev.h
 QMAKE_DISTCLEAN += $$REVFILE
 exists(.git) {
-  VERSION_REV = $$system(git rev-list master --count)
+  VERSION_REV = $$system(git rev-list HEAD --count)
   count(VERSION_REV, 1) {
     os2|win32|mac {
       # FIXME
@@ -403,7 +403,9 @@ unix:!mac {
 
 mac {
   CONFIG += app_bundle
-  QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.6
+  # Qt 5.15 最低要求 macOS 10.13, Qt6.5 要求 macOS 11+。
+  # 10.6 无法通过任一主流 Qt 版本构建, 对齐 Qt5.15 下限。
+  QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
 
   QMAKE_INFO_PLIST = Info.plist
   ICON = quill.icns

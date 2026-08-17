@@ -9836,7 +9836,7 @@ void MainWindow::restoreData()
     if (QFile::exists(destIni))
       QFile::remove(destIni);
     QFile::copy(iniPath, destIni);
-    settings.sync();
+    Settings::syncSettings();
   }
 
   // Run schema migrations (the backup may come from an older DB version),

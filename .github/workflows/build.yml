@@ -7,6 +7,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Qt5/Qt6 兼容性静态扫描：在编译前拦截"必炸"API 回归。
+  # --strict 只检查已确认 0 残留的必炸项（QPalette::background 等），
+  # 任何新增命中都会让本 job 失败，把 Qt6 兼容问题拦在编译之前。
+  compat-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Qt5/Qt6 compatibility scan (strict)
+        run: |
+          bash scripts/qt_compat_scan.sh --strict .
+
   build-linux:
     runs-on: ubuntu-22.04
     steps:

@@ -25,6 +25,8 @@
 #include <QTextStream>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QStringConverter>  // QTextStream::setEncoding / QStringConverter::Utf8
+#else
+#include <QDesktopWidget>    // Qt5: QApplication::desktop() needs complete type
 #endif
 
 #define TRACKING_ID "UA-99877778-1"

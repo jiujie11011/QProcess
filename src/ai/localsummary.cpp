@@ -47,9 +47,18 @@ const QSet<QString> &stopWords()
 double similarity(const QStringList &a, const QStringList &b)
 {
   if (a.isEmpty() || b.isEmpty()) return 0.0;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  QSet<QString> setB(b.cbegin(), b.cend());
+#else
   QSet<QString> setB = b.toSet();
+#endif
   int overlap = 0;
-  foreach (const QString &tok, a.toSet()) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  const QSet<QString> setA(a.cbegin(), a.cend());
+#else
+  const QSet<QString> setA = a.toSet();
+#endif
+  foreach (const QString &tok, setA) {
     if (setB.contains(tok)) ++overlap;
   }
   return overlap / qSqrt((double)a.size() * (double)b.size());
@@ -78,7 +87,12 @@ QString LocalSummarizer::summarize(const QString &text, int sentenceCount)
   QHash<QString, int> docFreq; // term -> number of sentences containing it
   for (int i = 0; i < sentences.size(); ++i) {
     tokens[i] = tokenize(sentences[i]);
-    foreach (const QString &tok, tokens[i].toSet())
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QSet<QString> uni(tokens[i].cbegin(), tokens[i].cend());
+#else
+    const QSet<QString> uni = tokens[i].toSet();
+#endif
+    foreach (const QString &tok, uni)
       ++docFreq[tok];
   }
 
@@ -182,8 +196,9 @@ QStringList LocalSummarizer::splitSentences(const QString &text)
   for (int i = 0; i < text.size(); ++i) {
     QChar c = text.at(i);
     current.append(c);
-    if (c == '.' || c == '!' || c == '?' || c == '\n' || c == '\r' ||
-        c == '。' || c == '！' || c == '？') {
+    const ushort u = c.unicode();
+    if (u == '.' || u == '!' || u == '?' || u == '\n' || u == '\r' ||
+        u == 0x3002 /* 。 */ || u == 0xFF01 /* ！ */ || u == 0xFF1F /* ？ */) {
       QString s = current.simplified();
       if (!s.isEmpty()) out << s;
       current.clear();
