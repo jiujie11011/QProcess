@@ -582,8 +582,8 @@ void NewsTabWidget::createWebWidget()
           this, &NewsTabWidget::slotLoadStarted);
   connect(webView_, &QWebEngineView::loadFinished,
           this, &NewsTabWidget::slotLoadFinished);
-  connect(webView_->page(), &QWebEnginePage::linkClicked,
-          this, &NewsTabWidget::slotLinkClicked);
+  // Note: link clicks are handled through WebPage::navigationRequested
+  // (see below); QWebEngineView/QWebEnginePage have no linkClicked signal.
   connect(webView_->page(), &QWebEnginePage::linkHovered,
           this, &NewsTabWidget::slotLinkHovered);
   // S-4: warn before jumping to external links

@@ -54,6 +54,11 @@ public:
   static const int pageSize = 500;  //!< rows loaded per select/fetchMore
   void fetchAll();                  //!< load the remaining pages immediately
   bool allFetched() const;          //!< true once every row is loaded
+  // Parameterless helpers used by fetchAll(), sort() and the list scroll
+  // handlers. The QModelIndex overloads below implement QAbstractItemModel's
+  // paging API used by QTreeView itself.
+  bool canFetchMore() const { return rowCount() < totalCount(); }
+  void fetchMore() { loadedLimit_ += pageSize; selectWithLimit(); }
 
   QString formatDate_;
   QString formatTime_;

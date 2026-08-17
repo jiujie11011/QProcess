@@ -149,10 +149,11 @@ jobs:
           host: 'linux'
           target: 'desktop'
           arch: 'gcc_64'
-          # qtwebengine does NOT pull in qtmultimedia on Qt6 (it did on Qt5),
-          # but QuiteRSS.pro lists `QT += multimedia`, so it must be installed
-          # explicitly or qmake fails with "Unknown module(s) in QT: multimedia".
-          modules: 'qtwebengine qt5compat qtmultimedia'
+          # qtwebengine does NOT pull in qtmultimedia/qtwebchannel/qtpositioning
+          # on Qt6 (they were implicit on Qt5), but the .pro and QtWebEngine's
+          # own .prf require them, so install them explicitly or qmake fails
+          # with "Unknown module(s) in QT: multimedia webchannel positioning".
+          modules: 'qtwebengine qt5compat qtmultimedia qtwebchannel qtpositioning'
           cache: true
 
       - name: Run qmake
