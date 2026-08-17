@@ -102,7 +102,7 @@ CategoriesTreeWidget::CategoriesTreeWidget(QWidget * parent)
 
 void CategoriesTreeWidget::mousePressEvent(QMouseEvent *event)
 {
-  QModelIndex index = indexAt(event->pos());
+  QModelIndex index = indexAt(event->position().toPoint());
   QRect rectText = visualRect(index);
 
   if (event->buttons() & Qt::RightButton) {
@@ -110,7 +110,7 @@ void CategoriesTreeWidget::mousePressEvent(QMouseEvent *event)
   }
 
   if (!index.isValid()) return;
-  if (!(event->pos().x() >= rectText.x())) {
+  if (!(event->position().toPoint().x() >= rectText.x())) {
     QTreeWidget::mousePressEvent(event);
     return;
   }

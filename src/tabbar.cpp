@@ -51,12 +51,12 @@ bool TabBar::eventFilter(QObject *obj, QEvent *event)
 {
   if (event->type() == QEvent::MouseButtonPress) {
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-    if (tabAt(mouseEvent->pos()) < 0)
+    if (tabAt(mouseEvent->position().toPoint()) < 0)
       return false;
     if (mouseEvent->button() & Qt::MiddleButton) {
-      emit closeTab(tabAt(mouseEvent->pos()));
+      emit closeTab(tabAt(mouseEvent->position().toPoint()));
     } else if (mouseEvent->button() & Qt::LeftButton) {
-      if (tabAt(QPoint(mouseEvent->pos().x(), 0)) == 0)
+      if (tabAt(QPoint(mouseEvent->position().toPoint().x(), 0)) == 0)
         tabFixed_ = true;
       else
         tabFixed_ = false;
@@ -64,7 +64,7 @@ bool TabBar::eventFilter(QObject *obj, QEvent *event)
   } else if (event->type() == QEvent::MouseMove) {
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
     if (mouseEvent->buttons() & Qt::LeftButton) {
-      if ((tabAt(QPoint(mouseEvent->pos().x()-78, 0)) <= 0) || tabFixed_)
+      if ((tabAt(QPoint(mouseEvent->position().toPoint().x()-78, 0)) <= 0) || tabFixed_)
         return true;
     }
   }

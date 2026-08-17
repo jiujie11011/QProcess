@@ -166,10 +166,10 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
              (event->type() == QEvent::HoverEnter) ||
              (event->type() == QEvent::HoverLeave)) {
     QHoverEvent *hoverEvent = static_cast<QHoverEvent*>(event);
-    if (hoverEvent->pos().x() >= width() - buttonColumnView_->width()) {
+    if (hoverEvent->position().toPoint().x() >= width() - buttonColumnView_->width()) {
       if ((event->type() == QEvent::HoverMove) && !(QApplication::mouseButtons() & Qt::LeftButton)) {
         QHoverEvent* pe =
-            new QHoverEvent(QEvent::HoverLeave, hoverEvent->oldPos(), hoverEvent->pos());
+            new QHoverEvent(QEvent::HoverLeave, hoverEvent->oldPosF(), hoverEvent->position());
         QApplication::sendEvent(this, pe);
       }
       return true;
@@ -183,11 +183,11 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
 
 /*virtual*/ void NewsHeader::mousePressEvent(QMouseEvent *event)
 {
-  QPoint nPos = event->pos();
+  QPoint nPos = event->position().toPoint();
   nPos.setX(nPos.x() + 5);
   idxCol_ = visualIndex(logicalIndexAt(nPos));
-  posX_ = event->pos().x();
-  nPos = event->pos();
+  posX_ = event->position().toPoint().x();
+  nPos = event->position().toPoint();
   nPos.setX(nPos.x() - 5);
   QHeaderView::mousePressEvent(event);
 }
@@ -200,9 +200,9 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
     int newWidth = 0;
 
     for (int i = 0; i < count(); i++) newWidth += sectionSize(i);
-    if (posX_ > event->pos().x()) sizeMin =  true;
+    if (posX_ > event->position().toPoint().x()) sizeMin =  true;
     if (!sizeMin) {
-      if (event->pos().x() < oldWidth) {
+      if (event->position().toPoint().x() < oldWidth) {
         for (int i = count()-1; i >= 0; i--) {
           int lIdx = logicalIndex(i);
           if (!isSectionHidden(lIdx)) {
@@ -227,7 +227,7 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
           tWidth += 40;
         }
       }
-      if (event->pos().x()+tWidth > oldWidth) {
+      if (event->position().toPoint().x()+tWidth > oldWidth) {
         sizeMin = false;
       }
     } else {
@@ -254,12 +254,12 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
       }
     }
     if (!sizeMin) {
-      if (posX_ > event->pos().x()) posX_ = event->pos().x();
+      if (posX_ > event->position().toPoint().x()) posX_ = event->position().toPoint().x();
       event->ignore();
       return;
     }
   }
-  if (posX_ > event->pos().x()) posX_ = event->pos().x();
+  if (posX_ > event->position().toPoint().x()) posX_ = event->position().toPoint().x();
 
   QHeaderView::mouseMoveEvent(event);
 }

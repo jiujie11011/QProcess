@@ -56,7 +56,7 @@ void WebView::disconnectObjects()
   buttonClick_ = 0;
 
   if (event->buttons() == Qt::RightButton) {
-    posX_ = event->pos().x();
+    posX_ = event->position().toPoint().x();
   }
 
   QWebEngineView::mousePressEvent(event);
@@ -65,7 +65,7 @@ void WebView::disconnectObjects()
 /*virtual*/ void WebView::mouseReleaseEvent(QMouseEvent *event)
 {
   if (event->button() & Qt::RightButton) {
-    int posX2 = event->pos().x();
+    int posX2 = event->position().toPoint().x();
     if (posX_ > posX2+5) {
       if (history()->canGoBack())
         back();
@@ -74,7 +74,7 @@ void WebView::disconnectObjects()
     } else if (posX_+5 < posX2) {
       forward();
     } else {
-      emit showContextMenu(event->pos());
+      emit showContextMenu(event->position().toPoint());
     }
   } else if (event->button() & Qt::MiddleButton) {
     if (event->modifiers() == Qt::NoModifier) {

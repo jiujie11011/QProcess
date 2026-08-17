@@ -274,8 +274,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
     if (event->type() == QEvent::MouseButtonRelease) {
       if (windowState() & Qt::WindowMaximized) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-        if ((mouseEvent->pos().x() > (statusBar()->width()-statusBar()->height())) &&
-            (mouseEvent->pos().y() > 0)) {
+        if ((mouseEvent->position().toPoint().x() > (statusBar()->width()-statusBar()->height())) &&
+            (mouseEvent->position().toPoint().y() > 0)) {
           setFullScreen();
         }
       }

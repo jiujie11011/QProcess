@@ -400,11 +400,11 @@ void FeedsView::mousePressEvent(QMouseEvent *event)
     return;
   }
 
-  QModelIndex index = indexAt(event->pos());
+  QModelIndex index = indexAt(event->position().toPoint());
   QRect rectText = visualRect(index);
 
   if (event->buttons() & Qt::RightButton) {
-    if (event->pos().x() >= rectText.x()) {
+    if (event->position().toPoint().x() >= rectText.x()) {
       index = ((FeedsProxyModel*)model())->mapToSource(index);
       selectId_ = sourceModel_->idByIndex(index);
     }
@@ -412,7 +412,7 @@ void FeedsView::mousePressEvent(QMouseEvent *event)
   }
 
   if (!index.isValid()) return;
-  if (!(event->pos().x() >= rectText.x())) {
+  if (!(event->position().toPoint().x() >= rectText.x())) {
     QTreeView::mousePressEvent(event);
     return;
   }
@@ -424,7 +424,7 @@ void FeedsView::mousePressEvent(QMouseEvent *event)
   if ((event->buttons() & Qt::MiddleButton)) {
     emit signalMiddleClicked();
   } else if (event->buttons() & Qt::LeftButton) {
-    dragStartPos_ = event->pos();
+    dragStartPos_ = event->position().toPoint();
     QTreeView::mousePressEvent(event);
   }
 }
@@ -441,19 +441,19 @@ void FeedsView::mouseReleaseEvent(QMouseEvent *event)
 {
   if (dragStartPos_.isNull()) return;
 
-  if ((event->pos() - dragStartPos_).manhattanLength() < qApp->startDragDistance())
+  if ((event->position().toPoint() - dragStartPos_).manhattanLength() < qApp->startDragDistance())
     return;
 
   event->accept();
 
-  dragPos_ = event->pos();
+  dragPos_ = event->position().toPoint();
 
   QMimeData *mimeData = new QMimeData;
 //  mimeData->setText("MovingItem");
 
   QDrag *drag = new QDrag(this);
   drag->setMimeData(mimeData);
-  drag->setHotSpot(event->pos() + QPoint(10,10));
+  drag->setHotSpot(event->position().toPoint() + QPoint(10,10));
 
   drag->exec();
 }
@@ -461,17 +461,17 @@ void FeedsView::mouseReleaseEvent(QMouseEvent *event)
 // ----------------------------------------------------------------------------
 /*virtual*/ void FeedsView::mouseDoubleClickEvent(QMouseEvent *event)
 {
-  QModelIndex index = indexAt(event->pos());
+  QModelIndex index = indexAt(event->position().toPoint());
   QRect rectText = visualRect(index);
 
   if (!index.isValid()) return;
-  if (!(event->pos().x() >= rectText.x()) ||
+  if (!(event->position().toPoint().x() >= rectText.x()) ||
       (isFolder(index))) {
     QTreeView::mouseDoubleClickEvent(event);
     return;
   }
 
-  if (indexClicked_ == indexAt(event->pos()))
+  if (indexClicked_ == indexAt(event->position().toPoint()))
     emit signalDoubleClicked();
   else
     mousePressEvent(event);
@@ -505,7 +505,7 @@ void FeedsView::mouseReleaseEvent(QMouseEvent *event)
 void FeedsView::dragEnterEvent(QDragEnterEvent *event)
 {
   event->accept();
-  dragPos_ = event->pos();
+  dragPos_ = event->position().toPoint();
   viewport()->update();
 }
 
@@ -526,7 +526,7 @@ void FeedsView::dragMoveEvent(QDragMoveEvent *event)
     return;
   }
 
-  dragPos_ = event->pos();
+  dragPos_ = event->position().toPoint();
   QModelIndex dragIndex = indexAt(dragPos_);
 
   // Process categories
@@ -576,7 +576,7 @@ void FeedsView::dragMoveEvent(QDragMoveEvent *event)
 
   viewport()->update();
 
-  if (shouldAutoScroll(event->pos()))
+  if (shouldAutoScroll(event->position().toPoint()))
     startAutoScroll();
 }
 
