@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -51,12 +51,12 @@ bool TabBar::eventFilter(QObject *obj, QEvent *event)
 {
   if (event->type() == QEvent::MouseButtonPress) {
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-    if (tabAt(mouseEvent->position().toPoint()) < 0)
+    if (tabAt(QEVENT_POS(mouseEvent)) < 0)
       return false;
     if (mouseEvent->button() & Qt::MiddleButton) {
-      emit closeTab(tabAt(mouseEvent->position().toPoint()));
+      emit closeTab(tabAt(QEVENT_POS(mouseEvent)));
     } else if (mouseEvent->button() & Qt::LeftButton) {
-      if (tabAt(QPoint(mouseEvent->position().toPoint().x(), 0)) == 0)
+      if (tabAt(QPoint(QEVENT_POS(mouseEvent).x(), 0)) == 0)
         tabFixed_ = true;
       else
         tabFixed_ = false;
@@ -64,7 +64,7 @@ bool TabBar::eventFilter(QObject *obj, QEvent *event)
   } else if (event->type() == QEvent::MouseMove) {
     QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
     if (mouseEvent->buttons() & Qt::LeftButton) {
-      if ((tabAt(QPoint(mouseEvent->position().toPoint().x()-78, 0)) <= 0) || tabFixed_)
+      if ((tabAt(QPoint(QEVENT_POS(mouseEvent).x()-78, 0)) <= 0) || tabFixed_)
         return true;
     }
   }

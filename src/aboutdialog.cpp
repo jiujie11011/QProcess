@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -48,14 +48,14 @@ AboutDialog::AboutDialog(const QString &lang, QWidget *parent) :
       + revisionStr
       + "</P>"
       + "<BR>"
-      + tr("QuiteRSS is a open-source cross-platform RSS/Atom news reader")
+      + tr("Quill is a open-source cross-platform RSS/Atom news reader")
       + "<P>" + tr("Includes:")
       + QString(" Qt-%1, SQLite-%2, WebEngine-%3").
       arg(QT_VERSION_STR).arg(SQLITE_VERSION).arg(QTWEBENGINECORE_VERSION_STR)
       + "</P>"
       + QString("<a href=\"%1\">%1</a>").arg("https://quiterss.org") +
-      "<P>Copyright &copy; 2011-2020 QuiteRSS Team "
-      + QString("<a href=\"%1\">E-mail</a>").arg("mailto:quiterssteam@gmail.com") + "</P>"
+      "<P>Copyright &copy; 2011-2020 Quill Team "
+      + QString("<a href=\"%1\">E-mail</a>").arg("mailto:quillteam@gmail.com") + "</P>"
       "</CENTER></body></html>";
   QLabel *infoLabel = new QLabel(appInfo);
   infoLabel->setOpenExternalLinks(true);

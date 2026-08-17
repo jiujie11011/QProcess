@@ -1,6 +1,6 @@
 ---
-name: quiterss-webengine-migration-finalize
-overview: 完成 QuiteRSS WebKit→WebEngine 迁移收尾：修复 5 处迁移遗留问题（4 处硬编译错误 + 拦截器未注册），静态扫描清理残余 QWebKit API，搭建 MinGW+QtWebEngine 编译环境并实际编译验证通过。
+name: quill-webengine-migration-finalize
+overview: 完成 Quill WebKit→WebEngine 迁移收尾：修复 5 处迁移遗留问题（4 处硬编译错误 + 拦截器未注册），静态扫描清理残余 QWebKit API，搭建 MinGW+QtWebEngine 编译环境并实际编译验证通过。
 todos:
   - id: fix-webpage-core
     content: 修复 webpage/adblockmanager 编译错误：移除 setNetworkAccessManager 与 NetworkManagerProxy 绑定，mainFrame()->url() 改 url()
@@ -34,7 +34,7 @@ todos:
 
 ## 需求概述
 
-完成 QuiteRSS 0.19.4 的 WebKit → WebEngine 迁移收尾工作，目标是**让项目在本机编译通过**，验证迁移完整性。
+完成 Quill 0.19.4 的 WebKit → WebEngine 迁移收尾工作，目标是**让项目在本机编译通过**，验证迁移完整性。
 
 ## 核心目标
 

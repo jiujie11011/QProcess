@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 // Qt 6 removed the `foreach` / Q_FOREACH macro from QtGlobal. The legacy
 // code base (ported from Qt4) relies on it in many places, so restore the
 // two-argument form for Qt 6 builds only. The header is force-included by
-// QuiteRSS.pro (qmake -include / /FI), which is why this file lives apart
+// Quill.pro (qmake -include / /FI), which is why this file lives apart
 // from common.h. NOTE: this range-for based form does NOT copy the
 // container (Qt 5's foreach did), so containers must not be mutated while
 // being iterated.
@@ -38,6 +38,18 @@
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QRegExp>
 #include <QTextCodec>
+#endif
+
+// QMouseEvent/QHoverEvent::pos() was removed in Qt6 in favour of position().
+// This header is force-included for every translation unit (see Quill.pro),
+// so a small macro is enough to keep the many event->pos() call sites working
+// on both toolkits.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#  define QEVENT_POS(e) ((e)->position().toPoint())
+#  define QEVENT_POSF(e) ((e)->position())
+#else
+#  define QEVENT_POS(e) ((e)->pos())
+#  define QEVENT_POSF(e) ((e)->posF())
 #endif
 
 #endif // QT6COMPAT_H

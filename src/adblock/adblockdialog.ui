@@ -68,7 +68,7 @@
            <string>Options</string>
           </property>
           <property name="icon">
-           <iconset resource="../../QuiteRSS.qrc">
+           <iconset resource="../../Quill.qrc">
             <normaloff>:/images/images/adblock.png</normaloff>:/images/images/adblock.png</iconset>
           </property>
          </widget>
@@ -138,7 +138,7 @@
   </layout>
  </widget>
  <resources>
-  <include location="../../QuiteRSS.qrc"/>
+  <include location="../../Quill.qrc"/>
  </resources>
  <connections>
   <connection>

@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -278,16 +278,16 @@ void OptionsDialog::acceptDialog()
 #if defined(Q_OS_WIN)
   if (mainApp->isPortableAppsCom()) {
     if (autoRunEnabled_->isChecked()) {
-      QFileInfo file(QCoreApplication::applicationDirPath() % "/../../QuiteRSSPortable.exe");
-      autoRunSettings_->setValue("QuiteRSSPortable", QDir::toNativeSeparators(file.absoluteFilePath()));
+      QFileInfo file(QCoreApplication::applicationDirPath() % "/../../QuillPortable.exe");
+      autoRunSettings_->setValue("QuillPortable", QDir::toNativeSeparators(file.absoluteFilePath()));
     } else {
-      autoRunSettings_->remove("QuiteRSSPortable");
+      autoRunSettings_->remove("QuillPortable");
     }
   } else {
     if (autoRunEnabled_->isChecked())
-      autoRunSettings_->setValue("QuiteRSS", QDir::toNativeSeparators(QCoreApplication::applicationFilePath()));
+      autoRunSettings_->setValue("Quill", QDir::toNativeSeparators(QCoreApplication::applicationFilePath()));
     else
-      autoRunSettings_->remove("QuiteRSS");
+      autoRunSettings_->remove("Quill");
   }
 #endif
 
@@ -389,7 +389,7 @@ void OptionsDialog::createGeneralWidget()
   showCloseButtonTab_ = new QCheckBox(tr("Show close button on tab"));
 
   updateCheckEnabled_ = new QCheckBox(tr("Automatically check for updates"));
-  statisticsEnabled_ = new QCheckBox(tr("Help improve QuiteRSS by sending usage information"));
+  statisticsEnabled_ = new QCheckBox(tr("Help improve Quill by sending usage information"));
   storeDBMemory_ = new QCheckBox(tr("Store a DB in memory (requires program restart)"));
   storeDBMemory_->setChecked(false);
   saveDBMemFileInterval_ = new QSpinBox();
@@ -421,22 +421,22 @@ void OptionsDialog::createGeneralWidget()
   generalLayout->addSpacing(20);
 
 #if defined(Q_OS_WIN)
-  autoRunEnabled_ = new QCheckBox(tr("Run QuiteRSS at Windows startup"));
+  autoRunEnabled_ = new QCheckBox(tr("Run Quill at Windows startup"));
   autoRunSettings_ = new QSettings("HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
                                    QSettings::NativeFormat);
   bool isAutoRun;
   if (mainApp->isPortableAppsCom())
-    isAutoRun = autoRunSettings_->value("QuiteRSSPortable", false).toBool();
+    isAutoRun = autoRunSettings_->value("QuillPortable", false).toBool();
   else
-    isAutoRun = autoRunSettings_->value("QuiteRSS", false).toBool();
+    isAutoRun = autoRunSettings_->value("Quill", false).toBool();
   autoRunEnabled_->setChecked(isAutoRun);
 
   generalLayout->addWidget(autoRunEnabled_);
 
   registerFeedProtocolButton_ = new QPushButton(
-        tr("Set QuiteRSS as the default feed: subscriber"));
+        tr("Set Quill as the default feed: subscriber"));
   registerFeedProtocolButton_->setToolTip(
-        tr("Register QuiteRSS to handle feed:// links from browsers "
+        tr("Register Quill to handle feed:// links from browsers "
            "(e.g. RSSHub-Radar). This writes to the Windows registry "
            "for the current user only, no administrator rights needed."));
   connect(registerFeedProtocolButton_, SIGNAL(clicked()),
@@ -466,9 +466,9 @@ void OptionsDialog::createTraySystemWidget()
   showTrayIconBox_ = new QGroupBox(tr("Show system tray icon"));
   showTrayIconBox_->setCheckable(true);
 
-  startingTray_ = new QCheckBox(tr("starting QuiteRSS"));
-  minimizingTray_ = new QCheckBox(tr("minimizing QuiteRSS"));
-  closingTray_ = new QCheckBox(tr("closing QuiteRSS"));
+  startingTray_ = new QCheckBox(tr("starting Quill"));
+  minimizingTray_ = new QCheckBox(tr("minimizing Quill"));
+  closingTray_ = new QCheckBox(tr("closing Quill"));
   QVBoxLayout *moveTrayLayout = new QVBoxLayout();
   moveTrayLayout->setContentsMargins(15, 0, 5, 10);
   moveTrayLayout->addWidget(startingTray_);
@@ -1532,7 +1532,7 @@ void OptionsDialog::createLanguageWidget()
   treeItem.clear();
   treeItem << "en" << QString::fromUtf8("English [EN]")
            << QString(STRPRODUCTVER)
-           << "QuiteRSS Team" << "";
+           << "Quill Team" << "";
   QTreeWidgetItem *languageItem = new QTreeWidgetItem(treeItem);
   languageItem->setIcon(1, QIcon(":/flags/flag_EN"));
   languageFileList_->addTopLevelItem(languageItem);
@@ -1708,7 +1708,7 @@ void OptionsDialog::createLanguageWidget()
   treeItem.clear();
   treeItem << "ru" << QString::fromUtf8("Русский [RU]")
            << QString(STRPRODUCTVER)
-           << "QuiteRSS Team" << "";
+           << "Quill Team" << "";
   languageItem = new QTreeWidgetItem(treeItem);
   languageItem->setIcon(1, QIcon(":/flags/flag_RU"));
   languageFileList_->addTopLevelItem(languageItem);
@@ -3041,9 +3041,9 @@ void OptionsDialog::loadLabels()
     QTreeWidgetItem *treeWidgetItem = new QTreeWidgetItem(strTreeItem);
     treeWidgetItem->setIcon(1, QIcon(imageLabel));
     if (!colorText.isEmpty())
-      treeWidgetItem->setTextColor(1, QColor(colorText));
+      treeWidgetItem->setForeground(1, QBrush(QColor(colorText)));
     if (!colorBg.isEmpty())
-      treeWidgetItem->setBackgroundColor(1, QColor(colorBg));
+      treeWidgetItem->setBackground(1, QBrush(QColor(colorBg)));
     labelsTree_->addTopLevelItem(treeWidgetItem);
   }
 }
@@ -3076,9 +3076,9 @@ void OptionsDialog::newLabel()
   QTreeWidgetItem *treeWidgetItem = new QTreeWidgetItem(itemStr);
   treeWidgetItem->setIcon(1, labelDialog->icon_);
   if (!colorText.isEmpty())
-    treeWidgetItem->setTextColor(1, QColor(colorText));
+    treeWidgetItem->setForeground(1, QBrush(QColor(colorText)));
   if (!colorBg.isEmpty())
-    treeWidgetItem->setBackgroundColor(1, QColor(colorBg));
+    treeWidgetItem->setBackground(1, QBrush(QColor(colorBg)));
   labelsTree_->addTopLevelItem(treeWidgetItem);
   addIdLabelList(treeWidgetItem->text(0));
 
@@ -3132,9 +3132,9 @@ void OptionsDialog::editLabel()
   treeWidgetItem->setText(3, colorBg);
   treeWidgetItem->setIcon(1, labelDialog->icon_);
   if (!colorText.isEmpty())
-    treeWidgetItem->setTextColor(1, QColor(colorText));
+    treeWidgetItem->setForeground(1, QBrush(QColor(colorText)));
   if (!colorBg.isEmpty())
-    treeWidgetItem->setBackgroundColor(1, QColor(colorBg));
+    treeWidgetItem->setBackground(1, QBrush(QColor(colorBg)));
   addIdLabelList(idLabelStr);
 
   QList<QStandardItem *> treeItems;
@@ -3892,9 +3892,9 @@ void OptionsDialog::slotRssHubUnfreeze()
 void OptionsDialog::slotRegisterFeedProtocol()
 {
 #if defined(Q_OS_WIN)
-  // Register QuiteRSS as the handler for the "feed" URL protocol for the
+  // Register Quill as the handler for the "feed" URL protocol for the
   // current user (HKCU, no admin rights needed). This lets browser extensions
-  // such as RSSHub-Radar launch QuiteRSS with feed:https://... URLs, which
+  // such as RSSHub-Radar launch Quill with feed:https://... URLs, which
   // MainApplication::receiveMessage() turns into a "New Feed" action.
   const QString exePath =
       QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
@@ -3902,7 +3902,7 @@ void OptionsDialog::slotRegisterFeedProtocol()
 
   QSettings reg("HKEY_CURRENT_USER\\Software\\Classes\\feed",
                 QSettings::NativeFormat);
-  reg.setValue(".", "URL:QuiteRSS Feed Subscription");
+  reg.setValue(".", "URL:Quill Feed Subscription");
   reg.setValue("URL Protocol", "");
   reg.setValue("DefaultIcon/.", exePath);
   reg.setValue("shell/open/command/.", command);
@@ -3911,10 +3911,10 @@ void OptionsDialog::slotRegisterFeedProtocol()
   if (reg.status() == QSettings::NoError) {
     QMessageBox::information(
           this, tr("Feed protocol"),
-          tr("QuiteRSS is now registered to handle feed:// links.\n\n"
+          tr("Quill is now registered to handle feed:// links.\n\n"
              "In RSSHub-Radar (or your browser), set the default reader "
              "to the local/desktop application. Clicking a subscribe link "
-             "will now open QuiteRSS."));
+             "will now open Quill."));
   } else {
     QMessageBox::warning(
           this, tr("Feed protocol"),

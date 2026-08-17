@@ -16,14 +16,14 @@ Build depends:
 
 Instructions for Linux and other UNIX-like systems:
   mkdir _build && cd _build
-  qmake CONFIG+=release PREFIX=/usr ../QuiteRSS.pro
+  qmake CONFIG+=release PREFIX=/usr ../Quill.pro
   make -j3
   make install
 
 Instead of -j3 make option you can use -j<number of your CPU cores + 1>.
 For making debug build use CONFIG+=debug instead of CONFIG+=release.
 By default qmake uses gcc, for using clang you need to alter qmake command:
-  qmake QMAKE_CC=clang QMAKE_CXX=clang++ QMAKE_LINK=clang++ QMAKE_LINK_C=clang CONFIG+=release PREFIX=/usr ../QuiteRSS.pro
+  qmake QMAKE_CC=clang QMAKE_CXX=clang++ QMAKE_LINK=clang++ QMAKE_LINK_C=clang CONFIG+=release PREFIX=/usr ../Quill.pro
 
 For building with system qtsingleapplication add SYSTEMQTSA=1 to qmake command.
 For building without phonon add DISABLE_PHONON=1 to qmake command.
@@ -40,10 +40,10 @@ Instruction for Windows:
 
 Instructions for Mac OS:
   cd /path/to/build
-  qmake -recursive -spec macx-g++ CONFIG+=release CONFIG+=x86_64 /path/to/quiterss/QuiteRSS.pro
+  qmake -recursive -spec macx-g++ CONFIG+=release CONFIG+=x86_64 /path/to/quill/Quill.pro
   make -j3
   make install
   cd /path/to/build/release/target
-  macdeployqt quiterss.app/ -dmg
+  macdeployqt quill.app/ -dmg
 
 Instead of -j3 make option you can use -j<number of your CPU cores + 1>.

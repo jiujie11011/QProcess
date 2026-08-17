@@ -264,7 +264,7 @@
 <p><b>Version 0.17.2</b> (28 Dec 2014)
 <ul>
 <li>Added: Save page as HTML in "newspaper" mode</li>
-<li>Added: Option to display notification on same as QuiteRSS display (option value: -1)</li>
+<li>Added: Option to display notification on same as Quill display (option value: -1)</li>
 <li>Added: SSL-certificate check</li>
 <li>Added: Language: Bulgarian</li>
 
@@ -560,7 +560,7 @@
 <li>Added: Displaying links to the comment in line with author name</li>
 <li>Added: Displaying categories (labels) in line with author name</li>
 <li>Added: Notification window: Button to mark news as read</li>
-<li>Added: Association QuiteRSS in unix</li>
+<li>Added: Association Quill in unix</li>
 <li>Added: Language: Vietnamese</li>
 <li>Added: Language: Romanian</li>
 
@@ -670,7 +670,7 @@
 <li>Added: Option: "Simplified representation of date and time"</li>
 <li>Added: Options: "Don't delete starred news", "Don't delete labeled news"</li>
 <li>Added: Option: "Automatically collapse folders"</li>
-<li>Added: Option: "Run QuiteRSS at Windows startup" (Windows)</li>
+<li>Added: Option: "Run Quill at Windows startup" (Windows)</li>
 <li>Added: Tab context menu items: "Close tab" and "Close Other tabs"</li>
 <li>Added: Ability to move main toolbar (toolbar context menu->Lock toolbar)</li>
 <li>Added: "Link" and "Title Feed" columns in news list</li>
@@ -953,7 +953,7 @@
 <li>Changed: GUI. Some visual tweaks</li>
 
 <li>Fixed: Keyboard layout in Unix systems</li>
-<li>Fixed: Default application icon instead on QuiteRSS icon in Unix systems</li>
+<li>Fixed: Default application icon instead on Quill icon in Unix systems</li>
 <li>Fixed: Hang while updating some feeds</li>
 <li>Fixed: Duplicate news in RSS-feeds</li>
 </ul>

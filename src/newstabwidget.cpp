@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -2518,16 +2518,16 @@ void NewsTabWidget::loadNewspaper(int refresh)
         iconStr = "qrc:/images/bulletUnread";
         titleStyle = "unread";
       }
-      QString readImg = QString("<a href=\"quiterss://read.action.ui?#%1\" title='%3'>"
-                                "<img class='quiterss-img' id=\"readAction%1\" src=\"%2\"/></a>").
+      QString readImg = QString("<a href=\"quill://read.action.ui?#%1\" title='%3'>"
+                                "<img class='quill-img' id=\"readAction%1\" src=\"%2\"/></a>").
           arg(newsId).arg(iconStr).arg(tr("Mark Read/Unread"));
 
       QString feedImg;
       QByteArray byteArray = feedsModel_->dataField(feedIndex, "image").toByteArray();
       if (!byteArray.isEmpty())
-        feedImg = QString("<img class='quiterss-img' src=\"data:image/png;base64,") % byteArray % "\"/>";
+        feedImg = QString("<img class='quill-img' src=\"data:image/png;base64,") % byteArray % "\"/>";
       else
-        feedImg = QString("<img class='quiterss-img' src=\"qrc:/images/feed\"/>");
+        feedImg = QString("<img class='quill-img' src=\"qrc:/images/feed\"/>");
 
       QString titleString = newsModel_->dataField(index.row(), "title").toString();
       if (!linkString.isEmpty()) {
@@ -2660,24 +2660,24 @@ void NewsTabWidget::loadNewspaper(int refresh)
         iconStr = "qrc:/images/starOn";
       }
       QString starAction = QString("<div class=\"star-action\">"
-                                   "<a href=\"quiterss://star.action.ui?#%1\" title='%3'>"
-                                   "<img class='quiterss-img' id=\"starAction%1\" src=\"%2\"/></a></div>").
+                                   "<a href=\"quill://star.action.ui?#%1\" title='%3'>"
+                                   "<img class='quill-img' id=\"starAction%1\" src=\"%2\"/></a></div>").
           arg(newsId).arg(iconStr).arg(tr("Mark News Star"));
       QString labelsMenu = QString("<div class=\"labels-menu\">"
-                                   "<a href=\"quiterss://labels.menu.ui?#%1\" title='%2'>"
-                                   "<img class='quiterss-img' id=\"labelsMenu%1\" src=\"qrc:/images/label_5\"/></a></div>").
+                                   "<a href=\"quill://labels.menu.ui?#%1\" title='%2'>"
+                                   "<img class='quill-img' id=\"labelsMenu%1\" src=\"qrc:/images/label_5\"/></a></div>").
           arg(newsId).arg(tr("Label"));
       QString shareMenu = QString("<div class=\"share-menu\">"
-                                  "<a href=\"quiterss://share.menu.ui?#%1\" title='%2'>"
-                                  "<img class='quiterss-img' id=\"shareMenu%1\" src=\"qrc:/images/images/share.png\"/></a></div>").
+                                  "<a href=\"quill://share.menu.ui?#%1\" title='%2'>"
+                                  "<img class='quill-img' id=\"shareMenu%1\" src=\"qrc:/images/images/share.png\"/></a></div>").
           arg(newsId).arg(tr("Share"));
       QString openBrowserAction = QString("<div class=\"open-browser\">"
-                                          "<a href=\"quiterss://open.browser.ui?#%1\" title='%2'>"
-                                          "<img class='quiterss-img' id=\"openBrowser%1\" src=\"qrc:/images/openBrowser\"'/></a></div>").
+                                          "<a href=\"quill://open.browser.ui?#%1\" title='%2'>"
+                                          "<img class='quill-img' id=\"openBrowser%1\" src=\"qrc:/images/openBrowser\"'/></a></div>").
           arg(newsId).arg(tr("Open News in External Browser"));
       QString deleteAction = QString("<div class=\"delete-action\">"
-                                     "<a href=\"quiterss://delete.action.ui?#%1\" title='%2'>"
-                                     "<img class='quiterss-img' id=\"deleteAction%1\" src=\"qrc:/images/delete\"/></a></div>").
+                                     "<a href=\"quill://delete.action.ui?#%1\" title='%2'>"
+                                     "<img class='quill-img' id=\"deleteAction%1\" src=\"qrc:/images/delete\"/></a></div>").
           arg(newsId).arg(tr("Delete"));
       QString actionNews = starAction % labelsMenu % shareMenu % openBrowserAction %
           deleteAction;
@@ -2866,7 +2866,7 @@ void NewsTabWidget::slotNavigationRequested(const QUrl &url)
 
 void NewsTabWidget::slotLinkClicked(QUrl url)
 {
-  if (url.scheme() == QLatin1String("quiterss")) {
+  if (url.scheme() == QLatin1String("quill")) {
     actionNewspaper(url);
     return;
   }
@@ -2941,7 +2941,7 @@ void NewsTabWidget::slotLinkClicked(QUrl url)
 //----------------------------------------------------------------------------
 void NewsTabWidget::slotLinkHovered(const QString &link)
 {
-  if (QUrl(link).scheme() == QLatin1String("quiterss")) return;
+  if (QUrl(link).scheme() == QLatin1String("quill")) return;
 
   mainWindow_->statusBar()->showMessage(link.simplified(), 3000);
 }
@@ -3921,7 +3921,7 @@ QString NewsTabWidget::getHtmlLabels(int row)
     if (strLabelIdList.contains(item->text(2))) {
       strLabelIdList.removeOne(item->text(2));
       QByteArray byteArray = item->data(0, CategoriesTreeWidget::ImageRole).toByteArray();
-      labelsString.append(QString("<td><img class='quiterss-img' src=\"data:image/png;base64,") % byteArray.toBase64() % "\"/></td>");
+      labelsString.append(QString("<td><img class='quill-img' src=\"data:image/png;base64,") % byteArray.toBase64() % "\"/></td>");
       labelsString.append("<td>" % item->text(0));
       if (strLabelIdList.count())
         labelsString.append(",");

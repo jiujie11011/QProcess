@@ -1,8 +1,8 @@
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/ed6473aef4dd4c5aba8cf1dbbc8c6383)](https://www.codacy.com/app/Funcy-dcm/quiterss?utm_source=github.com&utm_medium=referral&utm_content=QuiteRSS/quiterss&utm_campaign=badger)
 
-Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 
-QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader written on Qt/C++
+Quill is a open-source cross-platform RSS/Atom news feeds reader written on Qt/C++
 
 Idea: Quite fast and comfortable to user
 
@@ -16,7 +16,7 @@ Links:
 
 # 本分支开发记录（Enhanced Fork）
 
-> 本文档汇总本分支相对上游 QuiteRSS 0.19.4 的全部改动：已完成功能、待办计划与开发过程中的错误教训。
+> 本文档汇总本分支相对上游 Quill 0.19.4 的全部改动：已完成功能、待办计划与开发过程中的错误教训。
 > 详细历史（Codex 改造 / MrRSS 移植 / Folo 借鉴等）见 `README-DEV.md`。
 
 ## 一、已完成功能
@@ -60,7 +60,7 @@ Links:
 | `QString::SkipEmptyParts` | 10 个文件统一替换为 `Qt::SkipEmptyParts`（Qt 5.14+/Qt6 通用） |
 | `QFontMetrics::width` | 3 处替换为 `horizontalAdvance`（feedsmodel、notificationsfeeditem、newsmodel） |
 | `QTextStream::setCodec` | 改用 `Common::setUtf8Codec`（logfile 等） |
-| `QuiteRSS.pro` | Qt5/Qt6 共用现代模块清单（Qt6 追加 `core5compat`、`c++17`） |
+| `Quill.pro` | Qt5/Qt6 共用现代模块清单（Qt6 追加 `core5compat`、`c++17`） |
 
 ### 5. 数据管理与安全增强（本轮）
 

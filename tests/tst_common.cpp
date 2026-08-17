@@ -1,5 +1,5 @@
 /* ============================================================
-* QuiteRSS - unit tests for the pure-logic helper modules
+* Quill - unit tests for the pure-logic helper modules
 *
 * Covers:
 *  - HtmlSanitizer: script/style/event-handler/dangerous-URL removal

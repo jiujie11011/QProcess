@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -115,7 +115,7 @@ MainWindow::MainWindow(QWidget *parent)
   , updatePaused_(false)
 {
   setObjectName("mainWindow");
-  setWindowTitle("QuiteRSS");
+  setWindowTitle("Quill");
   setContextMenuPolicy(Qt::CustomContextMenu);
 
   if (mainApp->analytics())
@@ -274,8 +274,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
     if (event->type() == QEvent::MouseButtonRelease) {
       if (windowState() & Qt::WindowMaximized) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-        if ((mouseEvent->position().toPoint().x() > (statusBar()->width()-statusBar()->height())) &&
-            (mouseEvent->position().toPoint().y() > 0)) {
+        if ((QEVENT_POS(mouseEvent).x() > (statusBar()->width()-statusBar()->height())) &&
+            (QEVENT_POS(mouseEvent).y() > 0)) {
           setFullScreen();
         }
       }
@@ -358,7 +358,7 @@ void MainWindow::changeEvent(QEvent *event)
     }
   } else if (event->type() == QEvent::ActivationChange) {
     if (isActiveWindow() && (behaviorIconTray_ == CHANGE_ICON_TRAY)) {
-      traySystem->setIcon(QIcon(":/images/quiterss128"));
+      traySystem->setIcon(QIcon(":/images/quill128"));
     }
   } else if (event->type() == QEvent::LanguageChange) {
     retranslateStrings();
@@ -719,8 +719,8 @@ void MainWindow::createStatusBar()
 // ---------------------------------------------------------------------------
 void MainWindow::createTray()
 {
-  traySystem = new QSystemTrayIcon(QIcon(":/images/quiterss128"), this);
-  traySystem->setToolTip("QuiteRSS");
+  traySystem = new QSystemTrayIcon(QIcon(":/images/quill128"), this);
+  traySystem->setToolTip("Quill");
 
 #ifndef Q_OS_MAC
   connect(traySystem,SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
@@ -3297,7 +3297,7 @@ void MainWindow::slotExportFeeds()
   xml.writeStartElement("opml");
   xml.writeAttribute("version", "2.0");
   xml.writeStartElement("head");
-  xml.writeTextElement("title", "QuiteRSS");
+  xml.writeTextElement("title", "Quill");
   xml.writeTextElement("dateModified", QDateTime::currentDateTime().toString());
   xml.writeEndElement(); // </head>
 
@@ -3918,7 +3918,7 @@ void MainWindow::slotUpdateFeed(int feedId, bool changed, int newCount, bool fin
   // Action after new news has arrived: tray, sound
   if (!isActiveWindow() && (newCount > 0) &&
       (behaviorIconTray_ == CHANGE_ICON_TRAY)) {
-    traySystem->setIcon(QIcon(":/images/quiterss128_NewNews"));
+    traySystem->setIcon(QIcon(":/images/quill128_NewNews"));
   }
   emit signalRefreshInfoTray();
   if (newCount > 0)
@@ -4733,7 +4733,7 @@ void MainWindow::showOptionDlg(int index)
   if (behaviorIconTray_ > CHANGE_ICON_TRAY) {
     emit signalRefreshInfoTray();
   } else {
-    traySystem->setIcon(QIcon(":/images/quiterss128"));
+    traySystem->setIcon(QIcon(":/images/quill128"));
   }
   singleClickTray_ = optionsDialog_->singleClickTray_->isChecked();
   clearStatusNew_ = optionsDialog_->clearStatusNew_->isChecked();
@@ -6047,7 +6047,7 @@ void MainWindow::retranslateStrings()
 
   str = traySystem->toolTip();
   QString info =
-      "QuiteRSS\n" +
+      "Quill\n" +
       QString(tr("New News: %1")).arg(str.section(": ", 1).section("\n", 0, 0)) +
       QString("\n") +
       QString(tr("Unread News: %1")).arg(str.section(": ", 2));
@@ -7038,7 +7038,7 @@ void MainWindow::slotRefreshInfoTray(int newCount, int unreadCount)
 
   // Setting tooltip text
   QString info =
-      "QuiteRSS\n" +
+      "Quill\n" +
       QString(tr("New News: %1")).arg(newCount) +
       QString("\n") +
       QString(tr("Unread News: %1")).arg(unreadCount);
@@ -7091,7 +7091,7 @@ void MainWindow::slotRefreshInfoTray(int newCount, int unreadCount)
     }
     // Draw icon without number
     else {
-      traySystem->setIcon(QIcon(":/images/quiterss128"));
+      traySystem->setIcon(QIcon(":/images/quill128"));
     }
   }
 }
@@ -7334,7 +7334,7 @@ void MainWindow::slotNewVersion(const QString &newVersion)
 
   if (!newVersion.isEmpty()) {
     traySystem->showMessage(tr("Check for updates"),
-                            tr("A new version of QuiteRSS..."));
+                            tr("A new version of Quill..."));
     connect(traySystem, SIGNAL(messageClicked()),
             this, SLOT(slotShowUpdateAppDlg()));
   }
@@ -9191,7 +9191,7 @@ void MainWindow::slotSavePageAs()
       QString htmlOut = html;
       QzRegExp reg("news_descriptions", Qt::CaseInsensitive);
       htmlOut = htmlOut.replace(reg, titleString);
-      reg.setPattern("<img class=\"quiterss-img\"[^>]+\\>");
+      reg.setPattern("<img class=\"quill-img\"[^>]+\\>");
       htmlOut = htmlOut.remove(reg);
       QTextCodec *codec = QTextCodec::codecForHtml(htmlOut.toUtf8(),
                                                    QTextCodec::codecForName("UTF-8"));
@@ -9367,8 +9367,8 @@ void MainWindow::setTextTitle(const QString &text, NewsTabWidget *widget)
 {
   if (currentNewsTab != widget) return;
 
-  if (text.isEmpty()) setWindowTitle("QuiteRSS");
-  else setWindowTitle(QString("%1 - QuiteRSS").arg(text));
+  if (text.isEmpty()) setWindowTitle("Quill");
+  else setWindowTitle(QString("%1 - Quill").arg(text));
 }
 
 /** @brief Enable|Disable indent in feeds tree
@@ -9681,7 +9681,7 @@ void MainWindow::addOurFeed()
 {
   if (mainApp->dbFileExists()) return;
 
-  QPixmap icon(":/images/quiterss16");
+  QPixmap icon(":/images/quill16");
   QByteArray iconData;
   QBuffer buffer(&iconData);
   buffer.open(QIODevice::WriteOnly);
@@ -9695,8 +9695,8 @@ void MainWindow::addOurFeed()
   QSqlQuery q;
   q.prepare("INSERT INTO feeds(text, title, xmlUrl, htmlUrl, created, parentId, rowToParent, image) "
             "VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
-  q.addBindValue("QuiteRSS");
-  q.addBindValue("QuiteRSS");
+  q.addBindValue("Quill");
+  q.addBindValue("Quill");
   q.addBindValue(xmlUrl);
   q.addBindValue("https://quiterss.org");
   q.addBindValue(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
@@ -9742,11 +9742,11 @@ void MainWindow::createBackup()
 
 void MainWindow::backupData()
 {
-  const QString suggested = QDir::homePath() + "/QuiteRSS-backup-" +
+  const QString suggested = QDir::homePath() + "/Quill-backup-" +
       QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss") + ".sqlite";
   const QString fileName = QFileDialog::getSaveFileName(
-        this, tr("Backup QuiteRSS data"), suggested,
-        tr("QuiteRSS backup (*.sqlite *.db);;All files (*)"));
+        this, tr("Backup Quill data"), suggested,
+        tr("Quill backup (*.sqlite *.db);;All files (*)"));
   if (fileName.isEmpty())
     return;
 
@@ -9773,12 +9773,12 @@ void MainWindow::backupData()
 void MainWindow::restoreData()
 {
   const QString fileName = QFileDialog::getOpenFileName(
-        this, tr("Restore QuiteRSS data"), QDir::homePath(),
-        tr("QuiteRSS backup (*.sqlite *.db);;All files (*)"));
+        this, tr("Restore Quill data"), QDir::homePath(),
+        tr("Quill backup (*.sqlite *.db);;All files (*)"));
   if (fileName.isEmpty())
     return;
 
-  // Validate the selected file is a QuiteRSS SQLite database (has the
+  // Validate the selected file is a Quill SQLite database (has the
   // feeds and news tables).
   bool isValid = false;
   {
@@ -9797,7 +9797,7 @@ void MainWindow::restoreData()
   QSqlDatabase::removeDatabase("restoreCheck");
   if (!isValid) {
     QMessageBox::critical(this, tr("Restore"),
-                          tr("The selected file is not a valid QuiteRSS backup."));
+                          tr("The selected file is not a valid Quill backup."));
     return;
   }
 

@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -127,7 +127,7 @@ void UpdateAppDialog::finishUpdatesChecking()
       else urlDownloads = "https://quiterss.org/en/download";
 
       str =
-          tr("A new version of QuiteRSS is available!") +
+          tr("A new version of Quill is available!") +
           "<p>" + QString("<a href=\"%1\">%2</a>").
           arg(urlDownloads).
           arg(tr("Click here to go to the download page"));

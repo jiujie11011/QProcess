@@ -1,5 +1,5 @@
 # ============================================================
-# QuiteRSS - unit tests (QTest)
+# Quill - unit tests (QTest)
 #
 # Standalone test target: only depends on QtCore/QtTest and the
 # pure-logic modules (HtmlSanitizer, FtsSearch) that have no

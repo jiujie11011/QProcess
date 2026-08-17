@@ -1,4 +1,4 @@
-# QuiteRSS → Codex 桌面端改造：开发进度与计划
+# Quill → Codex 桌面端改造：开发进度与计划
 
 > 本文件记录当前开发进度、已完成改动与后续实施计划。基于
 > `.monkeycode/specs/codex-ui-refresh/requirements.md` 与
@@ -17,7 +17,7 @@
 |------|------|
 | `style/codex_light.qss` | 新增，Codex 风格浅色主题（72 组规则，括号已校验平衡） |
 | `style/codex_dark.qss` | 新增，Codex 风格深色主题 |
-| `QuiteRSS.qrc` | `/style` 下新增 `codexLightStyle`/`codexDarkStyle` 别名；`systemStyle` 别名改指向 codex_light.qss 作回退 |
+| `Quill.qrc` | `/style` 下新增 `codexLightStyle`/`codexDarkStyle` 别名；`systemStyle` 别名改指向 codex_light.qss 作回退 |
 | `src/application/mainwindow.cpp` | 废弃 6 个旧主题动作（system2/green/orange/purple/pink/gray），仅保留 Light/Dark；`setStyleApp` 简化；启动读取时归一化旧值 |
 | `src/application/mainwindow.h` | 删除多余 style action 声明 |
 | `src/application/mainapplication.cpp` | `setStyleApplication` 归一化旧主题值到 codex 两套 |
@@ -34,7 +34,7 @@
 | `src/application/mainwindow.h` | 新增 `ProgressService *progressService_`（public） |
 | `src/newstabwidget.cpp` | 新闻选中时 updateContext；滚动条 valueChanged → slotNewsListScrolled → updateScrollPos |
 | `src/newstabwidget.h` | 新增 `slotNewsListScrolled` 槽 |
-| `QuiteRSS.pro` | 注册 progressservice 到 HEADERS/SOURCES/INCLUDEPATH |
+| `Quill.pro` | 注册 progressservice 到 HEADERS/SOURCES/INCLUDEPATH |
 
 ### P0-4 订阅源管理（已完成）
 
@@ -44,7 +44,7 @@
 | `src/feedsmanagement/feedsmanagementdialog.h/cpp` | **新增** 订阅源管理对话框：ID/名称/分组/更新时间/更新频率/状态列、表头排序、多选删除（连带子项与 news 清理）、全选 |
 | `src/feedsview/feedsmodel.h` | 新增 `view()` 访问器（配合 JSON 导出遍历） |
 | `src/application/mainwindow.cpp/h` | 新增 `slotImportFeedsJson`/`slotExportFeedsJson`/`slotFeedsManagement` 及菜单项（File 菜单）、JSON 动作接入 listActions_ |
-| `QuiteRSS.pro` | 注册 importexport、feedsmanagement 模块 |
+| `Quill.pro` | 注册 importexport、feedsmanagement 模块 |
 
 ### P0-5 交互式标记已读（已完成）
 
@@ -54,7 +54,7 @@
 | `src/newsview/newsview.h/cpp` | 开启 mouseTracking；新增 `signalHoverRowChanged`/`signalRowsScrolledOut`；重写 `scrollContentsBy` 收集移出视口的行 |
 | `src/newstabwidget.h/cpp` | 新增 `interactiveMarkController_` 成员并在 createNewsList 创建与连接；setSettings 中注入交互配置（star/label 视图豁免） |
 | `src/application/mainwindow.cpp/h` | 新增 `slotUndoLastMark` + File 菜单动作；OptionsDialog 撤销按钮接入 |
-| `QuiteRSS.pro` | 注册 interactivemark 模块 |
+| `Quill.pro` | 注册 interactivemark 模块 |
 
 ### P0-6 统计模块（已完成）
 
@@ -66,7 +66,7 @@
 | `src/newstabwidget.cpp` | 埋点：`slotSetItemRead`→news_read、`slotNewsViewSelected`→news_view、`slotSetItemStar`→news_star、`slotInteractiveMarkRead`→news_read（交互式标记） |
 | `src/newsview/interactivemark.h/cpp` | 新增 `rowsMarkedRead(int)` 信号，批量标记后发出 |
 | `src/parseobject.cpp` | `signalFinishUpdate` 处埋点 → feed_refresh |
-| `QuiteRSS.pro` | 注册 statistics 模块 |
+| `Quill.pro` | 注册 statistics 模块 |
 
 ### 既有性能优化（此前完成）
 
@@ -90,7 +90,7 @@
 | `src/ai/aidialog.h/cpp` | **新增** AIDialog：左侧对话列表 + 右侧消息区 + 输入框 + "摘要当前文章"/"推荐文章"快捷按钮；未配置 Key 时提示引导设置页 |
 | `src/application/mainwindow.h/cpp` | `aiAssistant_` 成员（构造初始化）、`aiAssistantAct_` + File 菜单项、`slotShowAIDialog`（取当前文章 title/content/category 注入上下文）；`aiBaseUrl_` 成员及设置读写 |
 | `src/optionsdialog.h/cpp` | AI 设置页新增「Base URL」输入框（默认 OpenAI chat completions 端点） |
-| `QuiteRSS.pro` | 注册 ai 模块（HEADERS/SOURCES/INCLUDEPATH） |
+| `Quill.pro` | 注册 ai 模块（HEADERS/SOURCES/INCLUDEPATH） |
 
 ### 可选增强项（已完成）
 
@@ -118,7 +118,7 @@
 
 ## 订阅源兼容性优化（已完成）
 
-针对用户反馈的「大量订阅源在其它阅读器可刷新、QuiteRSS 识别不了」问题，基于用户上传的 OPML 导出样本（1057 个源）实测后实施以下兼容性修复：
+针对用户反馈的「大量订阅源在其它阅读器可刷新、Quill 识别不了」问题，基于用户上传的 OPML 导出样本（1057 个源）实测后实施以下兼容性修复：
 
 | 文件 | 改动 |
 |------|------|
@@ -219,7 +219,7 @@
 |------|------|
 | `src/ai/localsummary.h/cpp` | 新增 `LocalSummarizer::summarize(text, n)`：分词 → TF-IDF 权重 → TextRank 迭代选出 Top-N 句；纯本地无 API |
 | `src/newstabwidget.cpp` | `maybeAutoSummarize` 在 `ai->isConfigured() == false` 时回退 `LocalSummarizer`，结果写 `aiSummary=1` + `summaryReady` 路径 |
-| `QuiteRSS.pro` | 注册 `localsummary` |
+| `Quill.pro` | 注册 `localsummary` |
 
 #### M-8 图片画廊模式（已完成）
 
@@ -227,7 +227,7 @@
 |------|------|
 | `src/newsview/imagegallerydialog.h/cpp` | 新增 `ImageGalleryDialog`：正则提取正文 `<img src>` → 图标网格（QListWidget），异步加载缩略图，双击全屏查看器（QScreen 适配） |
 | `src/newstabwidget.h/cpp` | 新增 `slotShowImageGallery()`（取当前文章 content/description 打开画廊）；webToolBar_ 新增「Image gallery」按钮（`:/images/imagesOn` 图标） |
-| `QuiteRSS.pro` | 注册 `imagegallerydialog` |
+| `Quill.pro` | 注册 `imagegallerydialog` |
 
 #### M-9 XPath 订阅（已完成）
 
@@ -236,7 +236,7 @@
 | `src/feedsmanagement/xpathfeedparser.h/cpp` | 新增 `XPathFeedParser`：QWebPage 加载 HTML → `document.evaluate()` JS XPath 求值；fetchRule 为 JSON（item/title/link/description/date/author 表达式）；`jsString()` 安全转义表达式 |
 | `src/parseobject.h/cpp` | slotParse 读取 `fetchType`/`fetchRule`；`fetchType==1` 时走 `parseXPath()`（复用 `addRssNewsIntoBase` 去重/防旧逻辑，link 作 guid） |
 | `src/addfeedwizard.h/cpp` | URL 页新增「Fetch type」下拉（RSS/Atom / XPath / Custom script）；XPath 模式展示规则 JSON 编辑器（`xpathRuleEdit_`）；INSERT 写 `fetchType`/`fetchRule`；`getUrlDone` 对 XPath/脚本模式跳过 RSS 探测直通解析 |
-| `QuiteRSS.pro` | 注册 `xpathfeedparser` |
+| `Quill.pro` | 注册 `xpathfeedparser` |
 
 > 说明：QtXmlPatterns 头文件与 libxml2 头文件均不可用，按 README 允许的备选方案改用 QtWebKit `evaluateJavaScript` 执行 XPath，支持 HTML 文档。
 
@@ -247,7 +247,7 @@
 | `src/feedsmanagement/scriptfeedrunner.h/cpp` | 新增 `ScriptFeedRunner`：QProcess 直接启动解释器（`interpreterFor()` 按扩展名映射 python3/node/ruby/perl/php/sh），stdin 喂页面数据，stdout 取 RSS/Atom XML；30s 超时 kill；错误走 stderr |
 | `src/parseobject.h/cpp` | 读取 `fetchScript`；`fetchType==2` 时 `parseScript()`：运行脚本 → 解析 stdout 为 RSS/Atom（`parseAtom`/`parseRss` 复用） |
 | `src/addfeedwizard.h/cpp` | 脚本模式展示脚本路径输入（`scriptPathEdit_`）；INSERT 写 `fetchScript` |
-| `QuiteRSS.pro` | 注册 `scriptfeedrunner` |
+| `Quill.pro` | 注册 `scriptfeedrunner` |
 
 > 安全：脚本直接以 argv 方式启动（无 shell 拼接，免注入）；仅执行用户自己配置的脚本路径；超时强制 kill。
 
@@ -259,11 +259,11 @@
 | `src/application/mainwindow.h/cpp` | 新增 `translationService_`（持 aiAssistant_ 引用）+ 相关配置成员读写 |
 | `src/optionsdialog.h/cpp` | AI 页新增「Translation engine」下拉 + DeepL Key/百度 appid/key 输入；`slotTranslationEngineChanged` 联动启用 |
 | `src/newstabwidget.cpp` | `maybeAutoTranslate` 按引擎分流：非 AI 引擎走 `translationService_->translate()`，AI 引擎走原 `ai->translate()`；连接 `translationService_` 的 `translationReady` 到 `slotAutoTranslationReady`（结果写 `translatedContent` 自动复用缓存） |
-| `QuiteRSS.pro` | 注册 `translationservice` |
+| `Quill.pro` | 注册 `translationservice` |
 
 ## Folo 请求头格式借鉴分析（可继续优化）
 
-参考 [RSSNext/Folo](https://github.com/RSSNext/Folo)（用户指定）的请求头实现（`packages/internal/utils/src/headers.ts` 与 `img-proxy.ts`），与 QuiteRSS 现状对比后整理出以下可借鉴项。Folo 是 Electron 客户端 + 云服务架构，抓取走自有服务器，与本地抓取的 QuiteRSS 差异较大，仅借鉴设计理念，无法直接搬代码。
+参考 [RSSNext/Folo](https://github.com/RSSNext/Folo)（用户指定）的请求头实现（`packages/internal/utils/src/headers.ts` 与 `img-proxy.ts`），与 Quill 现状对比后整理出以下可借鉴项。Folo 是 Electron 客户端 + 云服务架构，抓取走自有服务器，与本地抓取的 Quill 差异较大，仅借鉴设计理念，无法直接搬代码。
 
 ### Folo 请求头核心逻辑（源码实证）
 
@@ -290,9 +290,9 @@ headers.Referer = urlObj.origin; headers.Origin = urlObj.origin  // 默认同源
 | `sp1.piokok.com` | `https://www.piokok.com` |
 | `*.xhscdn.com` | `https://www.xiaohongshu.com` |
 
-### 与 QuiteRSS 现状对比
+### 与 Quill 现状对比
 
-| 维度 | Folo | QuiteRSS 现状 |
+| 维度 | Folo | Quill 现状 |
 |------|------|---------------|
 | 默认 UA | Chrome 133 (macOS) | Chrome 125 (Windows，`src/main/globals.cpp:97`、`feedurldetector.cpp:90`) |
 | 客户端标识 | 外发时剥离 Electron/Folo | 无客户端标识（天然无此问题） |
@@ -320,7 +320,7 @@ headers.Referer = urlObj.origin; headers.Origin = urlObj.origin  // 默认同源
 
 ## Folo 阅读与界面设置借鉴清单（待用户确认后实施）
 
-基于 [RSSNext/Folo](https://github.com/RSSNext/Folo) 设置源码（`packages/internal/shared/src/settings/interface.ts`，即设置界面数据来源）与用户截图的设置界面，整理出对 QuiteRSS 可借鉴的阅读行为类与界面外观类功能。用户已确认范围：**阅读行为类 + 界面外观类**。本清单仅记录，未实施。
+基于 [RSSNext/Folo](https://github.com/RSSNext/Folo) 设置源码（`packages/internal/shared/src/settings/interface.ts`，即设置界面数据来源）与用户截图的设置界面，整理出对 Quill 可借鉴的阅读行为类与界面外观类功能。用户已确认范围：**阅读行为类 + 界面外观类**。本清单仅记录，未实施。
 
 ### 阅读行为类（对应 Folo GeneralSettings）
 
@@ -329,7 +329,7 @@ headers.Referer = urlObj.origin; headers.Origin = urlObj.origin  // 默认同源
 - [x] **S-3 仅显示未读 `unreadOnly`**：一键筛选仅未读新闻。实现：`MainWindow::slotUnreadOnlyToggled()` 切换 `unreadOnly_` 后重新应用 `setNewsFilter()`，在所有未读过滤基础上叠加 `read<2` 条件。
 - [x] **S-4 外链跳转警告 `jumpOutLinkWarn`**：点击外部链接时弹出确认提示。实现：`WebPage::acceptNavigationRequest()` 拦截跨站链接（`navigationRequested` 信号）→ `NewsTabWidget::slotNavigationRequested()` 弹 `QMessageBox` 确认后打开。
 
-> 滚动/悬停标记已读（`scrollMarkUnread`/`hoverMarkUnread`）QuiteRSS 已实现（P0-5 InteractiveMarkController），无需重复借鉴。
+> 滚动/悬停标记已读（`scrollMarkUnread`/`hoverMarkUnread`）Quill 已实现（P0-5 InteractiveMarkController），无需重复借鉴。
 
 ### 界面外观类（对应 Folo UISettings）
 
@@ -340,7 +340,7 @@ headers.Referer = urlObj.origin; headers.Origin = urlObj.origin  // 默认同源
 - [x] **S-9 宽屏模式 `wideMode`**：正文内容最大宽度可切换（Folo 宽屏/窄屏）。实现：`updateWebView()` 正文 CSS 按 `wideMode_` 注入 `max-width:none !important;width:100%`（默认 `max-width:960px;margin:auto`）。
 - [x] **S-10 减少动画 `reduceMotion`**：减少界面过渡动画，降低动效敏感用户不适。实现：`MainWindow::applyReduceMotionSettings()` 在启动时调用，`qApp->setEffectEnabled()` 关闭组合框/菜单/提示动画，并关闭各 tab 的 `ScrollAnimatorEnabled`。
 
-> 自定义 CSS（`customCSS`）、内容字体族（`readerFontFamily`）、缩略图比例（`thumbnailRatio`）、强调色之外的完整主题定制：QuiteRSS 已实现自定义文章 CSS（M-5），可在此基础上扩展；其余项暂缓。
+> 自定义 CSS（`customCSS`）、内容字体族（`readerFontFamily`）、缩略图比例（`thumbnailRatio`）、强调色之外的完整主题定制：Quill 已实现自定义文章 CSS（M-5），可在此基础上扩展；其余项暂缓。
 
 ### 实施状态（已全部完成）
 
@@ -442,7 +442,7 @@ exit $status
 - **UI 增强 6 项**：键盘导航+多标签页（vim 键/F9 专注/Ctrl+Shift+T 撤销/Ctrl+Tab 切标签）、图片 Lightbox、阅读进度记忆（`news_ex.webScroll`）、空状态引导、内联错误卡片（`errorBanner_`+Retry）、通知静默时段（`notifyQuietHoursOn/Start/End`）。
 - **性能/安全 4 项**：Readability 全文提取、`maybeAutoCleanUp` 自动清理、`podcast://` 全局播客播放器、WAL+FTS5+索引（DB v23）与条件 GET。
 - **阅读体验（本轮）**：系统浅/深色主题跟随（5s 轮询 `systemDarkMode`）；`<img loading="lazy">` 原生懒加载；`NewsModel` 500 条分页惰性加载（`canFetchMore/fetchMore`，无 ORDER BY 默认 `id DESC`）；`newstabwidget.cpp` 22 处 `SIGNAL/SLOT` → 函数指针 `connect`。
-- **Qt6 兼容（已完成收尾）**：新增 `src/common/qt6compat.h`（`foreach` 兼容头 + Qt6 隐式依赖 `QRegExp`/`QTextCodec`，qmake 强制注入）；`common.h` 六组桌面/编码辅助函数；5 个文件去 `QApplication::desktop()`；10 文件 `SkipEmptyParts`→`Qt::SkipEmptyParts`；3 处 `QFontMetrics::width`→`horizontalAdvance`；`QuiteRSS.pro` 统一 Qt5/Qt6 模块清单；本轮再修 `endl`→`Qt::endl`、`QSslCertificate` 通配符、`QTextCodec::setCodec`、`QUrl::fromPercentEncoding`、Qt6 媒体播放（`setSource`/`PlaybackState`/`errorOccurred`、无 playlist 分支）。**CI：`build.yml` 新增 `build-linux-qt6` job**（Qt 6.5.3 + `qtwebengine qt5compat`），与 Qt5 并行验证。
+- **Qt6 兼容（已完成收尾）**：新增 `src/common/qt6compat.h`（`foreach` 兼容头 + Qt6 隐式依赖 `QRegExp`/`QTextCodec`，qmake 强制注入）；`common.h` 六组桌面/编码辅助函数；5 个文件去 `QApplication::desktop()`；10 文件 `SkipEmptyParts`→`Qt::SkipEmptyParts`；3 处 `QFontMetrics::width`→`horizontalAdvance`；`Quill.pro` 统一 Qt5/Qt6 模块清单；本轮再修 `endl`→`Qt::endl`、`QSslCertificate` 通配符、`QTextCodec::setCodec`、`QUrl::fromPercentEncoding`、Qt6 媒体播放（`setSource`/`PlaybackState`/`errorOccurred`、无 playlist 分支）。**CI：`build.yml` 新增 `build-linux-qt6` job**（Qt 6.5.3 + `qtwebengine qt5compat`），与 Qt5 并行验证。
 - **测试闭环（本轮修复）**：`tests/tests.pro` 的 `tst_common` 此前两平台退出码 2，已定位为 QTest 运行时断言失败而非编译失败——`HtmlSanitizer` 两处真实 bug：`removeAll` 的 `setPatternOptions` 整体覆盖丢大小写选项（大写 `<SCRIPT>` 不剥离）、`jsUrl` 替换不保留引号风格（`src='#'` 变 `src="#"`）。已修复，测试无需改动。
 - **数据管理与安全（本轮新增）**：拦截词（`blockedwordsdialog.*` + DB v24 `blockedWords` 表 + `NewsModel::setFilter` 统一注入，LIKE 通配符/引号转义，非破坏性隐藏）；数据备份/恢复（`Database::backupToFile/restoreFromFile` 基于 `sqlite3_backup`，WAL 安全在线快照、恢复前安全副本、恢复后跑迁移重载模型，菜单「备份数据…/恢复数据…」）；C.7 无 RSS 站点抓取核实（XPath/脚本抓取链路完整，向导失败提示引导切换类型）。
 - **全局一键暂停（本轮新增）**：`pauseUpdatesAct_`（checkable，图标 `SP_MediaPause/Play` 随状态切换）——订阅菜单、托盘菜单、主工具栏默认布局三入口；`slotGetFeedsTimer` 开头门控：暂停时直接 return 冻结全部倒计时（全局 + 每源），**手动刷新（单源/全部）不受影响**；INI `pauseUpdates` 持久化，重启保持暂停。

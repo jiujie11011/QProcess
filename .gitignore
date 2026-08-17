@@ -8,7 +8,7 @@ debug
 release
 Makefile*
 src/VersionRev.h
-QuiteRSS.pro.user*
+Quill.pro.user*
 .qmake.stash
 ui_*.h
 moc_*.cpp

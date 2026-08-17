@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ QString exportFeedsToJson(FeedsModel *model, QSqlDatabase db)
   }
 
   QJsonObject root;
-  root.insert("type", "quiterss-feeds");
+  root.insert("type", "quill-feeds");
   root.insert("version", 1);
   root.insert("exported", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
   root.insert("feeds", feedArray);
@@ -89,7 +89,7 @@ int importFeedsFromJson(const QString &jsonData, QSqlDatabase db)
   if (parseError.error != QJsonParseError::NoError) return -1;
 
   QJsonObject root = doc.object();
-  if (root.value("type").toString() != "quiterss-feeds") return -1;
+  if (root.value("type").toString() != "quill-feeds") return -1;
 
   QJsonArray feedArray = root.value("feeds").toArray();
   if (feedArray.isEmpty()) return 0;

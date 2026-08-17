@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -88,7 +88,7 @@ void NetworkSpeedDetector::startDetection(const QStringList &probeUrls)
 QNetworkRequest NetworkSpeedDetector::makeRequest(const QUrl &url) const
 {
   QNetworkRequest request(url);
-  request.setRawHeader("User-Agent", "QuiteRSS/0.19 (network speed detection)");
+  request.setRawHeader("User-Agent", "Quill/0.19 (network speed detection)");
   request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                        QNetworkRequest::AlwaysNetwork);
   return request;
@@ -191,7 +191,7 @@ int NetworkSpeedDetector::suggestedConcurrency() const
 // ----------------------------------------------------------------------------
 int NetworkSpeedDetector::concurrencyFromSpeed(int latencyMs, double bandwidthMbps)
 {
-  // Same thresholds as MrRSS's detector, scaled to QuiteRSS's pool cap (10).
+  // Same thresholds as MrRSS's detector, scaled to Quill's pool cap (10).
   // The floor is kept at 6 so a misjudged "slow" link (or a short feed that
   // makes the bandwidth probe read low) cannot throttle feed refreshes
   // to 3 parallel requests.

@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ void WebView::disconnectObjects()
   buttonClick_ = 0;
 
   if (event->buttons() == Qt::RightButton) {
-    posX_ = event->position().toPoint().x();
+    posX_ = QEVENT_POS(event).x();
   }
 
   QWebEngineView::mousePressEvent(event);
@@ -65,7 +65,7 @@ void WebView::disconnectObjects()
 /*virtual*/ void WebView::mouseReleaseEvent(QMouseEvent *event)
 {
   if (event->button() & Qt::RightButton) {
-    int posX2 = event->position().toPoint().x();
+    int posX2 = QEVENT_POS(event).x();
     if (posX_ > posX2+5) {
       if (history()->canGoBack())
         back();
@@ -74,7 +74,7 @@ void WebView::disconnectObjects()
     } else if (posX_+5 < posX2) {
       forward();
     } else {
-      emit showContextMenu(event->position().toPoint());
+      emit showContextMenu(QEVENT_POS(event));
     }
   } else if (event->button() & Qt::MiddleButton) {
     if (event->modifiers() == Qt::NoModifier) {

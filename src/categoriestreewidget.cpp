@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -102,7 +102,7 @@ CategoriesTreeWidget::CategoriesTreeWidget(QWidget * parent)
 
 void CategoriesTreeWidget::mousePressEvent(QMouseEvent *event)
 {
-  QModelIndex index = indexAt(event->position().toPoint());
+  QModelIndex index = indexAt(QEVENT_POS(event));
   QRect rectText = visualRect(index);
 
   if (event->buttons() & Qt::RightButton) {
@@ -110,7 +110,7 @@ void CategoriesTreeWidget::mousePressEvent(QMouseEvent *event)
   }
 
   if (!index.isValid()) return;
-  if (!(event->position().toPoint().x() >= rectText.x())) {
+  if (!(QEVENT_POS(event).x() >= rectText.x())) {
     QTreeWidget::mousePressEvent(event);
     return;
   }

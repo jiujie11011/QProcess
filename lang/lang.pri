@@ -1,17 +1,17 @@
 INCLUDEPATH += $$PWD
 DEPENDPATH += $$PWD
 
-TRANSLATIONS += lang/quiterss_de.ts lang/quiterss_ru.ts \
-                lang/quiterss_es.ts lang/quiterss_fr.ts lang/quiterss_hu.ts \
-                lang/quiterss_sv.ts lang/quiterss_sr.ts lang/quiterss_nl.ts \
-                lang/quiterss_fa.ts lang/quiterss_it.ts lang/quiterss_zh_CN.ts \
-                lang/quiterss_uk.ts lang/quiterss_cs.ts lang/quiterss_pl.ts \
-                lang/quiterss_ja.ts lang/quiterss_ko.ts lang/quiterss_pt_BR.ts \
-                lang/quiterss_lt.ts lang/quiterss_zh_TW.ts lang/quiterss_el_GR.ts \
-                lang/quiterss_tr.ts lang/quiterss_ar.ts lang/quiterss_sk.ts \
-                lang/quiterss_tg_TJ.ts lang/quiterss_pt_PT.ts lang/quiterss_vi.ts \
-                lang/quiterss_ro_RO.ts lang/quiterss_fi.ts lang/quiterss_gl.ts \
-                lang/quiterss_bg.ts lang/quiterss_hi.ts
+TRANSLATIONS += lang/quill_de.ts lang/quill_ru.ts \
+                lang/quill_es.ts lang/quill_fr.ts lang/quill_hu.ts \
+                lang/quill_sv.ts lang/quill_sr.ts lang/quill_nl.ts \
+                lang/quill_fa.ts lang/quill_it.ts lang/quill_zh_CN.ts \
+                lang/quill_uk.ts lang/quill_cs.ts lang/quill_pl.ts \
+                lang/quill_ja.ts lang/quill_ko.ts lang/quill_pt_BR.ts \
+                lang/quill_lt.ts lang/quill_zh_TW.ts lang/quill_el_GR.ts \
+                lang/quill_tr.ts lang/quill_ar.ts lang/quill_sk.ts \
+                lang/quill_tg_TJ.ts lang/quill_pt_PT.ts lang/quill_vi.ts \
+                lang/quill_ro_RO.ts lang/quill_fi.ts lang/quill_gl.ts \
+                lang/quill_bg.ts lang/quill_hi.ts
 
 isEmpty(QMAKE_LRELEASE) {
   Q_OS_WIN:QMAKE_LRELEASE = $$[QT_INSTALL_BINS]\lrelease.exe

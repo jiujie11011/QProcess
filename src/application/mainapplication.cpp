@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -57,8 +57,8 @@ MainApplication::MainApplication(int &argc, char **argv)
   , imageCache_(0)
   , analytics_(0)
 {
-  setApplicationName("QuiteRss");
-  setOrganizationName("QuiteRss");
+  setApplicationName("Quill");
+  setOrganizationName("Quill");
   setApplicationVersion(STRPRODUCTVER);
   globals.init();
 
@@ -80,7 +80,7 @@ MainApplication::MainApplication(int &argc, char **argv)
     }
   }
 
-  setWindowIcon(QIcon(":/images/quiterss128"));
+  setWindowIcon(QIcon(":/images/quill128"));
   setQuitOnLastWindowClosed(false);
 
   createSettings();
@@ -221,7 +221,7 @@ void MainApplication::createSettings()
   // stored value and fall back to the detected locale if it is unusable.
   QString storedLang = settings.value("langFileName", QString()).toString();
   if (storedLang.isEmpty() ||
-      !QFile::exists(resourcesDir() + "/lang/quiterss_" + storedLang + ".qm")) {
+      !QFile::exists(resourcesDir() + "/lang/quill_" + storedLang + ".qm")) {
     storedLang = strLang;
   }
   langFileName_ = storedLang;
@@ -264,7 +264,7 @@ void MainApplication::connectDatabase()
   }
 
 #if defined(HAVE_QT5) && defined(HAVE_X11)
-  fileName = "~/.local/share/data/QuiteRss/QuiteRss/feeds.db";
+  fileName = "~/.local/share/data/Quill/Quill/feeds.db";
   if (!QFile(dbFileName()).exists() && QFile(fileName).exists()) {
     QFile::copy(fileName, dbFileName());
   }
@@ -314,17 +314,17 @@ void MainApplication::slotCheckSslRuntime()
 
   QString details;
 #if defined(Q_OS_WIN)
-  details = tr("QuiteRSS needs the OpenSSL 1.1.x runtime libraries "
+  details = tr("Quill needs the OpenSSL 1.1.x runtime libraries "
                "(libssl-1_1-x64.dll and libcrypto-1_1-x64.dll) next to "
-               "QuiteRSS.exe to refresh HTTPS feeds.\n\n"
+               "Quill.exe to refresh HTTPS feeds.\n\n"
                "Without them, every HTTPS subscription fails to update "
-               "(\"TLS initialization failed\"). Please reinstall QuiteRSS "
+               "(\"TLS initialization failed\"). Please reinstall Quill "
                "or copy these two DLLs into the application folder, then "
                "restart.");
 #else
-  details = tr("QuiteRSS cannot find an OpenSSL 1.1.x runtime, so HTTPS "
+  details = tr("Quill cannot find an OpenSSL 1.1.x runtime, so HTTPS "
                "feeds will fail to refresh. Please install the OpenSSL 1.1 "
-               "libraries for your system and restart QuiteRSS.");
+               "libraries for your system and restart Quill.");
 #endif
 
   qWarning() << "OpenSSL runtime not found (QSslSocket::supportsSsl() == false);"
@@ -511,7 +511,7 @@ void MainApplication::setTranslateApplication()
   if (!translator_)
     translator_ = new QTranslator(this);
   removeTranslator(translator_);
-  translator_->load(resourcesDir() + QString("/lang/quiterss_%1").arg(langFileName_));
+  translator_->load(resourcesDir() + QString("/lang/quill_%1").arg(langFileName_));
   installTranslator(translator_);
 
   if (!qt_translator_)

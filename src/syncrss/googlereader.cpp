@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2013 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2013 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -146,7 +146,7 @@ void GoogleReader::sendHttpGet(QUrl url, QNetworkAccessManager *manager)
 void GoogleReader::editFeed(const QString &urlFeed, const QString &action, const QString &name)
 {
   QUrl params;
-  params.addQueryItem("client", "QuiteRSS");
+  params.addQueryItem("client", "Quill");
   params.addQueryItem("s", QString("feed/%1").arg(urlFeed));
   params.addQueryItem("ac", action);
   params.addQueryItem("t", name);
@@ -207,7 +207,7 @@ void GoogleReader::requestFeed(const QString &urlFeed, int ot)
   params.addQueryItem("ck", QString::number(nTimeShift));
   if (ot)
     params.addQueryItem("ot", QString::number(ot));
-  params.addQueryItem("client", "QuiteRSS");
+  params.addQueryItem("client", "Quill");
 
   sendHttpGet(params, &managerFeed_);
 }
@@ -228,7 +228,7 @@ void GoogleReader::replyFeed(QNetworkReply *reply)
 void GoogleReader::editItem(const QString &urlFeed, const QString &itemId, const QString &action)
 {
   QUrl params;
-  params.addQueryItem("client", "QuiteRSS");
+  params.addQueryItem("client", "Quill");
   if (action == "read")
     params.addQueryItem("a", "user/-/state/com.google/read");
   else if (action == "unread")

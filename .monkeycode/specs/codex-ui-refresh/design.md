@@ -47,7 +47,7 @@ graph TD
 
 ### 1. Codex 主题系统
 
-- 新增 `style/codex_light.qss`、`style/codex_dark.qss`，资源注册进 `QuiteRSS.qrc`。
+- 新增 `style/codex_light.qss`、`style/codex_dark.qss`，资源注册进 `Quill.qrc`。
 - `MainWindow::setStyleApp`（mainwindow.cpp:6188）重构：
   - 移除 8 套旧主题分支，仅保留 codex_light/codex_dark/system 跟随三态。
   - `Settings/styleApplication` 旧值（system/system2/dark/orange/purple/pink/gray/green）在加载时归一化：dark 系 → codex_dark，其余 → codex_light。

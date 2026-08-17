@@ -1,4 +1,4 @@
-/* Lightweight offline syntax highlighter for QuiteRSS (S-8)
+/* Lightweight offline syntax highlighter for Quill (S-8)
  * Auto-detects language from code content and highlights common
  * tokens without any external dependency.
  */

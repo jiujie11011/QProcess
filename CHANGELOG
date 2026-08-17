@@ -184,7 +184,7 @@ Version 0.17.3 (02 Jan 2015)
 
 Version 0.17.2 (28 Dec 2014)
   * Added: Save page as HTML in "newspaper" mode
-  * Added: Option to display notification on same as QuiteRSS display (option value: -1)
+  * Added: Option to display notification on same as Quill display (option value: -1)
   * Added: SSL-certificate check
   * Added: Language: Bulgarian
   * Changed: Drag links from embedded browser to Firefox
@@ -418,7 +418,7 @@ Version 0.13.2 (30 Jul 2013)
   * Added: Displaying links to the comment in line with author name
   * Added: Displaying categories (labels) in line with author name
   * Added: Notification window: Button to mark news as read
-  * Added: Association QuiteRSS in unix
+  * Added: Association Quill in unix
   * Added: Language: Vietnamese
   * Added: Language: Romanian
   * Changed: Labels "Default" after changing the language translated (will only work for a new DB)
@@ -516,7 +516,7 @@ Version 0.12.5 (22 Apr 2013)
   * Added: Option: "Simplified representation of date and time"
   * Added: Options: "Don't delete starred news", "Don't delete labeled news"
   * Added: Option: "Automatically collapse folders"
-  * Added: Option: "Run QuiteRSS at Windows startup" (Windows)
+  * Added: Option: "Run Quill at Windows startup" (Windows)
   * Added: Tab context menu items: "Close tab" and "Close Other tabs"
   * Added: Ability to move main toolbar (toolbar context menu->Lock toolbar)
   * Added: "Link" and "Title Feed" columns in news list
@@ -745,7 +745,7 @@ Version 0.9.1 (31 May 2012)
   * Added: Hotkey "Home", "End" in feeds list and news list
   * Changed: GUI. Some visual tweaks
   * Fixed: Keyboard layout in unix systems
-  * Fixed: Default application icon instead on QuiteRSS icon in unix systems
+  * Fixed: Default application icon instead on Quill icon in unix systems
   * Fixed: Hang while updating some feeds
   * Fixed: Duplicate news in RSS-feeds
 

@@ -1,4 +1,4 @@
-name: Build QuiteRSS
+name: Build Quill
 
 on:
   push:
@@ -46,7 +46,7 @@ jobs:
 
       - name: Run qmake
         run: |
-          qmake QuiteRSS.pro CONFIG+=release
+          qmake Quill.pro CONFIG+=release
 
       - name: Build
         run: |
@@ -106,8 +106,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: QuiteRSS-linux
-          path: release/target/QuiteRSS
+          name: Quill-linux
+          path: release/target/Quill
           if-no-files-found: warn
 
   # Qt6 matrix leg: catches Qt5-only API usage that would silently rot the
@@ -165,7 +165,7 @@ jobs:
       - name: Run qmake
         run: |
           set +e
-          qmake QuiteRSS.pro CONFIG+=release 2>&1 | tee qmake.log
+          qmake Quill.pro CONFIG+=release 2>&1 | tee qmake.log
           status=${PIPESTATUS[0]}
           set -e
           if [ $status -ne 0 ]; then
@@ -230,8 +230,8 @@ jobs:
       - name: Upload artifact (Qt6)
         uses: actions/upload-artifact@v4
         with:
-          name: QuiteRSS-linux-qt6
-          path: release/target/QuiteRSS
+          name: Quill-linux-qt6
+          path: release/target/Quill
           if-no-files-found: warn
 
   build-windows:
@@ -259,7 +259,7 @@ jobs:
 
       - name: Run qmake
         run: |
-          qmake QuiteRSS.pro -spec win32-msvc "CONFIG+=release"
+          qmake Quill.pro -spec win32-msvc "CONFIG+=release"
         shell: cmd
 
       - name: Build
@@ -314,9 +314,9 @@ jobs:
         run: |
           # Use absolute path to avoid any working-directory confusion.
           $workspace = $PSScriptRoot
-          $exe = Join-Path $workspace "release\target\QuiteRSS.exe"
+          $exe = Join-Path $workspace "release\target\Quill.exe"
           if (-not (Test-Path $exe)) {
-            Write-Error "QuiteRSS.exe not found at: $exe"
+            Write-Error "Quill.exe not found at: $exe"
             # Show what's in release/target for debugging
             Get-ChildItem (Join-Path $workspace "release\target") -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $_" }
             exit 1
@@ -333,7 +333,7 @@ jobs:
           # Qt 5.15 requires OpenSSL 1.1.x. windeployqt does NOT copy
           # libssl/libcrypto automatically, so every https:// feed fails
           # with "TLS initialization failed" without these DLLs. Provision
-          # them next to QuiteRSS.exe.
+          # them next to Quill.exe.
           $ErrorActionPreference = 'Stop'
           $workspace = $PSScriptRoot
           $targetDir = Join-Path $workspace "release\target"
@@ -397,10 +397,10 @@ jobs:
 
           # Compile the application translations (.ts -> .qm). lrelease puts
           # the .qm files next to their .ts sources, then we copy them into
-          # the distribution next to QuiteRSS.exe so that
+          # the distribution next to Quill.exe so that
           # MainApplication::setTranslateApplication() can find them at
-          # "<exe dir>/lang/quiterss_<lang>.qm".
-          $tsFiles = @(Get-ChildItem -Path lang -Filter quiterss_*.ts | Sort-Object Name)
+          # "<exe dir>/lang/quill_<lang>.qm".
+          $tsFiles = @(Get-ChildItem -Path lang -Filter quill_*.ts | Sort-Object Name)
           Write-Output "Compiling $($tsFiles.Count) .ts files"
           & $lreleaseCmd.Source @($tsFiles.FullName) 2>&1 | Tee-Object -FilePath lrelease.log
           $lr = $LASTEXITCODE
@@ -414,7 +414,7 @@ jobs:
           }
 
           # Copy the generated .qm files next to the exe.
-          $qm = @(Get-ChildItem -Path lang -Filter quiterss_*.qm -ErrorAction SilentlyContinue)
+          $qm = @(Get-ChildItem -Path lang -Filter quill_*.qm -ErrorAction SilentlyContinue)
           if ($qm.Count -eq 0) {
             Write-Output "::error::no .qm files generated in lang/"
             exit 1
@@ -432,8 +432,8 @@ jobs:
       - name: Package Windows distribution
         shell: pwsh
         run: |
-          Compress-Archive -Path release/target/* -DestinationPath QuiteRSS-windows.zip -Force
-          Get-Item QuiteRSS-windows.zip | Select-Object Name, Length
+          Compress-Archive -Path release/target/* -DestinationPath Quill-windows.zip -Force
+          Get-Item Quill-windows.zip | Select-Object Name, Length
 
       - name: Upload build log
         if: always()
@@ -446,8 +446,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: QuiteRSS-windows
-          path: QuiteRSS-windows.zip
+          name: Quill-windows
+          path: Quill-windows.zip
           if-no-files-found: warn
 
   release:
@@ -461,12 +461,12 @@ jobs:
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: QuiteRSS-windows
+          name: Quill-windows
           path: dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/QuiteRSS-windows.zip
+          files: dist/Quill-windows.zip
           generate_release_notes: true
           draft: false

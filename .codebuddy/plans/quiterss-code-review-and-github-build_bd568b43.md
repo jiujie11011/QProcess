@@ -1,6 +1,6 @@
 ---
-name: quiterss-code-review-and-github-build
-overview: 对 QuiteRSS 项目近期全部修改（8 项功能移植）进行代码审查，定位并直接修复编译隐患与逻辑问题；随后提交并推送到 GitHub，触发 Actions 的 Windows(MSVC2019)+Linux 编译，重点验证 Windows 编译通过，并汇报构建结果。
+name: quill-code-review-and-github-build
+overview: 对 Quill 项目近期全部修改（8 项功能移植）进行代码审查，定位并直接修复编译隐患与逻辑问题；随后提交并推送到 GitHub，触发 Actions 的 Windows(MSVC2019)+Linux 编译，重点验证 Windows 编译通过，并汇报构建结果。
 todos:
   - id: review-all-changes
     content: 使用 [subagent:code-explorer] 和 [skill:lsp-code-analysis] 审查 8 项移植的全部改动代码，产出问题清单
@@ -34,7 +34,7 @@ todos:
 
 ## 产品概述
 
-对 QuiteRSS（Qt 5.15.2 / C++）近期完成的 8 项功能移植（每源独立代理、任务管理器、网络测速动态并发、JSON 导入导出补字段、智能 Referer、订阅源发现、Email 数据层、信号扩展）的全部代码改动进行静态审查，直接修复发现的编译隐患与逻辑 bug；随后提交全部修改并推送到 GitHub（origin: jiujie11011/QProcess.git），由 GitHub Actions 自动编译验证，重点验证 Windows MSVC2019 + QtWebEngine 构建（本机无 MSVC 工具链，无法本地编译）。
+对 Quill（Qt 5.15.2 / C++）近期完成的 8 项功能移植（每源独立代理、任务管理器、网络测速动态并发、JSON 导入导出补字段、智能 Referer、订阅源发现、Email 数据层、信号扩展）的全部代码改动进行静态审查，直接修复发现的编译隐患与逻辑 bug；随后提交全部修改并推送到 GitHub（origin: jiujie11011/QProcess.git），由 GitHub Actions 自动编译验证，重点验证 Windows MSVC2019 + QtWebEngine 构建（本机无 MSVC 工具链，无法本地编译）。
 
 ## 核心功能
 
@@ -52,12 +52,12 @@ todos:
 ## 审查重点（已初步核查，执行时深入）
 
 1. **信号签名一致性**：signalRequestUrl(int,QString,QDateTime,QString,QString,bool) 三处声明（updatefeeds.h:118 / addfeedwizard.h:63 / mainwindow.h:375）、2 处 connect（updatefeeds.cpp:58,74）、6 处 emit（addfeedwizard.cpp:481,566; updatefeeds.cpp:566,616,624）——已确认全部一致，仍须核对 SIGNAL/SLOT 宏字符串精确匹配（运行时连接失败编译期不报错）
-2. **新文件审查**：src/network/netspeeddetector.{h,cpp}（NetworkManager 构造签名、跨线程信号连接是否缺 QueuedConnection、abortCurrentReply/析构内存释放、超时处理）；src/importexport/feedurldetector.{h,cpp}（QNetworkAccessManager 生命周期、信号触发、stop() 语义）；确认均已注册进 QuiteRSS.pro（已确认 104/113/199/206 行）
+2. **新文件审查**：src/network/netspeeddetector.{h,cpp}（NetworkManager 构造签名、跨线程信号连接是否缺 QueuedConnection、abortCurrentReply/析构内存释放、超时处理）；src/importexport/feedurldetector.{h,cpp}（QNetworkAccessManager 生命周期、信号触发、stop() 语义）；确认均已注册进 Quill.pro（已确认 104/113/199/206 行）
 3. **队列改造**：src/requestfeed.cpp 的 networkManagers_ 代理池、proxyQueue_/currentProxy_ 配对、stopRequest 空队列 dequeue 修复、setNumberRequests 移入 public slots 后的 moc 更新
 4. **跨线程安全**：updatefeeds.cpp slotSpeedDetected 经 QMetaObject::invokeMethod 设置并发的目标对象与线程归属；signalTaskStats 的连接；addFeedInQueue dedup-promote 边界（同 feed 重复入队）
 5. **WebEngine 拦截**：webpluginfactory.cpp refererCache_（上限 512、LRU/清理时机）、QWebEngineUrlRequestInfo 在 Qt 5.15 下 setHttpHeader 用法、ResourceType 枚举取值
 6. **mainwindow**：statusUpdating_ 状态栏、slotTaskStats(int,int,int,int) 参数与信号匹配
-7. **CI 配置**：QuiteRSS.pro DESTDIR=${BUILD_DIR}/target 与 build.yml artifact 路径 release/target/QuiteRSS.exe 的一致性（BUILD_DIR 的 release 分支需确认）；Windows nmake 调用方式
+7. **CI 配置**：Quill.pro DESTDIR=${BUILD_DIR}/target 与 build.yml artifact 路径 release/target/Quill.exe 的一致性（BUILD_DIR 的 release 分支需确认）；Windows nmake 调用方式
 8. **MSVC 兼容性**：C++ 标准、strdup/sscanf 等 MSVC 差异函数、signed/unsigned 比较警告、Q_OBJECT 类是否全部经 moc
 
 ## 修复策略

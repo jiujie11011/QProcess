@@ -1,6 +1,6 @@
 /* ============================================================
-* QuiteRSS is a open-source cross-platform RSS/Atom news feeds reader
-* Copyright (C) 2011-2020 QuiteRSS Team <quiterssteam@gmail.com>
+* Quill is a open-source cross-platform RSS/Atom news feeds reader
+* Copyright (C) 2011-2020 Quill Team <quillteam@gmail.com>
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -166,10 +166,10 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
              (event->type() == QEvent::HoverEnter) ||
              (event->type() == QEvent::HoverLeave)) {
     QHoverEvent *hoverEvent = static_cast<QHoverEvent*>(event);
-    if (hoverEvent->position().toPoint().x() >= width() - buttonColumnView_->width()) {
+    if (QEVENT_POS(hoverEvent).x() >= width() - buttonColumnView_->width()) {
       if ((event->type() == QEvent::HoverMove) && !(QApplication::mouseButtons() & Qt::LeftButton)) {
         QHoverEvent* pe =
-            new QHoverEvent(QEvent::HoverLeave, hoverEvent->oldPosF(), hoverEvent->position());
+            new QHoverEvent(QEvent::HoverLeave, QEVENT_POSF(hoverEvent), hoverEvent->oldPosF());
         QApplication::sendEvent(this, pe);
       }
       return true;
@@ -183,11 +183,11 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
 
 /*virtual*/ void NewsHeader::mousePressEvent(QMouseEvent *event)
 {
-  QPoint nPos = event->position().toPoint();
+  QPoint nPos = QEVENT_POS(event);
   nPos.setX(nPos.x() + 5);
   idxCol_ = visualIndex(logicalIndexAt(nPos));
-  posX_ = event->position().toPoint().x();
-  nPos = event->position().toPoint();
+  posX_ = QEVENT_POS(event).x();
+  nPos = QEVENT_POS(event);
   nPos.setX(nPos.x() - 5);
   QHeaderView::mousePressEvent(event);
 }
@@ -200,9 +200,9 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
     int newWidth = 0;
 
     for (int i = 0; i < count(); i++) newWidth += sectionSize(i);
-    if (posX_ > event->position().toPoint().x()) sizeMin =  true;
+    if (posX_ > QEVENT_POS(event).x()) sizeMin =  true;
     if (!sizeMin) {
-      if (event->position().toPoint().x() < oldWidth) {
+      if (QEVENT_POS(event).x() < oldWidth) {
         for (int i = count()-1; i >= 0; i--) {
           int lIdx = logicalIndex(i);
           if (!isSectionHidden(lIdx)) {
@@ -227,7 +227,7 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
           tWidth += 40;
         }
       }
-      if (event->position().toPoint().x()+tWidth > oldWidth) {
+      if (QEVENT_POS(event).x()+tWidth > oldWidth) {
         sizeMin = false;
       }
     } else {
@@ -254,12 +254,12 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
       }
     }
     if (!sizeMin) {
-      if (posX_ > event->position().toPoint().x()) posX_ = event->position().toPoint().x();
+      if (posX_ > QEVENT_POS(event).x()) posX_ = QEVENT_POS(event).x();
       event->ignore();
       return;
     }
   }
-  if (posX_ > event->position().toPoint().x()) posX_ = event->position().toPoint().x();
+  if (posX_ > QEVENT_POS(event).x()) posX_ = QEVENT_POS(event).x();
 
   QHeaderView::mouseMoveEvent(event);
 }

@@ -1,4 +1,4 @@
-/* QuiteRSS reader lightbox: click article images to view them full-size.
+/* Quill reader lightbox: click article images to view them full-size.
  * Self-contained, no external dependencies. Uses event delegation so it
  * also works for images inserted later (newspaper layout).
  */
@@ -51,7 +51,7 @@
 
   function isArticleImage(t) {
     if (!t || t.tagName !== "IMG") return false;
-    if (t.classList.contains("quiterss-img")) return false; // app UI icons
+    if (t.classList.contains("quill-img")) return false; // app UI icons
     if (t.closest(".newsTable")) return true;               // article body
     if (t.classList.contains("enclosureImg")) return true;  // enclosure image
     return false;
