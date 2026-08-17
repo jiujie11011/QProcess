@@ -2,9 +2,7 @@ name: Build QuiteRSS
 
 on:
   push:
-    # Building on every push to main is slow; only build on release tags or
-    # manual dispatch. Plain code pushes just update the repository without
-    # triggering a compile.
+    branches: ['main']
     tags: ['v*']
   workflow_dispatch:
 
