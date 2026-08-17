@@ -63,4 +63,22 @@
      new QHoverEvent((type), (pos), (oldPos))
 #endif
 
+// QModelIndex::child() was removed in Qt 6 -> model()->index(row, col, parent).
+// Semantics are identical (Qt5's child() is just a thin wrapper over it).
+// Callers must guarantee a valid model (they always do: they already called
+// model()->rowCount() on the same index).
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#  define QMODELINDEX_CHILD(idx, row, col) ((idx).model()->index((row), (col), (idx)))
+#else
+#  define QMODELINDEX_CHILD(idx, row, col) ((idx).child((row), (col)))
+#endif
+
+// QWebEnginePage::createStandardContextMenu() was removed in Qt 6.2; the same
+// API now lives on QWebEngineView::createStandardContextMenu().
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#  define QWEBENGINE_STD_CONTEXTMENU(view) ((view)->createStandardContextMenu())
+#else
+#  define QWEBENGINE_STD_CONTEXTMENU(view) ((view)->page()->createStandardContextMenu())
+#endif
+
 #endif // QT6COMPAT_H

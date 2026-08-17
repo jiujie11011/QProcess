@@ -35,6 +35,9 @@ class BlockedWordsDialog : public Dialog
   Q_OBJECT
 public:
   explicit BlockedWordsDialog(QWidget *parent);
+  // Persist changes (saveWords) before closing; declared here because it
+  // overrides Dialog/QDialog::accept().
+  void accept();
 
 private slots:
   void addWord();

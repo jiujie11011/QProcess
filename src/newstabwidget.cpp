@@ -3358,7 +3358,7 @@ void NewsTabWidget::slotSelectFind()
 void NewsTabWidget::showContextWebPage(const QPoint &p)
 {
   QMenu menu;
-  QMenu *pageMenu = webView_->page()->createStandardContextMenu();
+  QMenu *pageMenu = QWEBENGINE_STD_CONTEXTMENU(webView_);
   if (pageMenu) {
     menu.addActions(pageMenu->actions());
 

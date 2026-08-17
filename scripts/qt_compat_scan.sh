@@ -76,6 +76,8 @@ if [[ $STRICT -eq 1 ]]; then
   report "QMouseEvent::globalPosition() (Qt6 新增; Qt5 是 globalPos() -> 用 QEVENT_GLOBALPOS)" "$(scan_src_only "\.globalPosition\(")"
   report "QSinglePointEvent::position() (Qt6 新增; Qt5 是 pos() -> 用 QEVENT_POS)" "$(scan_src_only "\.position\(\)\.toPoint\(\)")"
   report "QScreen::devicePixelRatio() 前置 QWindow (Qt6 新增形态; Qt5 是 QWidget::devicePixelRatio)" "$(scan_src_only "\.devicePixelRatio\(\)")"
+  report "QModelIndex::child() (Qt6 移除 -> model()->index(row,col,parent), 用 QMODELINDEX_CHILD)" "$(scan_src_only "\.child\(")"
+  report "QWebEnginePage::createStandardContextMenu() (Qt6 移除 -> QWebEngineView 同方法, 用 QWEBENGINE_STD_CONTEXTMENU)" "$(scan_src_only "createStandardContextMenu")"
   echo ""
   if [[ $found -eq 1 ]]; then
     echo -e "${RED}严格模式发现必炸项, 请修复后再提交${NC}"
@@ -109,6 +111,8 @@ report "QString::SkipEmptyParts (Qt6 改名 Qt::SkipEmptyParts)" "$(scan "SkipEm
 report "QWebEngineCertificateError API 变化" "$(scan "QWebEngineCertificateError")"
 report "QMouseEvent::globalPosition() 裸用 (Qt6 新增; Qt5 是 globalPos() -> QEVENT_GLOBALPOS)" "$(scan_src_only "\.globalPosition\(")"
 report "QSinglePointEvent::position() 裸用 (Qt6 新增; Qt5 是 pos() -> QEVENT_POS)" "$(scan_src_only "\.position\(\)\.toPoint\(\)")"
+report "QModelIndex::child() 裸用 (Qt6 移除 -> model()->index(row,col,parent), 用 QMODELINDEX_CHILD)" "$(scan_src_only "\.child\(")"
+report "QWebEnginePage::createStandardContextMenu() 裸用 (Qt6 移除 -> QWebEngineView 同方法, 用 QWEBENGINE_STD_CONTEXTMENU)" "$(scan_src_only "createStandardContextMenu")"
 
 # --- B 级：编译通过但行为可能异常 ---
 echo -e "${YELLOW}=== B 级：编译通过但需回归验证 ===${NC}"
