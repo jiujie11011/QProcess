@@ -32,10 +32,10 @@ exists(.git) {
 }
 
 isEqual(QT_MAJOR_VERSION, 5) {
-  QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia
+  QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia concurrent
   DEFINES += HAVE_QT5
 } else {
-  QT += core gui network xml webengine sql
+  QT += core gui network xml webengine sql concurrent
   os2 {
     DISABLE_PHONON = 1
   }
@@ -90,6 +90,7 @@ HEADERS += \
     src/application/settings.h \
     src/application/logfile.h \
     src/application/mainwindow.h \
+    src/imagecache.h \
     src/adblock/adblocktreewidget.h \
     src/adblock/adblocksubscription.h \
     src/adblock/adblocksearchtree.h \
@@ -197,6 +198,7 @@ SOURCES += \
     src/application/settings.cpp \
     src/application/logfile.cpp \
     src/application/mainwindow.cpp \
+    src/imagecache.cpp \
     src/main/globals.cpp \
     src/main/main.cpp \
     src/adblock/adblocktreewidget.cpp \

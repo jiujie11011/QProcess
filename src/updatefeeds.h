@@ -150,6 +150,8 @@ private:
   QString getFeedProxyUrl(int feedId, const QString &proxyUrl);
   QString getFeedUserInfo(const QString &feedUrl, int auth);
   QSqlDatabase db(); // lazy per-thread connection
+  // Periodic runtime cleanup (options: Cleanup/autoEnabled, autoIntervalDays)
+  void maybeAutoCleanUp();
 
   MainWindow *mainWindow_;
   QList<int> feedIdList_;

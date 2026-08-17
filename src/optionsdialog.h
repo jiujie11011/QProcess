@@ -195,6 +195,8 @@ public:
   QSpinBox *cleanupDays_;
   QSpinBox *cleanupKeepCount_;
   QSpinBox *cleanupRecycleDays_;
+  QCheckBox *autoCleanUpEnable_;
+  QSpinBox *autoCleanUpIntervalDays_;
 
   // ai
   QCheckBox *aiEnabled_;
@@ -243,6 +245,9 @@ public:
   QCheckBox *showButtonExBrowserNotify_;
   QCheckBox *showButtonDeleteNotify_;
   QCheckBox *closeNotify_;
+  QCheckBox *quietHoursNotify_;
+  QTimeEdit *quietHoursStart_;
+  QTimeEdit *quietHoursEnd_;
 
   QCheckBox *fullscreenModeNotify_;
   QCheckBox *showNotifyInactiveApp_;

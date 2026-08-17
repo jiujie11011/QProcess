@@ -1348,6 +1348,24 @@ void OptionsDialog::createNotifierWidget()
   connect(feedsNotiferButton, SIGNAL(clicked()),
           feedsNotifierDlg_, SLOT(exec()));
 
+  // UI-6: quiet hours (do not disturb) window
+  quietHoursNotify_ = new QCheckBox(tr("Quiet hours (do not disturb)"));
+  quietHoursStart_ = new QTimeEdit();
+  quietHoursStart_->setDisplayFormat("HH:mm");
+  quietHoursStart_->setTime(QTime(22, 0));
+  quietHoursEnd_ = new QTimeEdit();
+  quietHoursEnd_->setDisplayFormat("HH:mm");
+  quietHoursEnd_->setTime(QTime(7, 0));
+
+  QHBoxLayout *quietHoursLayout = new QHBoxLayout();
+  quietHoursLayout->addWidget(quietHoursNotify_);
+  quietHoursLayout->addSpacing(10);
+  quietHoursLayout->addWidget(new QLabel(tr("From")));
+  quietHoursLayout->addWidget(quietHoursStart_);
+  quietHoursLayout->addWidget(new QLabel(tr("To")));
+  quietHoursLayout->addWidget(quietHoursEnd_);
+  quietHoursLayout->addStretch(1);
+
   QVBoxLayout *notificationLayoutV = new QVBoxLayout();
   notificationLayoutV->setMargin(10);
   notificationLayoutV->addLayout(notifierLayout1);
@@ -1360,6 +1378,8 @@ void OptionsDialog::createNotifierWidget()
   notificationLayoutV->addLayout(notifierLayout3);
   notificationLayoutV->addSpacing(10);
   notificationLayoutV->addLayout(onlySelectedFeedsLayout);
+  notificationLayoutV->addSpacing(10);
+  notificationLayoutV->addLayout(quietHoursLayout);
   notificationLayoutV->addStretch(1);
 
   showNotifyOn_->setLayout(notificationLayoutV);
@@ -2170,6 +2190,15 @@ void OptionsDialog::createCleanupWidget()
   cleanupRecycleDays_->setRange(1, 999);
   cleanupRecycleDays_->setValue(7);
 
+  autoCleanUpEnable_ = new QCheckBox(tr("Run cleanup automatically during updates"));
+  autoCleanUpEnable_->setChecked(false);
+  autoCleanUpIntervalDays_ = new QSpinBox();
+  autoCleanUpIntervalDays_->setRange(1, 999);
+  autoCleanUpIntervalDays_->setValue(7);
+  autoCleanUpIntervalDays_->setEnabled(false);
+  connect(autoCleanUpEnable_, SIGNAL(toggled(bool)),
+          autoCleanUpIntervalDays_, SLOT(setEnabled(bool)));
+
   QGridLayout *cleanupLayout = new QGridLayout();
   cleanupLayout->setColumnStretch(1, 1);
   cleanupLayout->addWidget(cleanupEnabled_, 0, 0, 1, 2);
@@ -2179,6 +2208,9 @@ void OptionsDialog::createCleanupWidget()
   cleanupLayout->addWidget(cleanupKeepCount_, 2, 1, 1, 1, Qt::AlignLeft);
   cleanupLayout->addWidget(new QLabel(tr("Recycle bin retention (days):")), 3, 0, 1, 1);
   cleanupLayout->addWidget(cleanupRecycleDays_, 3, 1, 1, 1, Qt::AlignLeft);
+  cleanupLayout->addWidget(autoCleanUpEnable_, 4, 0, 1, 2);
+  cleanupLayout->addWidget(new QLabel(tr("Cleanup interval (days):")), 5, 0, 1, 1);
+  cleanupLayout->addWidget(autoCleanUpIntervalDays_, 5, 1, 1, 1, Qt::AlignLeft);
 
   cleanupWidget_ = new QWidget(this);
   QVBoxLayout *layout = new QVBoxLayout(cleanupWidget_);
@@ -3659,7 +3691,9 @@ void OptionsDialog::loadRssHubSettings()
 {
   rsshubAutoSwapEnabled_->setChecked(RssHubInstances::autoSwapEnabled());
   rsshubInstancesList_->clear();
-  foreach (const QString &base, RssHubInstances::loadInstances()) {
+  // Show only active (non-frozen) instances in the main list; frozen ones are
+  // displayed exclusively in the frozen list below (no double display).
+  foreach (const QString &base, RssHubInstances::loadActiveInstances()) {
     QListWidgetItem *item = new QListWidgetItem(base, rsshubInstancesList_);
     item->setFlags(item->flags() | Qt::ItemIsEditable);
   }
@@ -3667,6 +3701,9 @@ void OptionsDialog::loadRssHubSettings()
   foreach (const QString &base, RssHubInstances::frozenInstances()) {
     QListWidgetItem *item = new QListWidgetItem(base, rsshubFrozenList_);
     item->setForeground(Qt::gray);
+    item->setToolTip(tr("Frozen: exceeded 5 refresh failures in the last "
+                        "30 days. Not used for automatic switching. "
+                        "Re-enable it from the list below."));
   }
   rsshubStatusLabel_->clear();
 }
@@ -3678,6 +3715,11 @@ void OptionsDialog::saveRssHubSettings()
   for (int i = 0; i < rsshubInstancesList_->count(); ++i)
     instances << rsshubInstancesList_->item(i)->text().trimmed();
   instances.removeAll(QString());
+  // Preserve frozen instances in the saved list: saveInstances() clears the
+  // frozen flag of any instance missing from the list, so omitting them here
+  // would silently unfreeze everything when the user just clicks OK.
+  for (int i = 0; i < rsshubFrozenList_->count(); ++i)
+    instances << rsshubFrozenList_->item(i)->text().trimmed();
   RssHubInstances::saveInstances(instances);
 }
 //----------------------------------------------------------------------------
@@ -3771,7 +3813,9 @@ void OptionsDialog::slotRssHubCheckInstances()
   }
   QApplication::setOverrideCursor(Qt::WaitCursor);
   QStringList healthy = RssHubInstances::checkAlive(instances);
-  RssHubInstances::updateHealthyCache();
+  // Refresh the global cache in the background; the local "healthy" result
+  // above is already what the dialog displays immediately.
+  RssHubInstances::updateHealthyCacheAsync();
   QApplication::restoreOverrideCursor();
 
   // Re-normalise each displayed item before comparing against the healthy
@@ -3832,6 +3876,18 @@ void OptionsDialog::slotRssHubUnfreeze()
   QString base = item->text();
   RssHubInstances::unfreezeInstance(base);
   delete item;
+  // Bring the instance back into the active list immediately so the user sees
+  // the result without closing and reopening the dialog.
+  const QString normalized = RssHubInstances::normalizeBase(base);
+  if (normalized.isEmpty())
+    return;
+  for (int i = 0; i < rsshubInstancesList_->count(); ++i) {
+    if (RssHubInstances::normalizeBase(
+          rsshubInstancesList_->item(i)->text()) == normalized)
+      return;
+  }
+  QListWidgetItem *newItem = new QListWidgetItem(base, rsshubInstancesList_);
+  newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 }
 //----------------------------------------------------------------------------
 void OptionsDialog::slotRegisterFeedProtocol()

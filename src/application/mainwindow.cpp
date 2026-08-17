@@ -62,8 +62,24 @@
 #include <qzregexp.h>
 
 // ---------------------------------------------------------------------------
+/** Format a playback position/duration (seconds) as mm:ss or h:mm:ss */
+static QString formatPlaybackTime(qint64 seconds)
+{
+  if (seconds < 0) seconds = 0;
+  const qint64 h = seconds / 3600;
+  const qint64 m = (seconds % 3600) / 60;
+  const qint64 s = seconds % 60;
+  if (h > 0)
+    return QString("%1:%2:%3").arg(h)
+        .arg(m, 2, 10, QLatin1Char('0')).arg(s, 2, 10, QLatin1Char('0'));
+  return QString("%1:%2").arg(m, 2, 10, QLatin1Char('0'))
+      .arg(s, 2, 10, QLatin1Char('0'));
+}
+
+// ---------------------------------------------------------------------------
 MainWindow::MainWindow(QWidget *parent)
   : QMainWindow(parent)
+  , focusMode_(false)
   , isMinimizeToTray_(true)
   , currentNewsTab(NULL)
   , isOpeningLink_(false)
@@ -75,6 +91,15 @@ MainWindow::MainWindow(QWidget *parent)
 #if defined(HAVE_QT5) || defined(HAVE_PHONON)
   , mediaPlayer_(NULL)
 #endif
+#ifdef HAVE_QT5
+  , podcastPlayer_(NULL)
+#endif
+  , playerBarWidget_(NULL)
+  , playerPlayButton_(NULL)
+  , playerTitleLabel_(NULL)
+  , playerProgressSlider_(NULL)
+  , playerTimeLabel_(NULL)
+  , playerCloseButton_(NULL)
   , updateAppDialog_(NULL)
   , notificationWidget(NULL)
   , feedIdOld_(-2)
@@ -202,6 +227,10 @@ void MainWindow::quitApp()
 
   if (progressService_)
     progressService_->flush();
+
+  // Persist RSSHub frozen state / failure timestamps that the update thread
+  // only marked dirty.
+  RssHubInstances::flushState();
 
   saveSettings();
 
@@ -558,6 +587,8 @@ void MainWindow::createFeedsWidget()
 
   connect(feedsView_, SIGNAL(pressed(QModelIndex)),
           this, SLOT(slotFeedClicked(QModelIndex)));
+  connect(feedsView_, SIGNAL(signalAddFeedClicked()),
+          this, SLOT(addFeed()));
   connect(feedsView_, SIGNAL(signalMiddleClicked()),
           this, SLOT(slotOpenFeedNewTab()));
   connect(feedsView_, SIGNAL(signalDoubleClicked()),
@@ -778,7 +809,155 @@ void MainWindow::createCentralWidget()
   centralWidget_ = new QWidget(this);
   centralWidget_->setLayout(mainLayout);
 
+  createPlayerBar();
+  mainLayout->addWidget(playerBarWidget_);
+
   setCentralWidget(centralWidget_);
+}
+
+/** @brief Create the global podcast player bar (hidden until first play)
+ *---------------------------------------------------------------------------*/
+void MainWindow::createPlayerBar()
+{
+  playerBarWidget_ = new QWidget(centralWidget_);
+  playerBarWidget_->setObjectName("playerBarWidget_");
+  playerBarWidget_->setFixedHeight(34);
+  playerBarWidget_->setStyleSheet(
+        QString("#playerBarWidget_ {"
+                "border-top: 1px solid %1;"
+                "background: %2;}").
+        arg(qApp->palette().color(QPalette::Dark).name()).
+        arg(qApp->palette().color(QPalette::Midlight).name()));
+
+  playerPlayButton_ = new QToolButton(playerBarWidget_);
+  playerPlayButton_->setAutoRaise(true);
+  playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
+  playerPlayButton_->setToolTip(tr("Play / Pause"));
+
+  playerTitleLabel_ = new QLabel(playerBarWidget_);
+  playerTitleLabel_->setObjectName("playerTitleLabel_");
+  playerTitleLabel_->setStyleSheet(
+        "QLabel { border: none; background: transparent; }");
+  playerTitleLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+  playerProgressSlider_ = new QSlider(Qt::Horizontal, playerBarWidget_);
+  playerProgressSlider_->setRange(0, 0);
+  playerProgressSlider_->setFixedWidth(220);
+
+  playerTimeLabel_ = new QLabel(tr("00:00 / 00:00"), playerBarWidget_);
+  playerTimeLabel_->setStyleSheet(
+        "QLabel { border: none; background: transparent; }");
+
+  playerCloseButton_ = new QToolButton(playerBarWidget_);
+  playerCloseButton_->setAutoRaise(true);
+  playerCloseButton_->setIcon(style()->standardIcon(QStyle::SP_DialogCloseButton));
+  playerCloseButton_->setToolTip(tr("Close player"));
+
+  QHBoxLayout *playerLayout = new QHBoxLayout(playerBarWidget_);
+  playerLayout->setContentsMargins(8, 3, 8, 3);
+  playerLayout->setSpacing(8);
+  playerLayout->addWidget(playerPlayButton_);
+  playerLayout->addWidget(playerTitleLabel_, 1);
+  playerLayout->addWidget(playerProgressSlider_);
+  playerLayout->addWidget(playerTimeLabel_);
+  playerLayout->addWidget(playerCloseButton_);
+
+  connect(playerPlayButton_, SIGNAL(clicked()),
+          this, SLOT(slotPlayerTogglePlay()));
+  connect(playerCloseButton_, SIGNAL(clicked()),
+          this, SLOT(slotPlayerClose()));
+  connect(playerProgressSlider_, SIGNAL(sliderMoved(int)),
+          this, SLOT(slotPlayerSliderMoved(int)));
+
+  playerBarWidget_->hide();
+}
+
+/** @brief Start playing an audio/video enclosure in the global player bar
+ *---------------------------------------------------------------------------*/
+void MainWindow::playPodcast(const QUrl &url, const QString &title)
+{
+#ifdef HAVE_QT5
+  if (!podcastPlayer_) {
+    podcastPlayer_ = new QMediaPlayer(this);
+    connect(podcastPlayer_, SIGNAL(positionChanged(qint64)),
+            this, SLOT(slotPlayerPositionChanged(qint64)));
+    connect(podcastPlayer_, SIGNAL(durationChanged(qint64)),
+            this, SLOT(slotPlayerDurationChanged(qint64)));
+    connect(podcastPlayer_, SIGNAL(stateChanged(QMediaPlayer::State)),
+            this, SLOT(slotPlayerStateChanged()));
+  }
+
+  podcastPlayer_->stop();
+  podcastPlayer_->setMedia(QMediaContent(url));
+  podcastPlayer_->play();
+
+  playerTitleLabel_->setText(title.isEmpty() ? url.toString() : title);
+  playerTitleLabel_->setToolTip(url.toString());
+  playerTimeLabel_->setText(tr("00:00 / 00:00"));
+  playerProgressSlider_->setRange(0, 0);
+  playerBarWidget_->show();
+#else
+  Q_UNUSED(url)
+  Q_UNUSED(title)
+#endif
+}
+
+void MainWindow::slotPlayerTogglePlay()
+{
+#ifdef HAVE_QT5
+  if (!podcastPlayer_) return;
+  if (podcastPlayer_->state() == QMediaPlayer::PlayingState)
+    podcastPlayer_->pause();
+  else
+    podcastPlayer_->play();
+#endif
+}
+
+void MainWindow::slotPlayerClose()
+{
+#ifdef HAVE_QT5
+  if (podcastPlayer_)
+    podcastPlayer_->stop();
+#endif
+  playerBarWidget_->hide();
+}
+
+void MainWindow::slotPlayerPositionChanged(qint64 position)
+{
+  playerProgressSlider_->setValue(int(position / 1000));
+
+  qint64 duration = 0;
+#ifdef HAVE_QT5
+  if (podcastPlayer_)
+    duration = podcastPlayer_->duration();
+#endif
+  playerTimeLabel_->setText(QString("%1 / %2").
+                           arg(formatPlaybackTime(position / 1000)).
+                           arg(formatPlaybackTime(duration / 1000)));
+}
+
+void MainWindow::slotPlayerDurationChanged(qint64 duration)
+{
+  playerProgressSlider_->setMaximum(int(duration / 1000));
+}
+
+void MainWindow::slotPlayerSliderMoved(int position)
+{
+#ifdef HAVE_QT5
+  if (podcastPlayer_)
+    podcastPlayer_->setPosition(qint64(position) * 1000);
+#endif
+}
+
+void MainWindow::slotPlayerStateChanged()
+{
+#ifdef HAVE_QT5
+  if (!podcastPlayer_) return;
+  if (podcastPlayer_->state() == QMediaPlayer::PlayingState)
+    playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
+  else
+    playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
+#endif
 }
 
 /** @brief Create actions for main menu and toolbar
@@ -943,6 +1122,9 @@ void MainWindow::createActions()
   systemStyle_->setObjectName("systemStyle_");
   systemStyle_->setCheckable(true);
   systemStyle_->setChecked(true);
+  lightStyle_ = new QAction(this);
+  lightStyle_->setObjectName("lightStyle_");
+  lightStyle_->setCheckable(true);
   darkStyle_ = new QAction(this);
   darkStyle_->setObjectName("darkStyle_");
   darkStyle_->setCheckable(true);
@@ -1375,6 +1557,17 @@ void MainWindow::createActions()
   prevTabAct_->setObjectName("prevTabAct");
   this->addAction(prevTabAct_);
 
+  focusModeAct_ = new QAction(this);
+  focusModeAct_->setObjectName("focusModeAct");
+  focusModeAct_->setCheckable(true);
+  this->addAction(focusModeAct_);
+  connect(focusModeAct_, SIGNAL(triggered()), this, SLOT(slotToggleFocusMode()));
+
+  undoCloseTabAct_ = new QAction(this);
+  undoCloseTabAct_->setObjectName("undoCloseTabAct");
+  this->addAction(undoCloseTabAct_);
+  connect(undoCloseTabAct_, SIGNAL(triggered()), this, SLOT(slotUndoCloseTab()));
+
   reduceNewsListAct_ = new QAction(this);
   reduceNewsListAct_->setObjectName("reduceNewsListAct");
   this->addAction(reduceNewsListAct_);
@@ -1696,6 +1889,19 @@ void MainWindow::createShortcut()
   listActions_.append(nextTabAct_);
   listActions_.append(prevTabAct_);
 
+  undoCloseTabAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_T));
+  listActions_.append(undoCloseTabAct_);
+
+  focusModeAct_->setShortcut(QKeySequence(Qt::Key_F9));
+  listActions_.append(focusModeAct_);
+
+  nextTabAct_->setShortcuts(QList<QKeySequence>()
+                            << QKeySequence(Qt::CTRL + Qt::Key_Tab)
+                            << QKeySequence(Qt::CTRL + Qt::Key_PageDown));
+  prevTabAct_->setShortcuts(QList<QKeySequence>()
+                            << QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_Tab)
+                            << QKeySequence(Qt::CTRL + Qt::Key_PageUp));
+
   reduceNewsListAct_->setShortcut(QKeySequence(Qt::ALT+ Qt::Key_Up));
   listActions_.append(reduceNewsListAct_);
   increaseNewsListAct_->setShortcut(QKeySequence(Qt::ALT + Qt::Key_Down));
@@ -1818,6 +2024,7 @@ void MainWindow::createMenu()
 
   styleGroup_ = new QActionGroup(this);
   styleGroup_->addAction(systemStyle_);
+  styleGroup_->addAction(lightStyle_);
   styleGroup_->addAction(darkStyle_);
 
   styleMenu_ = new QMenu(this);
@@ -2163,6 +2370,8 @@ void MainWindow::loadSettings()
   cleanupDays_ = settings.value("Cleanup/days", 30).toInt();
   cleanupKeepCount_ = settings.value("Cleanup/keepCount", 1000).toInt();
   cleanupRecycleDays_ = settings.value("Cleanup/recycleDays", 7).toInt();
+  autoCleanUpEnable_ = settings.value("Settings/autoCleanUpEnable", false).toBool();
+  autoCleanUpIntervalDays_ = settings.value("Settings/autoCleanUpIntervalDays", 7).toInt();
 
   aiEnabled_ = settings.value("AI/enabled", false).toBool();
   aiModel_ = settings.value("AI/model", "gpt-4o-mini").toString();
@@ -2268,6 +2477,11 @@ void MainWindow::loadSettings()
   showButtonExBrowserNotify_ = settings.value("showButtonExBrowserNotify", true).toBool();
   showButtonDeleteNotify_ = settings.value("showButtonDeleteNotify", true).toBool();
   closeNotify_ = settings.value("closeNotify", true).toBool();
+  quietHoursOn_ = settings.value("notifyQuietHoursOn", false).toBool();
+  quietHoursStart_ = QTime::fromString(
+        settings.value("notifyQuietStart", "22:00").toString(), "HH:mm");
+  quietHoursEnd_ = QTime::fromString(
+        settings.value("notifyQuietEnd", "07:00").toString(), "HH:mm");
 
   toolBarLockAct_->setChecked(settings.value("mainToolbarLock", true).toBool());
   lockMainToolbar(toolBarLockAct_->isChecked());
@@ -2329,9 +2543,11 @@ void MainWindow::loadSettings()
   setToolBarIconSize(feedsToolBar_, iconStr);
 
   str = settings.value("styleApplication", "systemStyle_").toString();
-  // Normalize legacy theme names to the two Codex themes
-  if (str == "darkStyle_")
+  // Normalize legacy theme names to the three style actions
+  if (str == "darkStyle_" || str == "dark")
     str = "darkStyle_";
+  else if (str == "lightStyle_")
+    str = "lightStyle_";
   else
     str = "systemStyle_";
   QList<QAction*> listActions = styleGroup_->actions();
@@ -2444,6 +2660,10 @@ void MainWindow::loadSettings()
   feedsWidgetVisibleAct_->setChecked(settings.value("FeedsWidgetVisible", true).toBool());
   slotVisibledFeedsWidget();
 
+  focusModeAct_->setChecked(settings.value("focusMode", false).toBool());
+  if (focusModeAct_->isChecked())
+    slotToggleFocusMode();
+
   feedsWidgetSplitterState_ = settings.value("FeedsWidgetSplitterState").toByteArray();
   bool showCategories = settings.value("NewsCategoriesTreeVisible", true).toBool();
   categoriesTree_->setVisible(showCategories);
@@ -2465,6 +2685,12 @@ void MainWindow::loadSettings()
   showMenuBar();
 
   adblockIcon_->setEnabled(settings.value("AdBlock/enabled", true).toBool());
+
+  // Apply the full stylesheet (with accent placeholders resolved) right away,
+  // otherwise the selected feed item falls back to the default white
+  // highlight until the style is re-applied later. Must run here, after all
+  // Settings groups have been closed (Settings's ctor would end them).
+  setStyleApp(styleGroup_->checkedAction());
 }
 
 /** @brief Save settings in ini-file
@@ -2533,6 +2759,8 @@ void MainWindow::saveSettings()
   settings.setValue("Cleanup/days", cleanupDays_);
   settings.setValue("Cleanup/keepCount", cleanupKeepCount_);
   settings.setValue("Cleanup/recycleDays", cleanupRecycleDays_);
+  settings.setValue("Settings/autoCleanUpEnable", autoCleanUpEnable_);
+  settings.setValue("Settings/autoCleanUpIntervalDays", autoCleanUpIntervalDays_);
 
   settings.setValue("AI/enabled", aiEnabled_);
   settings.setValue("AI/model", aiModel_);
@@ -2621,6 +2849,9 @@ void MainWindow::saveSettings()
   settings.setValue("showButtonExBrowserNotify", showButtonExBrowserNotify_);
   settings.setValue("showButtonDeleteNotify", showButtonDeleteNotify_);
   settings.setValue("closeNotify", closeNotify_);
+  settings.setValue("notifyQuietHoursOn", quietHoursOn_);
+  settings.setValue("notifyQuietStart", quietHoursStart_.toString("HH:mm"));
+  settings.setValue("notifyQuietEnd", quietHoursEnd_.toString("HH:mm"));
 
   settings.setValue("mainToolbarLock", toolBarLockAct_->isChecked());
 
@@ -2648,6 +2879,8 @@ void MainWindow::saveSettings()
   settings.setValue("openingLinkTimeout", openingLinkTimeout_);
 
   settings.setValue("stayOnTop", stayOnTopAct_->isChecked());
+
+  settings.setValue("focusMode", focusMode_);
 
   settings.setValue("hideFeedsOpenTab", hideFeedsOpenTab_);
   settings.setValue("showToggleFeedsTree", showToggleFeedsTree_);
@@ -3344,13 +3577,25 @@ void MainWindow::slotCheckDiskSpace()
 // ----------------------------------------------------------------------------
 void MainWindow::slotCheckRssHubInstances()
 {
+  // Periodically flush the frozen-instance / failure state to disk. The
+  // update thread only marks it dirty (no disk I/O there); the actual write
+  // happens here on the GUI thread.
+  static QTimer flushTimer;
+  static bool timerReady = false;
+  if (!timerReady) {
+    timerReady = true;
+    QObject::connect(&flushTimer, &QTimer::timeout,
+                     []() { RssHubInstances::flushState(); });
+    flushTimer.start(60000);
+  }
+
   if (!RssHubInstances::autoSwapEnabled())
     return;
   if (RssHubInstances::loadInstances().isEmpty())
     return;
-  // Populates the healthy-instance cache with a blocking health check. Runs
-  // only on the GUI thread (deferred after startup), so it is safe here.
-  RssHubInstances::updateHealthyCache();
+  // Populate the healthy-instance cache asynchronously: the blocking network
+  // probes run on a worker thread so the UI never freezes here.
+  RssHubInstances::updateHealthyCacheAsync();
 }
 
 // ----------------------------------------------------------------------------
@@ -4002,6 +4247,8 @@ void MainWindow::showOptionDlg(int index)
   optionsDialog_->cleanupDays_->setValue(cleanupDays_);
   optionsDialog_->cleanupKeepCount_->setValue(cleanupKeepCount_);
   optionsDialog_->cleanupRecycleDays_->setValue(cleanupRecycleDays_);
+  optionsDialog_->autoCleanUpEnable_->setChecked(autoCleanUpEnable_);
+  optionsDialog_->autoCleanUpIntervalDays_->setValue(autoCleanUpIntervalDays_);
 
   optionsDialog_->aiEnabled_->setChecked(aiEnabled_);
   optionsDialog_->aiApiKey_->setText(aiApiKey_);
@@ -4125,6 +4372,9 @@ void MainWindow::showOptionDlg(int index)
   optionsDialog_->showButtonExBrowserNotify_->setChecked(showButtonExBrowserNotify_);
   optionsDialog_->showButtonDeleteNotify_->setChecked(showButtonDeleteNotify_);
   optionsDialog_->closeNotify_->setChecked(closeNotify_);
+  optionsDialog_->quietHoursNotify_->setChecked(quietHoursOn_);
+  optionsDialog_->quietHoursStart_->setTime(quietHoursStart_);
+  optionsDialog_->quietHoursEnd_->setTime(quietHoursEnd_);
 
   optionsDialog_->setLanguage(mainApp->language());
 
@@ -4517,6 +4767,8 @@ void MainWindow::showOptionDlg(int index)
   cleanupDays_ = optionsDialog_->cleanupDays_->value();
   cleanupKeepCount_ = optionsDialog_->cleanupKeepCount_->value();
   cleanupRecycleDays_ = optionsDialog_->cleanupRecycleDays_->value();
+  autoCleanUpEnable_ = optionsDialog_->autoCleanUpEnable_->isChecked();
+  autoCleanUpIntervalDays_ = optionsDialog_->autoCleanUpIntervalDays_->value();
 
   aiEnabled_ = optionsDialog_->aiEnabled_->isChecked();
   aiApiKey_ = optionsDialog_->aiApiKey_->text().trimmed();
@@ -4634,6 +4886,9 @@ void MainWindow::showOptionDlg(int index)
   showButtonExBrowserNotify_ = optionsDialog_->showButtonExBrowserNotify_->isChecked();
   showButtonDeleteNotify_ = optionsDialog_->showButtonDeleteNotify_->isChecked();
   closeNotify_ = optionsDialog_->closeNotify_->isChecked();
+  quietHoursOn_ = optionsDialog_->quietHoursNotify_->isChecked();
+  quietHoursStart_ = optionsDialog_->quietHoursStart_->time();
+  quietHoursEnd_ = optionsDialog_->quietHoursEnd_->time();
 
   mainApp->setLanguage(optionsDialog_->language());
   mainApp->setTranslateApplication();
@@ -4789,6 +5044,12 @@ void MainWindow::createTrayMenu()
   trayMenu_->addAction(addFeedTrayAct_);
   trayMenu_->addAction(updateAllFeedsAct_);
   trayMenu_->addAction(markAllFeedsRead_);
+  showRecentNotifyAct_ = new QAction(this);
+  showRecentNotifyAct_->setObjectName("showRecentNotifyAct");
+  showRecentNotifyAct_->setText(tr("Show Recent Notifications"));
+  connect(showRecentNotifyAct_, SIGNAL(triggered()),
+          this, SLOT(slotTrayOpenNotifyTimer()));
+  trayMenu_->insertAction(markAllFeedsRead_, showRecentNotifyAct_);
   trayMenu_->addSeparator();
 
   trayMenu_->addAction(optionsAct_);
@@ -5695,6 +5956,13 @@ void MainWindow::retranslateStrings()
 
   mainMenuButton_->setToolTip(tr("Menu"));
 
+  if (playerPlayButton_)
+    playerPlayButton_->setToolTip(tr("Play / Pause"));
+  if (playerCloseButton_)
+    playerCloseButton_->setToolTip(tr("Close player"));
+  if (playerTimeLabel_)
+    playerTimeLabel_->setText(tr("00:00 / 00:00"));
+
   addAct_->setText(tr("&Add"));
   addAct_->setToolTip(tr("Add New Feed"));
 
@@ -5844,7 +6112,8 @@ void MainWindow::retranslateStrings()
   layoutToggle_->setText(tr("Layout"));
 
   styleMenu_->setTitle(tr("Application Style"));
-  systemStyle_->setText(tr("Light"));
+  systemStyle_->setText(tr("System"));
+  lightStyle_->setText(tr("Light"));
   darkStyle_->setText(tr("Dark"));
 
   browserPositionMenu_->setTitle(tr("Browser Position"));
@@ -5853,7 +6122,10 @@ void MainWindow::retranslateStrings()
   rightBrowserPositionAct_->setText(tr("Right"));
   leftBrowserPositionAct_->setText(tr("Left"));
 
-  showWindowAct_->setText(tr("Show Window"));
+  if (showWindowAct_)
+    showWindowAct_->setText(tr("Show Window"));
+  if (showRecentNotifyAct_)
+    showRecentNotifyAct_->setText(tr("Show Recent Notifications"));
 
   feedKeyUpAct_->setText(tr("Previous Feed"));
   feedKeyDownAct_->setText(tr("Next Feed"));
@@ -5937,6 +6209,9 @@ void MainWindow::retranslateStrings()
   closeAllTabsAct_->setText(tr("Close All Tabs"));
   nextTabAct_->setText(tr("Switch to next tab"));
   prevTabAct_->setText(tr("Switch to previous tab"));
+
+  focusModeAct_->setText(tr("Focus Mode"));
+  undoCloseTabAct_->setText(tr("Undo Close Tab"));
 
   categoriesTree_->topLevelItem(CategoriesTreeWidget::UnreadItem)->setText(0, tr("Unread"));
   categoriesTree_->topLevelItem(CategoriesTreeWidget::StarredItem)->setText(0, tr("Starred"));
@@ -7103,15 +7378,17 @@ void MainWindow::setStyleApp(QAction *pAct)
 
   settings.setValue("Settings/styleApplication", pAct->objectName());
 
+  // "systemStyle_" follows the OS dark/light mode at apply time.
+  const bool dark = (pAct->objectName() == "darkStyle_" ||
+                     (pAct->objectName() == "systemStyle_" &&
+                      mainApp->systemDarkMode()));
+
   QString fileName(mainApp->resourcesDir());
-  if (pAct->objectName() == "darkStyle_") {
-    fileName.append("/style/codex_dark.qss");
-  } else {
-    fileName.append("/style/codex_light.qss");
-  }
+  fileName.append(dark ? "/style/codex_dark.qss"
+                       : "/style/codex_light.qss");
 
   QString userStyleBrowser = "";
-  if (pAct->objectName() == "darkStyle_") {
+  if (dark) {
     userStyleBrowser = mainApp->styleSheetWebDarkFile();
     feedsModel_->textColor_ = "#e1e0e1";
     newsListTextColor_ = "#e1e0e1";
@@ -7175,7 +7452,7 @@ void MainWindow::setStyleApp(QAction *pAct)
   }
 
   // S-5: apply accent color placeholders
-  bool darkStyle = (pAct->objectName() == "darkStyle_");
+  const bool darkStyle = dark;
   QString qss = QString::fromUtf8(file.readAll());
   QColor accent(accentColor_);
   if (!accent.isValid())
@@ -7277,6 +7554,18 @@ void MainWindow::slotCloseTab(int index)
   if (index != 0) {
     NewsTabWidget *widget = (NewsTabWidget*)stackedWidget_->widget(index);
 
+    // Remember feed tabs so they can be restored with "Undo Close Tab"
+    if (widget->type_ == NewsTabWidget::TabTypeFeed) {
+      ClosedTabInfo info;
+      info.type = widget->type_;
+      info.feedId = widget->feedId_;
+      info.feedParId = widget->feedParId_;
+      info.title = widget->newsTextTitle_->text();
+      closedTabs_.prepend(info);
+      if (closedTabs_.size() > 10)
+        closedTabs_.removeLast();
+    }
+
     setFeedRead(widget->type_, widget->feedId_, FeedReadClosingTab, widget);
 
     stackedWidget_->removeWidget(widget);
@@ -7285,6 +7574,54 @@ void MainWindow::slotCloseTab(int index)
     widget->newsTitleLabel_->deleteLater();
     widget->deleteLater();
   }
+}
+
+/** @brief Restore the most recently closed feed tab
+ *---------------------------------------------------------------------------*/
+void MainWindow::slotUndoCloseTab()
+{
+  if (closedTabs_.isEmpty()) return;
+
+  ClosedTabInfo info = closedTabs_.takeFirst();
+  if (info.type != NewsTabWidget::TabTypeFeed) return;
+
+  // The feed/folder may have been deleted while the tab was closed
+  QSqlQuery q;
+  q.exec(QString("SELECT id FROM feeds WHERE id=='%1'").arg(info.feedId));
+  if (!q.next()) return;
+
+  creatFeedTab(info.feedId, info.feedParId);
+
+  for (int i = 1; i < stackedWidget_->count(); i++) {
+    NewsTabWidget *widget = (NewsTabWidget*)stackedWidget_->widget(i);
+    if ((widget->type_ == NewsTabWidget::TabTypeFeed) &&
+        (widget->feedId_ == info.feedId)) {
+      tabBar_->setCurrentIndex(i);
+      break;
+    }
+  }
+}
+
+/** @brief Toggle focus mode: hide feed tree and news list, reader only
+ *---------------------------------------------------------------------------*/
+void MainWindow::slotToggleFocusMode()
+{
+  focusMode_ = focusModeAct_->isChecked();
+
+  feedsWidget_->setVisible(!focusMode_ && feedsWidgetVisibleAct_->isChecked());
+  updateIconToolBarNull(feedsWidget_->isVisible());
+
+  for (int i = 0; i < stackedWidget_->count(); i++) {
+    NewsTabWidget *widget = (NewsTabWidget*)stackedWidget_->widget(i);
+    if (widget->type_ < NewsTabWidget::TabTypeWeb)
+      widget->setNewsListVisible(!focusMode_);
+  }
+
+  if (focusMode_ && currentNewsTab && currentNewsTab->webView_)
+    currentNewsTab->webView_->setFocus(Qt::OtherFocusReason);
+
+  Settings settings;
+  settings.setValue("focusMode", focusMode_);
 }
 
 /** @brief Switch to tab with index \a index
@@ -7741,6 +8078,23 @@ void MainWindow::showNotification(bool bShowRecentNews/*=false*/)
   {
     clearNotification();
     return;
+  }
+
+  // UI-6: quiet hours (do not disturb) — suppress the popup for new news only;
+  // manually opening "recent notifications" from the tray is always allowed.
+  if (!bShowRecentNews && quietHoursOn_ && quietHoursStart_.isValid() &&
+      quietHoursEnd_.isValid()) {
+    const QTime now = QTime::currentTime();
+    if (quietHoursStart_ == quietHoursEnd_) {
+      // start == end is not a meaningful window; treat it as "no quiet hours"
+      // instead of silently muting notifications for the whole day.
+    } else if (quietHoursStart_ < quietHoursEnd_) {
+      if ((now >= quietHoursStart_) && (now < quietHoursEnd_))
+        return;
+    } else if ((now >= quietHoursStart_) || (now < quietHoursEnd_)) {
+      // overnight window, e.g. 22:00 -> 07:00
+      return;
+    }
   }
 
   if (fullscreenModeNotify_) {

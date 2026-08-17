@@ -23,6 +23,7 @@
 #include "webpage.h"
 #include "localsummary.h"
 #include "imagegallerydialog.h"
+#include "imagecache.h"
 #include "newsview/newstitledelegate.h"
 
 #include <QJsonDocument>
@@ -45,12 +46,29 @@ NewsTabWidget::NewsTabWidget(QWidget *parent, TabType type, int feedId, int feed
   , currentNewsIdOld(-1)
   , autoLoadImages_(true)
   , currentShownNewsId_(-1)
+  , pendingRestoreNewsId_(-1)
+  , articlePageLoaded_(false)
+  , fullTextPage_(NULL)
+  , fetchFullTextNewsId_(-1)
+  , fetchFullTextFeedId_(-1)
 {
   mainWindow_ = mainApp->mainWindow();
   db_ = QSqlDatabase::database();
   feedsView_ = mainWindow_->feedsView_;
   feedsModel_ = mainWindow_->feedsModel_;
   feedsProxyModel_ = mainWindow_->feedsProxyModel_;
+
+  // UI-5: keep the inline error banner in sync with feed status changes
+  connect(feedsModel_, &QAbstractItemModel::dataChanged, this,
+          [this](const QModelIndex &, const QModelIndex &,
+                 const QVector<int> &) {
+            updateErrorBanner();
+          });
+
+  // Offline image cache: re-render the current article when the images for
+  // the article being shown have finished downloading.
+  connect(mainApp->imageCache(), SIGNAL(contentReady(int, QString)),
+          this, SLOT(slotImageCacheReady(int, QString)));
 
   newsIconTitle_ = new QLabel();
   newsIconMovie_ = new QMovie(":/images/loading");
@@ -177,11 +195,22 @@ NewsTabWidget::~NewsTabWidget()
 
 void NewsTabWidget::disconnectObjects()
 {
+  // UI-3: persist the final scroll position before the tab is torn down —
+  // the 3-second poll may never fire again.
+  if ((type_ < TabTypeWeb) && articlePageLoaded_ &&
+      (currentShownNewsId_ > 0)) {
+    saveArticleScrollAsync(currentShownNewsId_);
+  }
   disconnect(this);
   if (type_ != TabTypeDownloads) {
     webView_->disconnect(this);
     webView_->disconnectObjects();
     qobject_cast<WebPage*>(webView_->page())->disconnectObjects();
+  }
+  // Full-text fetch page is only used transiently; release it with the tab.
+  if (fullTextPage_) {
+    fullTextPage_->deleteLater();
+    fullTextPage_ = 0;
   }
 }
 
@@ -265,16 +294,50 @@ void NewsTabWidget::createNewsList()
   if (!mainWindow_->newsToolbarToggle_->isChecked())
     newsPanelWidget_->hide();
 
+  // UI-5: inline error banner shown when the current feed failed to update
+  errorBanner_ = new QWidget(this);
+  errorBanner_->setObjectName("errorBanner_");
+  errorBanner_->setStyleSheet(
+        QString("#errorBanner_ {background: %1; color: %2; border-bottom: 1px solid %3;}")
+        .arg(qApp->palette().color(QPalette::ToolTipBase).name())
+        .arg(qApp->palette().color(QPalette::ToolTipText).name())
+        .arg(qApp->palette().color(QPalette::Dark).name()));
+  QHBoxLayout *bannerLayout = new QHBoxLayout();
+  bannerLayout->setMargin(4);
+  bannerLayout->setSpacing(6);
+  errorBannerIcon_ = new QLabel();
+  errorBannerIcon_->setPixmap(QPixmap(":/images/bulletError"));
+  errorBannerLabel_ = new QLabel();
+  errorBannerLabel_->setWordWrap(true);
+  errorBannerRetryButton_ = new QToolButton();
+  errorBannerRetryButton_->setText(tr("Retry"));
+  errorBannerRetryButton_->setAutoRaise(true);
+  connect(errorBannerRetryButton_, SIGNAL(clicked()),
+          this, SLOT(slotRetryCurrentFeed()));
+  bannerLayout->addWidget(errorBannerIcon_);
+  bannerLayout->addWidget(errorBannerLabel_, 1);
+  bannerLayout->addWidget(errorBannerRetryButton_);
+  errorBanner_->setLayout(bannerLayout);
+  errorBanner_->hide();
+
   QVBoxLayout *newsLayout = new QVBoxLayout();
   newsLayout->setMargin(0);
   newsLayout->setSpacing(0);
   newsLayout->addWidget(newsPanelWidget_);
+  newsLayout->addWidget(errorBanner_);
   newsLayout->addWidget(newsView_);
 
   newsWidget_ = new QWidget(this);
   newsWidget_->setLayout(newsLayout);
 
   markNewsReadTimer_ = new QTimer(this);
+
+  // UI-3: periodically capture the article scroll position
+  articleScrollTimer_ = new QTimer(this);
+  articleScrollTimer_->setInterval(3000);
+  connect(articleScrollTimer_, SIGNAL(timeout()),
+          this, SLOT(slotSaveArticleScroll()));
+  articleScrollTimer_->start();
 
   QFile htmlFile;
   htmlFile.setFileName(":/html/newspaper_head");
@@ -312,6 +375,10 @@ void NewsTabWidget::createNewsList()
           this, SLOT(slotNewsPageUpPressed(QModelIndex)));
   connect(newsView_, SIGNAL(pressKeyPageDown(QModelIndex)),
           this, SLOT(slotNewsPageDownPressed(QModelIndex)));
+  connect(newsView_, SIGNAL(pressKeyNextUnread(QModelIndex)),
+          this, SLOT(slotNewsNextUnreadPressed(QModelIndex)));
+  connect(newsView_, SIGNAL(pressKeyPrevUnread(QModelIndex)),
+          this, SLOT(slotNewsPrevUnreadPressed(QModelIndex)));
   connect(newsView_, SIGNAL(signalSetItemRead(QModelIndex, int)),
           this, SLOT(slotSetItemRead(QModelIndex, int)));
   connect(newsView_, SIGNAL(signalSetItemStar(QModelIndex,int)),
@@ -365,6 +432,10 @@ void NewsTabWidget::showContextMenuNews(const QPoint &pos)
   menu.addAction(mainWindow_->openInBrowserAct_);
   menu.addAction(mainWindow_->openInExternalBrowserAct_);
   menu.addAction(mainWindow_->openNewsNewTabAct_);
+  menu.addSeparator();
+  QAction *fetchFullTextAct = menu.addAction(tr("Fetch Full Text"));
+  connect(fetchFullTextAct, &QAction::triggered,
+          this, &NewsTabWidget::slotFetchFullText);
   menu.addSeparator();
   menu.addAction(mainWindow_->markNewsRead_);
   {
@@ -791,12 +862,19 @@ void NewsTabWidget::setSettings(bool init, bool newTab)
     separatorRAct_->setVisible(type_ == TabTypeDel);
     mainWindow_->restoreNewsAct_->setVisible(type_ == TabTypeDel);
 
-    switch (mainWindow_->newsLayout_) {
-    case 1:
+    // UI-5: reflect the current feed's update status in the news list
+    updateErrorBanner();
+
+    if (mainWindow_->isFocusMode()) {
       newsWidget_->setVisible(false);
-      break;
-    default:
-      newsWidget_->setVisible(true);
+    } else {
+      switch (mainWindow_->newsLayout_) {
+      case 1:
+        newsWidget_->setVisible(false);
+        break;
+      default:
+        newsWidget_->setVisible(true);
+      }
     }
   }
 }
@@ -1100,6 +1178,77 @@ void NewsTabWidget::slotNewsPageDownPressed(QModelIndex index)
   slotNewsViewSelected(index);
 }
 
+void NewsTabWidget::slotNewsNextUnreadPressed(QModelIndex index)
+{
+  Q_UNUSED(index);
+  if (type_ >= TabTypeWeb) return;
+  // Forward to the main window, which implements the "next unread" logic
+  // (including jumping to the next feed when this list is exhausted).
+  QMetaObject::invokeMethod(mainWindow_, "nextUnreadNews", Qt::QueuedConnection);
+}
+
+void NewsTabWidget::slotNewsPrevUnreadPressed(QModelIndex index)
+{
+  Q_UNUSED(index);
+  if (type_ >= TabTypeWeb) return;
+  QMetaObject::invokeMethod(mainWindow_, "prevUnreadNews", Qt::QueuedConnection);
+}
+
+void NewsTabWidget::setNewsListVisible(bool visible)
+{
+  newsWidget_->setVisible(visible);
+  if (visible)
+    newsView_->setFocus(Qt::OtherFocusReason);
+}
+
+/** @brief Show/hide the inline error banner for the current feed (UI-5)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::updateErrorBanner()
+{
+  if (!errorBanner_ || !feedsModel_) return;
+
+  bool show = false;
+  QString message;
+
+  if (type_ == TabTypeFeed) {
+    QModelIndex feedIndex = feedsModel_->indexById(feedId_);
+    if (feedIndex.isValid() && !feedsModel_->isFolder(feedIndex)) {
+      QString status = feedsModel_->dataField(feedIndex, "status").toString();
+      const int code = status.section(" ", 0, 0).toInt();
+      if (code < 0) {
+        show = true;
+        message = status.section(" ", 1).trimmed();
+        if (message.isEmpty()) {
+          switch (code) {
+          case -2: message = tr("Authentication required"); break;
+          case -4: message = tr("Too many redirects"); break;
+          case -5: message = tr("Subscription not found (404)"); break;
+          case -1: message = tr("Network error"); break;
+          default: message = tr("Update failed"); break;
+          }
+        }
+      }
+    }
+  }
+
+  errorBanner_->setVisible(show);
+  if (show)
+    errorBannerLabel_->setText(tr("Update failed: %1").arg(message));
+}
+
+/** @brief Retry updating the current feed from the error banner (UI-5)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::slotRetryCurrentFeed()
+{
+  if (type_ != TabTypeFeed) return;
+
+  QList<int> feedIds;
+  feedIds << feedId_;
+  QMetaObject::invokeMethod(mainWindow_, "slotCheckStatus",
+                            Qt::QueuedConnection,
+                            Q_ARG(QList<int>, feedIds));
+}
+
 /** @brief Mark news Read
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::slotSetItemRead(QModelIndex index, int read)
@@ -1159,6 +1308,21 @@ void NewsTabWidget::slotSetItemStar(QModelIndex index, int starred)
                         arg(starred).arg(newsId));
   if ((starred == 1) && mainWindow_->statisticsService_)
     mainWindow_->statisticsService_->addEvent(StatType::NewsStar);
+
+  // Offline image cache: starring an article is a strong "keep" intent, so
+  // download its images and persist a locally rewritten copy.
+  if (starred == 1) {
+    const QString content =
+        newsModel_->dataField(index.row(), "content").toString();
+    if (!content.isEmpty()) {
+      QString link = newsModel_->dataField(index.row(), "link_href").toString();
+      if (link.isEmpty())
+        link = newsModel_->dataField(index.row(), "link_alternate").toString();
+      mainApp->imageCache()->cacheNewsImages(newsId, feedId_,
+                                             content, QUrl(link));
+    }
+  }
+
   mainWindow_->recountCategoryCounts();
 }
 
@@ -1601,6 +1765,15 @@ void NewsTabWidget::updateWebView(QModelIndex index)
   }
 
   QString newsId = newsModel_->dataField(index.row(), "id").toString();
+  const int newsIdInt = newsId.toInt();
+
+  // UI-3: remember the scroll position of the article we are leaving
+  if ((type_ < TabTypeWeb) && (currentShownNewsId_ > 0) &&
+      (currentShownNewsId_ != newsIdInt)) {
+    saveArticleScrollAsync(currentShownNewsId_);
+  }
+  currentShownNewsId_ = newsIdInt;
+
   linkNewsString_ = getLinkNews(index.row());
   QString linkString = linkNewsString_;
   QUrl newsUrl = QUrl::fromEncoded(linkString.toUtf8());
@@ -1641,8 +1814,26 @@ void NewsTabWidget::updateWebView(QModelIndex index)
     QString content = newsModel_->dataField(index.row(), "content").toString();
     QString translatedContent = newsModel_->dataField(
           index.row(), "translatedContent").toString();
-    if (!translatedContent.isEmpty())
+    if (!translatedContent.isEmpty()) {
       content = translatedContent;
+    } else {
+      // Fallback chain: user-fetched full text -> offline image cache ->
+      // original feed content (already handled below by 'content').
+      QSqlQuery qfc(db_);
+      qfc.prepare("SELECT value FROM news_ex "
+                  "WHERE newsId=? AND name='fullContent'");
+      qfc.addBindValue(newsIdInt);
+      qfc.exec();
+      if (qfc.next() && !qfc.value(0).toString().isEmpty()) {
+        content = qfc.value(0).toString();
+      } else {
+        // Offline image cache: use the locally rewritten HTML (file://
+        // images) when available so the article renders fully offline.
+        const QString cached = ImageCacheManager::cachedContent(newsIdInt, db_);
+        if (!cached.isEmpty())
+          content = cached;
+      }
+    }
     if (!content.contains(QzRegExp("<html(.*)</html>", Qt::CaseInsensitive))) {
       QString description = newsModel_->dataField(index.row(), "description").toString();
       if (content.isEmpty() || (description.length() > content.length())) {
@@ -1792,6 +1983,11 @@ void NewsTabWidget::updateWebView(QModelIndex index)
 
           enclosureStr.append(QString("<a href=\"%1\" class=\"enclosure\"> %2 %3 </a><p>").
                               arg(enclosureUrl, tr("Link to"), type));
+
+          // Global player link: keeps playing when switching articles.
+          enclosureStr.append(QString("<a href=\"podcast://%1\" class=\"podcastPlay\">%2</a><p>").
+                              arg(QString::fromLatin1(QUrl::toPercentEncoding(enclosureUrl))).
+                              arg(tr("Play in player")));
         }
       }
 
@@ -1871,6 +2067,27 @@ void NewsTabWidget::updateWebView(QModelIndex index)
           htmlStr.append(hlTag);
       }
     }
+
+    // UI-2: inject image lightbox (click article images to zoom). The script
+    // is an IIFE that touches document.body, so it must run AFTER the body has
+    // been parsed — inject just before </body>, never inside <head>.
+    if (!htmlStr.isEmpty()) {
+      QFile lbFile(":/html/lightbox");
+      if (lbFile.open(QFile::ReadOnly)) {
+        QString lbScript = QString::fromUtf8(lbFile.readAll());
+        lbFile.close();
+        QString lbTag = QString("<script type=\"text/javascript\">%1</script>").arg(lbScript);
+        if (htmlStr.contains("</body>"))
+          htmlStr = htmlStr.replace("</body>", lbTag + "</body>");
+        else if (htmlStr.contains("</head>"))
+          htmlStr = htmlStr.replace("</head>", lbTag + "</head>");
+        else
+          htmlStr.append(lbTag);
+      }
+    }
+
+    // UI-3: restore the article scroll position once this page is loaded
+    pendingRestoreNewsId_ = newsIdInt;
 
     emit signalSetHtmlWebView(htmlStr);
   }
@@ -2036,6 +2253,123 @@ void NewsTabWidget::slotShowImageGallery()
   dialog.exec();
 }
 
+/** @brief Re-render the current article when its offline images are ready
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::slotImageCacheReady(int newsId, const QString &cachedHtml)
+{
+  Q_UNUSED(cachedHtml)
+  if (type_ >= TabTypeWeb) return;
+  if (newsId != currentShownNewsId_) return;
+  if (!newsView_->currentIndex().isValid()) return;
+  updateWebView(newsView_->currentIndex());
+}
+
+/** @brief Manually fetch the full text of the current article (readability)
+ *
+ * Loads the article URL in a hidden page, extracts the main content with a
+ * readability-style scoring script and stores it to news_ex (fullContent).
+ * The render fallback chain prefers fullContent over the feed-provided
+ * content/description.
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::slotFetchFullText()
+{
+  if (type_ >= TabTypeWeb) return;
+
+  QModelIndex index = newsIndexToSource(newsView_->currentIndex());
+  if (!index.isValid()) return;
+
+  QString link = newsModel_->dataField(index.row(), "link_href").toString();
+  if (link.isEmpty())
+    link = newsModel_->dataField(index.row(), "link_alternate").toString();
+  if (link.isEmpty())
+    return;
+
+  fetchFullTextNewsId_ = newsModel_->dataField(index.row(), "id").toInt();
+  fetchFullTextFeedId_ = feedId_;
+  if (fetchFullTextNewsId_ <= 0)
+    return;
+
+  if (!fullTextPage_) {
+    fullTextPage_ = new QWebEnginePage(this);
+    connect(fullTextPage_, SIGNAL(loadFinished(bool)),
+            this, SLOT(slotFullTextPageLoaded(bool)));
+  }
+  fullTextPage_->load(QUrl(link));
+}
+
+/** @brief Full-text page finished loading; run the extractor
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::slotFullTextPageLoaded(bool ok)
+{
+  const int newsId = fetchFullTextNewsId_;
+  const int feedId = fetchFullTextFeedId_;
+  fetchFullTextNewsId_ = -1;
+  fetchFullTextFeedId_ = -1;
+
+  if (!ok || newsId <= 0 || !fullTextPage_)
+    return;
+
+  // Readability-style extractor: score candidates by text density, then
+  // clone the best node and strip interactive/noise elements.
+  static const char *kExtractJs =
+      "(function() {"
+      "  function score(el) {"
+      "    var text = el.innerText || '';"
+      "    var length = text.length;"
+      "    if (length < 80) return 0;"
+      "    var commas = (text.match(/,/g) || []).length;"
+      "    var s = length + commas * 10;"
+      "    var cls = (el.className || '') + ' ' + (el.id || '');"
+      "    if (/(nav|menu|comment|footer|sidebar|aside|advert|social|share|promo)/i.test(cls))"
+      "      s *= 0.1;"
+      "    return s;"
+      "  }"
+      "  var best = null, bestScore = 0, i;"
+      "  var all = document.querySelectorAll('article, section, main, div, td, p');"
+      "  for (i = 0; i < all.length; i++) {"
+      "    var s = score(all[i]);"
+      "    if (s > bestScore) { bestScore = s; best = all[i]; }"
+      "  }"
+      "  if (!best) best = document.body;"
+      "  if (!best) return '';"
+      "  var clone = best.cloneNode(true);"
+      "  var bad = clone.querySelectorAll('script, style, iframe, form, nav, footer, aside, button, input');"
+      "  for (i = 0; i < bad.length; i++)"
+      "    if (bad[i].parentNode) bad[i].parentNode.removeChild(bad[i]);"
+      "  return clone.innerHTML;"
+      "})()";
+
+  QPointer<NewsTabWidget> guard(this);
+  fullTextPage_->runJavaScript(QString::fromLatin1(kExtractJs),
+      [guard, newsId, feedId](const QVariant &result) {
+        if (guard.isNull())
+          return;
+        QString html = result.toString().trimmed();
+        if (html.isEmpty())
+          return;
+        QSqlQuery q(guard->db_);
+        q.prepare("UPDATE news_ex SET value=:value, feedId=:feedId "
+                  "WHERE newsId=:newsId AND name='fullContent'");
+        q.bindValue(":value", html);
+        q.bindValue(":feedId", feedId);
+        q.bindValue(":newsId", newsId);
+        q.exec();
+        if (q.numRowsAffected() == 0) {
+          QSqlQuery qi(guard->db_);
+          qi.prepare("INSERT INTO news_ex(feedId, newsId, name, value) "
+                     "VALUES(:feedId, :newsId, 'fullContent', :value)");
+          qi.bindValue(":feedId", feedId);
+          qi.bindValue(":newsId", newsId);
+          qi.bindValue(":value", html);
+          qi.exec();
+        }
+        if ((newsId == guard->currentShownNewsId_) &&
+            guard->newsView_->currentIndex().isValid()) {
+          guard->updateWebView(guard->newsView_->currentIndex());
+        }
+      });
+}
+
 void NewsTabWidget::loadNewspaper(int refresh)
 {
   if (mainWindow_->newsLayout_ != 1) return;
@@ -2067,6 +2401,21 @@ void NewsTabWidget::loadNewspaper(int refresh)
         arg(ltr ? "ltr" : "rtl"). // direction
         arg(ltr ? "right" : "left"); // "Date" text-align
     htmlStr = newspaperHeadHtml_.arg(cssStr, hostUrl.toString());
+
+    // UI-2: inject image lightbox into the newspaper head page as well. Must
+    // run after <body> is parsed (the IIFE appends to document.body).
+    QFile lbFile(":/html/lightbox");
+    if (lbFile.open(QFile::ReadOnly)) {
+      QString lbScript = QString::fromUtf8(lbFile.readAll());
+      lbFile.close();
+      QString lbTag = QString("<script type=\"text/javascript\">%1</script>").arg(lbScript);
+      if (htmlStr.contains("</body>"))
+        htmlStr = htmlStr.replace("</body>", lbTag + "</body>");
+      else if (htmlStr.contains("</head>"))
+        htmlStr = htmlStr.replace("</head>", lbTag + "</head>");
+      else
+        htmlStr.append(lbTag);
+    }
 
     webView_->setHtml(htmlStr);
   }
@@ -2242,6 +2591,11 @@ void NewsTabWidget::loadNewspaper(int refresh)
 
           enclosureStr.append(QString("<a href=\"%1\" class=\"enclosure\"> %2 %3 </a><p>").
                               arg(enclosureUrl, tr("Link to"), type));
+
+          // Global player link: keeps playing when switching articles.
+          enclosureStr.append(QString("<a href=\"podcast://%1\" class=\"podcastPlay\">%2</a><p>").
+                              arg(QString::fromLatin1(QUrl::toPercentEncoding(enclosureUrl))).
+                              arg(tr("Play in player")));
         }
       }
 
@@ -2327,6 +2681,100 @@ void NewsTabWidget::slotSetHtmlWebView(const QString &html)
   webView_->setHtml(html);
 }
 
+/** @brief Persist the article scroll position to the news_ex table (UI-3)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::storeArticleScroll(int newsId, int pos)
+{
+  if (newsId <= 0 || pos < 0) return;
+
+  if (articleScrollCache_.value(newsId, -1) == pos)
+    return;
+  articleScrollCache_.insert(newsId, pos);
+
+  // news_ex has no UNIQUE(newsId, name) constraint, so "INSERT OR REPLACE"
+  // would just append a new row every time (the auto-increment id never
+  // collides) and the table would grow unboundedly. Update first, insert only
+  // when the row does not exist yet.
+  QSqlQuery q(db_);
+  q.prepare("UPDATE news_ex SET value=:value, feedId=:feedId "
+            "WHERE newsId=:newsId AND name='webScroll'");
+  q.bindValue(":value", pos);
+  q.bindValue(":feedId", feedId_);
+  q.bindValue(":newsId", newsId);
+  q.exec();
+  if (q.numRowsAffected() == 0) {
+    QSqlQuery qi(db_);
+    qi.prepare("INSERT INTO news_ex(feedId, newsId, name, value) "
+               "VALUES(:feedId, :newsId, 'webScroll', :value)");
+    qi.bindValue(":feedId", feedId_);
+    qi.bindValue(":newsId", newsId);
+    qi.bindValue(":value", pos);
+    qi.exec();
+  }
+}
+
+/** @brief Read the saved article scroll position (cached) (UI-3)
+ *---------------------------------------------------------------------------*/
+int NewsTabWidget::articleScrollFor(int newsId)
+{
+  if (newsId <= 0) return 0;
+
+  if (articleScrollCache_.contains(newsId))
+    return articleScrollCache_.value(newsId);
+
+  int pos = 0;
+  QSqlQuery q(db_);
+  q.prepare("SELECT value FROM news_ex WHERE newsId=? AND name='webScroll'");
+  q.addBindValue(newsId);
+  q.exec();
+  if (q.next())
+    pos = q.value(0).toInt();
+  articleScrollCache_.insert(newsId, pos);
+  return pos;
+}
+
+/** @brief Asynchronously capture the current WebView scroll offset (UI-3)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::saveArticleScrollAsync(int newsId)
+{
+  if (newsId <= 0) return;
+  if (type_ >= TabTypeWeb) return;
+  if (currentShownNewsId_ != newsId) return;
+
+  QPointer<NewsTabWidget> guard(this);
+  webView_->page()->runJavaScript(
+        "window.pageYOffset || document.documentElement.scrollTop "
+        "|| document.body.scrollTop || 0",
+        [guard, newsId](const QVariant &result) {
+          if (!guard.isNull())
+            guard->storeArticleScroll(newsId, result.toInt());
+        });
+}
+
+/** @brief Restore the article scroll position (UI-3)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::restoreArticleScroll(int newsId)
+{
+  const int pos = articleScrollFor(newsId);
+  if (pos <= 0) return;
+
+  webView_->page()->runJavaScript(
+        QString("window.scrollTo(0, %1);").arg(pos));
+}
+
+/** @brief Periodic capture of the current article scroll position (UI-3)
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::slotSaveArticleScroll()
+{
+  if (type_ >= TabTypeWeb) return;
+  if (currentShownNewsId_ <= 0) return;
+  if (!webView_->isVisible()) return;
+  // While a new page is loading, the WebView still shows the previous article;
+  // capturing now would store the old offset against the new article id.
+  if (!articlePageLoaded_) return;
+  saveArticleScrollAsync(currentShownNewsId_);
+}
+
 void NewsTabWidget::hideWebContent()
 {
   if (mainWindow_->newsLayout_ == 1) return;
@@ -2356,6 +2804,20 @@ void NewsTabWidget::slotLinkClicked(QUrl url)
 
   if (url.scheme() == QLatin1String("mailto")) {
     QDesktopServices::openUrl(url);
+    return;
+  }
+
+  // podcast://<percent-encoded-media-url> -> global player bar
+  if (url.scheme() == QLatin1String("podcast")) {
+    QString encoded = url.toString(QUrl::FullyEncoded);
+    encoded = encoded.mid(QStringLiteral("podcast://").size());
+    QUrl mediaUrl(QUrl::fromPercentEncoding(encoded.toUtf8()));
+    QString title;
+    if (newsView_->currentIndex().isValid()) {
+      QModelIndex curIdx = newsIndexToSource(newsView_->currentIndex());
+      title = newsModel_->dataField(curIdx.row(), "title").toString();
+    }
+    mainWindow_->playPodcast(mediaUrl, title);
     return;
   }
 
@@ -2429,11 +2891,15 @@ void NewsTabWidget::slotLoadStarted()
     newsIconMovie_->start();
   }
 
+  // UI-3: suppress the periodic scroll capture until the new page has
+  // finished loading (otherwise the old page's offset is stored against the
+  // newly selected article id).
+  articlePageLoaded_ = false;
   webViewProgress_->setValue(0);
   webViewProgress_->show();
 }
 //----------------------------------------------------------------------------
-void NewsTabWidget::slotLoadFinished(bool)
+void NewsTabWidget::slotLoadFinished(bool ok)
 {
   if (type_ == TabTypeWeb) {
     newsIconMovie_->stop();
@@ -2442,6 +2908,17 @@ void NewsTabWidget::slotLoadFinished(bool)
     newsIconTitle_->setPixmap(iconTab);
   }
 
+  // UI-3: restore the article scroll position after the page has loaded
+  if (ok && (type_ < TabTypeWeb) && (pendingRestoreNewsId_ > 0)) {
+    const int newsId = pendingRestoreNewsId_;
+    pendingRestoreNewsId_ = -1;
+    restoreArticleScroll(newsId);
+  } else {
+    pendingRestoreNewsId_ = -1;
+  }
+
+  // UI-3: the page is now rendered; the periodic scroll capture may resume.
+  articlePageLoaded_ = true;
   webViewProgress_->hide();
 }
 
@@ -2558,6 +3035,11 @@ void NewsTabWidget::openInExternalBrowserNews()
 void NewsTabWidget::setNewsLayout()
 {
   if (type_ >= TabTypeWeb) return;
+
+  if (mainWindow_->isFocusMode()) {
+    newsWidget_->setVisible(false);
+    return;
+  }
 
   switch (mainWindow_->newsLayout_) {
   case 1:

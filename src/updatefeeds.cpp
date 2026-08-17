@@ -24,6 +24,7 @@
 #include "database.h"
 #include "settings.h"
 #include "netspeeddetector.h"
+#include "imagecache.h"
 
 #include <QDebug>
 #include <qzregexp.h>
@@ -400,6 +401,62 @@ void UpdateObject::slotGetAllFeedsTimer()
                    q.value(2).toDateTime(), q.value(3).toInt());
   }
   emit showProgressBar(updateFeedsCount_);
+
+  // Run periodic cleanup on the same timer that drives feed updates.
+  maybeAutoCleanUp();
+}
+
+/** @brief Run automatic cleanup on a fixed interval (days).
+ *
+ * Reads the options set in the Cleanup settings page. The cleanup rules
+ * themselves (age/count/read protection) are shared with the CleanUp wizard
+ * via the "CleanUpWizard" settings group read by startCleanUp().
+ *---------------------------------------------------------------------------*/
+void UpdateObject::maybeAutoCleanUp()
+{
+  Settings settings;
+  settings.beginGroup("Settings");
+  bool autoEnabled = settings.value("autoCleanUpEnable", false).toBool();
+  int intervalDays = settings.value("autoCleanUpIntervalDays", 7).toInt();
+  QDate lastRun = QDate::fromString(
+        settings.value("lastAutoCleanUpDate").toString(), Qt::ISODate);
+  settings.endGroup();
+
+  if (!autoEnabled || intervalDays <= 0) return;
+  if (lastRun.isValid() &&
+      lastRun.daysTo(QDate::currentDate()) < intervalDays) return;
+
+  // Collect all feeds (the same list used by cleanUpShutdown()).
+  QStringList feedsIdList;
+  QList<int> foldersIdList;
+  QSqlQuery q(db());
+  q.exec("SELECT id, xmlUrl FROM feeds");
+  while (q.next()) {
+    if (q.value(1).toString().isEmpty())
+      foldersIdList << q.value(0).toInt();
+    else
+      feedsIdList << q.value(0).toString();
+  }
+  q.finish();
+
+  if (feedsIdList.isEmpty() && foldersIdList.isEmpty())
+    return;
+
+  startCleanUp(false, feedsIdList, foldersIdList);
+
+  // Remove image cache folders whose article no longer exists.
+  QSet<int> validNewsIds;
+  QSqlQuery qc(db());
+  qc.exec("SELECT id FROM news");
+  while (qc.next())
+    validNewsIds.insert(qc.value(0).toInt());
+  qc.finish();
+  ImageCacheManager::cleanupOrphans(validNewsIds);
+
+  settings.beginGroup("Settings");
+  settings.setValue("lastAutoCleanUpDate",
+                    QDate::currentDate().toString(Qt::ISODate));
+  settings.endGroup();
 }
 
 /** @brief Process update feed action
@@ -682,16 +739,20 @@ void UpdateObject::getUrlDone(int result, int feedId, QString feedUrlStr,
       // update queue would keep inflating updateFeedsCount_ and never finish.
       const int MaxFeedSwaps = 3;
       if (feedSwapCounts_.value(feedId, 0) < MaxFeedSwaps) {
-        QString newUrl = RssHubInstances::handleFeedFailure(feedId, feedUrlStr);
+        QString newUrl = RssHubInstances::handleFeedFailure(feedId, feedUrlStr, result);
         if (!newUrl.isEmpty() && newUrl != feedUrlStr) {
           feedSwapCounts_[feedId] = feedSwapCounts_.value(feedId, 0) + 1;
           qWarning() << "RSSHub instance swapped, retrying with:" << newUrl;
           // Emit signal to GUI thread to persist the URL change safely.
           emit feedUrlChanged(feedId, newUrl);
-          // Re-enter the queue normally (dedup + correct count accounting)
-          // instead of manually bumping the counter, so the feed is guaranteed
-          // to reach finishUpdate() and the progress bar completes.
-          addFeedInQueue(feedId, newUrl, dtReply, 0, QString(), true);
+          // Re-enter the queue. The feed id is still in feedIdList_, so
+          // addFeedInQueue() takes the "already queued" branch: it re-emits
+          // the request but does NOT add its usual +2 budget. getUrlDone()
+          // already decremented once above, so compensate with a single unit
+          // to keep updateFeedsCount_ balanced (the retry cycle then consumes
+          // it via its own getUrlDone() -1 and finishUpdate() -1).
+          if (!addFeedInQueue(feedId, newUrl, dtReply, 0, QString(), true))
+            updateFeedsCount_ += 1;
           return;
         }
       }

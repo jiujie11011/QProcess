@@ -163,7 +163,12 @@ public slots:
   void slotNewsEndPressed(QModelIndex index=QModelIndex());
   void slotNewsPageUpPressed(QModelIndex index=QModelIndex());
   void slotNewsPageDownPressed(QModelIndex index=QModelIndex());
+  void slotNewsNextUnreadPressed(QModelIndex index=QModelIndex());
+  void slotNewsPrevUnreadPressed(QModelIndex index=QModelIndex());
   void slotSort(int column, int order);
+
+  /** Shows/hides the news list (used by focus mode). */
+  void setNewsListVisible(bool visible);
 
 signals:
   void signalSetHtmlWebView(const QString &html = "", const QUrl &baseUrl = QUrl());
@@ -182,8 +187,12 @@ private slots:
   void slotAutoTranslationReady(int newsId, const QString &text, const QString &targetLang);
   void slotAutoRecommendationsReady(int newsId, const QString &content);
   void slotShowImageGallery();
+  void slotImageCacheReady(int newsId, const QString &cachedHtml);
+  void slotFetchFullText();
+  void slotFullTextPageLoaded(bool ok);
 
   void slotSetHtmlWebView(const QString &html);
+  void slotSaveArticleScroll();
   void webHomePage();
   void openPageInExternalBrowser();
   void slotLinkClicked(QUrl url);
@@ -207,6 +216,7 @@ private slots:
   void setWebToolbarVisible(bool show = true, bool checked = true);
 
   void slotNewslLabelClicked(QModelIndex index);
+  void slotRetryCurrentFeed();
 
 private:
   void createNewsList();
@@ -217,6 +227,15 @@ private:
   void maybeAutoSummarize(const QModelIndex &index, int newsId);
   void maybeAutoTranslate(const QModelIndex &index, int newsId);
   void maybeAutoRecommend(const QModelIndex &index, int newsId);
+
+  // UI-3: article reading progress (WebView scroll position per news item)
+  void saveArticleScrollAsync(int newsId);
+  void storeArticleScroll(int newsId, int pos);
+  int articleScrollFor(int newsId);
+  void restoreArticleScroll(int newsId);
+
+  // UI-5: inline error banner for failed feed updates
+  void updateErrorBanner();
 
   MainWindow *mainWindow_;
   QSqlDatabase db_;
@@ -242,11 +261,29 @@ private:
   /*! Id of the news currently rendered in webView_, used to route async
    *  AI translation/summary results back to the correct article. */
   int currentShownNewsId_;
+
+  /*! News id waiting for scroll restoration after the next page load. */
+  int pendingRestoreNewsId_;
+  /*! In-memory cache of saved WebView scroll positions (newsId -> y). */
+  QHash<int,int> articleScrollCache_;
+  /*! Periodic timer that captures the current article scroll position. */
+  QTimer *articleScrollTimer_;
+  /*! False between loadStarted() and loadFinished(); the periodic scroll
+   *  capture is suppressed while a page is still loading, otherwise the old
+   *  page's offset would be recorded against the new article id. */
+  bool articlePageLoaded_;
+
   QUrl linkUrl_;
   QString linkNewsString_;
 
   QWidget *newsPanelWidget_;
   bool webToolbarShow_;
+
+  // UI-5: inline error banner for failed feed updates
+  QWidget *errorBanner_;
+  QLabel *errorBannerIcon_;
+  QLabel *errorBannerLabel_;
+  QToolButton *errorBannerRetryButton_;
 
   QString newspaperHeadHtml_;
   QString newspaperHtml_;
@@ -256,6 +293,11 @@ private:
   QString cssString_;
   QString audioPlayerHtml_;
   QString videoPlayerHtml_;
+
+  // Full-text fetch: background page used to run the readability extractor.
+  QWebEnginePage *fullTextPage_;
+  int fetchFullTextNewsId_;
+  int fetchFullTextFeedId_;
 
 };
 

@@ -115,6 +115,7 @@
     </qresource>
     <qresource prefix="/html">
         <file alias="code_highlight">html/code_highlight.js</file>
+        <file alias="lightbox">html/lightbox.js</file>
         <file alias="description">html/news.html</file>
         <file alias="audioplayer">html/audioplayer.html</file>
         <file alias="videoplayer">html/videoplayer.html</file>

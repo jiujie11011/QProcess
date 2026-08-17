@@ -39,6 +39,7 @@
 class NetworkManager;
 class SplashScreen;
 class UpdateFeeds;
+class ImageCacheManager;
 
 class MainApplication : public QtSingleApplication
 {
@@ -77,6 +78,7 @@ public:
   UpdateFeeds *updateFeeds();
   void runUserFilter(int feedId, int filterId);
   DownloadManager *downloadManager();
+  ImageCacheManager *imageCache();
 
   void c2fLoadSettings();
   void c2fSaveSettings();
@@ -116,6 +118,10 @@ private:
   void connectDatabase();
   void loadSettings();
   void setStyleApplication();
+
+  /** Detects whether the OS is currently in dark mode (Windows theme
+   *  registry; palette-based fallback on other platforms). */
+  static bool systemDarkMode();
   void showSplashScreen();
   void closeSplashScreen();
   void setProgressSplashScreen(int value);
@@ -144,6 +150,7 @@ private:
   QNetworkDiskCache *diskCache_;
   UpdateFeeds *updateFeeds_;
   DownloadManager *downloadManager_;
+  ImageCacheManager *imageCache_;
   QWidget *closingWidget_;
 
   QStringList c2fWhitelist_;

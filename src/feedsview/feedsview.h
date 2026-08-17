@@ -59,6 +59,8 @@ public slots:
 signals:
   void signalDoubleClicked();
   void signalMiddleClicked();
+  /** Emitted when the empty-state guide is clicked (no subscriptions yet). */
+  void signalAddFeedClicked();
   void pressKeyUp();
   void pressKeyDown();
   void pressKeyHome();

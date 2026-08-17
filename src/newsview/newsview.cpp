@@ -146,10 +146,53 @@ NewsView::NewsView(QWidget * parent)
 /*virtual*/ void NewsView::keyPressEvent(QKeyEvent *event)
 {
   QTreeView::keyPressEvent(event);
-  if (event->key() == Qt::Key_Up)         emit pressKeyUp(currentIndex());
-  else if (event->key() == Qt::Key_Down)  emit pressKeyDown(currentIndex());
-  else if (event->key() == Qt::Key_Home)  emit pressKeyHome(currentIndex());
-  else if (event->key() == Qt::Key_End)   emit pressKeyEnd(currentIndex());
-  else if (event->key() == Qt::Key_PageUp)   emit pressKeyPageUp(currentIndex());
-  else if (event->key() == Qt::Key_PageDown) emit pressKeyPageDown(currentIndex());
+  switch (event->key()) {
+  case Qt::Key_Up:
+  case Qt::Key_K:                        // vim-style navigation
+    emit pressKeyUp(currentIndex());
+    break;
+  case Qt::Key_Down:
+  case Qt::Key_J:
+    emit pressKeyDown(currentIndex());
+    break;
+  case Qt::Key_Home:
+    emit pressKeyHome(currentIndex());
+    break;
+  case Qt::Key_End:
+    emit pressKeyEnd(currentIndex());
+    break;
+  case Qt::Key_PageUp:
+    emit pressKeyPageUp(currentIndex());
+    break;
+  case Qt::Key_PageDown:
+    emit pressKeyPageDown(currentIndex());
+    break;
+  case Qt::Key_N:                        // next unread
+    emit pressKeyNextUnread(currentIndex());
+    break;
+  case Qt::Key_P:                        // previous unread
+    emit pressKeyPrevUnread(currentIndex());
+    break;
+  default:
+    break;
+  }
+}
+
+/*virtual*/ void NewsView::paintEvent(QPaintEvent *event)
+{
+  QTreeView::paintEvent(event);
+
+  // UI-4: empty-state hint when the current filter has no news items
+  if (model() && (model()->rowCount() == 0)) {
+    QPainter painter(viewport());
+    painter.setPen(palette().color(QPalette::Disabled, QPalette::Text));
+
+    QFont hintFont = font();
+    hintFont.setPointSize(qMax(hintFont.pointSize() - 1, 9));
+    painter.setFont(hintFont);
+
+    QRect area = viewport()->rect().adjusted(12, 12, -12, -12);
+    painter.drawText(area, Qt::AlignCenter | Qt::TextWordWrap,
+                     tr("No news here yet"));
+  }
 }

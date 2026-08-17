@@ -24,6 +24,7 @@
 #include "networkmanager.h"
 #include "adblockmanager.h"
 #include "settings.h"
+#include "imagecache.h"
 #include "splashscreen.h"
 #include "updatefeeds.h"
 #include "VersionNo.h"
@@ -37,6 +38,9 @@
 #include <QCheckBox>
 #include <QRegularExpression>
 #include <QSslSocket>
+#include <QSettings>
+#include <QPalette>
+#include <QColor>
 
 MainApplication::MainApplication(int &argc, char **argv)
   : QtSingleApplication(argc, argv)
@@ -50,6 +54,7 @@ MainApplication::MainApplication(int &argc, char **argv)
   , cookieJar_(0)
   , diskCache_(0)
   , downloadManager_(0)
+  , imageCache_(0)
   , analytics_(0)
 {
   setApplicationName("QuiteRss");
@@ -442,22 +447,59 @@ bool MainApplication::storeDBMemory() const
   return storeDBMemory_;
 }
 
+bool MainApplication::systemDarkMode()
+{
+#ifdef Q_OS_WIN
+  // Windows stores the personal "app mode" theme setting in the registry.
+  QSettings reg("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\"
+                "CurrentVersion\\Themes\\Personalize",
+                QSettings::NativeFormat);
+  const QVariant value = reg.value("AppsUseLightTheme");
+  if (value.isValid())
+    return !value.toBool();
+#endif
+  // Fallback heuristic for other platforms: a dark system palette has a
+  // dark Window colour.
+  return qApp->palette().color(QPalette::Window).lightness() < 128;
+}
+
 void MainApplication::setStyleApplication()
 {
   QString fileName(resourcesDir());
-  // Normalize legacy theme names to the two Codex themes
-  if (styleApplication_ == "darkStyle_" ||
-      styleApplication_ == "dark") {
-    fileName.append("/style/codex_dark.qss");
-  } else {
-    fileName.append("/style/codex_light.qss");
-  }
+  // "systemStyle_" follows the OS dark/light mode; "lightStyle_" and
+  // "darkStyle_" are explicit overrides. Legacy names are normalized.
+  const bool dark = (styleApplication_ == "darkStyle_" ||
+                     styleApplication_ == "dark" ||
+                     (styleApplication_ == "systemStyle_" && systemDarkMode()));
+  fileName.append(dark ? "/style/codex_dark.qss"
+                       : "/style/codex_light.qss");
   QFile file(fileName);
   if (!file.open(QFile::ReadOnly)) {
     file.setFileName(":/style/systemStyle");
     file.open(QFile::ReadOnly);
   }
-  setStyleSheet(QLatin1String(file.readAll()));
+  // Apply accent color placeholders so the startup stylesheet is fully valid
+  // (same logic as MainWindow::setStyleApp).
+  Settings settings;
+  const QString accentStr = settings.value("accentColor", "").toString();
+  QColor accent(accentStr);
+  if (!accent.isValid())
+    accent = QColor(dark ? "#3B82F6" : "#0F62FE");
+  QColor accentHover = dark ? accent.lighter(130) : accent.lighter(115);
+  QColor accentSoft, accentSoftActive;
+  if (dark) {
+    accentSoft        = QColor::fromRgbF(accent.redF()*0.27, accent.greenF()*0.27, accent.blueF()*0.27);
+    accentSoftActive  = QColor::fromRgbF(accent.redF()*0.40, accent.greenF()*0.40, accent.blueF()*0.40);
+  } else {
+    accentSoft        = accent.lighter(150);
+    accentSoftActive  = accent.lighter(130);
+  }
+  QString qss = QString::fromUtf8(file.readAll());
+  qss.replace("%ACCENT%", accent.name());
+  qss.replace("%ACCENT_HOVER%", accentHover.name());
+  qss.replace("%ACCENT_SOFT%", accentSoft.name());
+  qss.replace("%ACCENT_SOFT_ACTIVE%", accentSoftActive.name());
+  setStyleSheet(qss);
   file.close();
 
   setStyle(new QProxyStyle);
@@ -669,6 +711,14 @@ DownloadManager *MainApplication::downloadManager()
     downloadManager_ = new DownloadManager();
   }
   return downloadManager_;
+}
+
+ImageCacheManager *MainApplication::imageCache()
+{
+  if (!imageCache_) {
+    imageCache_ = new ImageCacheManager(this);
+  }
+  return imageCache_;
 }
 
 void MainApplication::reloadUserStyleBrowser()

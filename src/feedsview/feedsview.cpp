@@ -393,6 +393,13 @@ QModelIndex FeedsView::indexNextFolder(const QModelIndex &indexCur, bool isParen
  *---------------------------------------------------------------------------*/
 void FeedsView::mousePressEvent(QMouseEvent *event)
 {
+  // UI-4: empty-state guide click -> open the "Add subscription" dialog
+  const bool noFeeds = !sourceModel_ || sourceModel_->rowCount() == 0;
+  if (noFeeds && (event->button() == Qt::LeftButton)) {
+    emit signalAddFeedClicked();
+    return;
+  }
+
   QModelIndex index = indexAt(event->pos());
   QRect rectText = visualRect(index);
 
@@ -600,6 +607,35 @@ void FeedsView::dropEvent(QDropEvent *event)
 void FeedsView::paintEvent(QPaintEvent *event)
 {
   QTreeView::paintEvent(event);
+
+  // UI-4: empty-state guide when there is nothing to show
+  if (model() && (model()->rowCount() == 0)) {
+    QPainter painter(viewport());
+    painter.setPen(palette().color(QPalette::Disabled, QPalette::Text));
+
+    QFont guideFont = font();
+    guideFont.setPointSize(qMax(guideFont.pointSize() + 2, 12));
+    guideFont.setBold(true);
+    painter.setFont(guideFont);
+
+    QRect area = viewport()->rect().adjusted(16, 24, -16, -16);
+
+    const bool noFeeds = !sourceModel_ || sourceModel_->rowCount() == 0;
+    if (noFeeds) {
+      painter.drawText(area, Qt::AlignCenter | Qt::TextWordWrap,
+                       tr("No subscriptions yet"));
+      guideFont.setBold(false);
+      guideFont.setPointSize(qMax(guideFont.pointSize() - 2, 9));
+      painter.setFont(guideFont);
+      area.adjust(0, 60, 0, 0);
+      painter.drawText(area, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap,
+                       tr("Click here or use File -> Add Subscription (Ctrl+N)\n"
+                          "to start following your favorite feeds."));
+    } else {
+      painter.drawText(area, Qt::AlignCenter | Qt::TextWordWrap,
+                       tr("No feeds match the current filter"));
+    }
+  }
 
   if (dragPos_.isNull()) return;
 

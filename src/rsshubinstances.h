@@ -40,8 +40,15 @@ public:
      *  that are not usable as an instance base. */
     static QString normalizeBase(const QString &raw);
 
-    /** Instances stored in settings (falls back to defaults). */
+    /** Instances stored in settings (falls back to defaults). Includes frozen
+     *  instances — use loadActiveInstances() when you need candidates for
+     *  swapping or health checks. */
     static QStringList loadInstances();
+
+    /** Like loadInstances() but excludes frozen instances, so automatic
+     *  instance switching never picks an instance that has exceeded the
+     *  monthly failure threshold. */
+    static QStringList loadActiveInstances();
     static void saveInstances(const QStringList &instances);
 
     static bool autoSwapEnabled();
@@ -69,6 +76,12 @@ public:
      *  blocking network requests. */
     static void updateHealthyCache();
 
+    /** Refreshes the cached healthy instance list asynchronously. The blocking
+     *  network probes run on a worker thread; the cache is updated on the GUI
+     *  thread when they finish, so the UI stays responsive. Safe to call from
+     *  the GUI thread (e.g. shortly after startup). */
+    static void updateHealthyCacheAsync();
+
     /** Returns the cached healthy instance list, if available. */
     static QStringList cachedHealthy();
 
@@ -79,15 +92,16 @@ public:
      *
      *  This method must be safe to call from the feed update thread: it
      *  performs NO blocking network requests, only uses the cached health
-     *  information, and guards its static state with a mutex. */
-    /** Determine if a feed URL should be swapped to a healthy instance.
+     *  information, and guards its static state with a mutex.
      *
-     *  This is a PURE function — NO database access, NO blocking I/O.
-     *  Returns the new feed URL (with instance part replaced), or an empty
-     *  string if no swap is needed/possible. The caller (on the update thread)
-     *  must emit a signal to the GUI thread to persist the change.
+     *  @param result  network result code from the update thread (see
+     *                 requestfeed.cpp). Feed-side errors such as 404 or an
+     *                 authentication requirement fail identically on every
+     *                 instance, so they do not trigger a swap and are not
+     *                 counted as instance failures.
      */
-    static QString handleFeedFailure(int feedId, const QString &feedUrl);
+    static QString handleFeedFailure(int feedId, const QString &feedUrl,
+                                     int result);
 
     /** Record a failure for an instance. Returns true if the instance has now
      *  exceeded the monthly threshold (5 failures in 30 days) and should be
@@ -103,6 +117,11 @@ public:
     /** Unfreeze an instance (manual override). */
     static void unfreezeInstance(const QString &base);
 
+    /** Persists the frozen set / failure timestamps that were marked dirty by
+     *  update-thread calls. Safe and cheap to call periodically from the GUI
+     *  thread (e.g. a timer) or on application exit. */
+    static void flushState();
+
 private:
     static QString pickHealthy(const QStringList &instances,
                                const QString &exceptBase);
@@ -110,12 +129,49 @@ private:
     static QStringList healthyCache_;
     static bool healthyCacheValid_;
 
-    /** Failure record: instance base -> list of failure timestamps (ms since epoch). */
+    /** Cached instance list (avoids re-reading the settings file on the
+     *  feed-update thread for every failed request). */
+    static QStringList cachedInstances_;
+    static bool instancesCacheValid_;
+    /** Set when frozen state / failure timestamps changed in memory but were
+     *  not yet written to settings; cleared by flushState(). */
+    static bool stateDirty_;
+
+    /** Failure record: instance base -> list of failure timestamps (ms since
+     *  epoch). Persisted to settings so the monthly window survives restarts. */
     static QHash<QString, QList<qint64>> &failureTimestamps();
-    /** Frozen instances set (persisted to settings). */
+    /** Frozen instances set (persisted to settings, loaded on startup). */
     static QSet<QString> &frozenInstancesSet();
+
+    /** One-time startup initialisation: loads the persisted frozen-instance
+     *  set and failure timestamps from settings, then prunes expired failure
+     *  records so that instances whose failures have aged out of the 30-day
+     *  window are unfrozen automatically. Must be called with mutex_ held. */
+    static void startupLoad();
+
+    /** Drops failure timestamps older than MONTH_MS and unfreezes instances
+     *  whose remaining failures no longer reach the monthly threshold.
+     *  Persists the state if anything changed. Must be called with mutex_
+     *  held. */
+    static void pruneExpired();
+
+    /** Marks the frozen set / failure timestamps as dirty. The actual settings
+     *  write is deferred to flushState() (GUI thread) so the feed-update
+     *  thread never blocks on disk I/O. Must be called with mutex_ held. */
+    static void persistState();
+
+    /** getUrlDone() result codes (see requestfeed.cpp). Feed-side errors are
+     *  never treated as instance failures. */
+    static const int FAIL_OTHER = -1;     // DNS / TLS / timeout / refused
+    static const int FAIL_AUTH = -2;      // server requires authentication
+    static const int FAIL_REDIRECT = -4;  // redirect loop / error
+    static const int FAIL_NOT_FOUND = -5; // HTTP 404
+
     static const int MAX_FAILURES_PER_MONTH = 5;
     static const int MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    /** Concurrent failures of the same instance within this window count as
+     *  one failure (dedup). */
+    static const int FAILURE_DEDUP_MS = 5 * 60 * 1000;
 };
 
 #endif // RSSHUBINSTANCES_H

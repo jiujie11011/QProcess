@@ -86,6 +86,9 @@ public:
   void loadSettings();
   void saveSettings();
 
+  /** True when focus mode (reader only) is active. */
+  bool isFocusMode() const { return focusMode_; }
+
   bool showSplashScreen_;
   bool showTrayIcon_;
   bool startingTray_;
@@ -245,6 +248,8 @@ public:
   int  cleanupDays_;
   int  cleanupKeepCount_;
   int  cleanupRecycleDays_;
+  bool autoCleanUpEnable_;
+  int  autoCleanUpIntervalDays_;
   bool aiEnabled_;
   QString aiModel_;
   QString aiApiKey_;
@@ -316,6 +321,9 @@ public:
 
   void webViewFullScreen(bool on);
 
+  // Podcast: play an audio/video enclosure in the global player bar.
+  void playPodcast(const QUrl &url, const QString &title);
+
   // AI tools: resolve the currently selected folder/feed into a list of
   // concrete feed ids plus a display name. Returns false if nothing usable.
   bool getSelectedFeedIds(QList<int> *feedIds, QString *name);
@@ -341,6 +349,17 @@ public:
   bool wideMode_;
   // S-10: reduce motion
   bool reduceMotion_;
+  // Focus mode: hide the feed tree and the news list, reader only.
+  bool focusMode_;
+
+  /** Info needed to restore a closed tab (undo close). */
+  struct ClosedTabInfo {
+    int type;
+    int feedId;
+    int feedParId;
+    QString title;
+  };
+  QList<ClosedTabInfo> closedTabs_;
 
 public slots:
   void restoreFeedsOnStartUp();
@@ -381,6 +400,12 @@ public slots:
   void slotTaskStats(int queued, int running, int done, int failed);
   void slotCurrentFeed(int feedId, QString feedUrl);
   void slotPlaySound(const QString &path);
+  void slotPlayerTogglePlay();
+  void slotPlayerClose();
+  void slotPlayerPositionChanged(qint64 position);
+  void slotPlayerDurationChanged(qint64 duration);
+  void slotPlayerSliderMoved(int position);
+  void slotPlayerStateChanged();
   void slotAddColorList(int id, const QString &color);
   void showOptionDlg(int index = -1);
   void slotPlaceToTray();
@@ -567,6 +592,9 @@ private slots:
   void nextUnreadNews();
   void prevUnreadNews();
 
+  void slotToggleFocusMode();
+  void slotUndoCloseTab();
+
   void slotIndentationFeedsTree();
 
   void customizeMainToolbar();
@@ -617,6 +645,7 @@ private:
   void createTray();
   void createTabBarWidget();
   void createCentralWidget();
+  void createPlayerBar();
   void loadSettingsFeeds();
   void retranslateStrings();
   void recountFeedCategories(const QList<int> &categoriesList);
@@ -667,6 +696,7 @@ private:
   QAction *newspaperLayoutAct_;
   QAction *layoutToggle_;
   QAction *systemStyle_;
+  QAction *lightStyle_;
   QAction *darkStyle_;
   QAction *topBrowserPositionAct_;
   QAction *bottomBrowserPositionAct_;
@@ -709,6 +739,7 @@ private:
   QAction *markFeedRead_;
   QAction *feedProperties_;
   QAction *showWindowAct_;
+  QAction *showRecentNotifyAct_;
   QAction *feedKeyUpAct_;
   QAction *feedKeyDownAct_;
   QAction *switchFocusAct_;
@@ -748,6 +779,8 @@ private:
 
   QAction *reduceNewsListAct_;
   QAction *increaseNewsListAct_;
+  QAction *focusModeAct_;
+  QAction *undoCloseTabAct_;
 
   QAction *createBackupAct_;
   QAction *showMenuBarAct_;
@@ -813,12 +846,23 @@ private:
 #ifdef HAVE_QT5
   QMediaPlayer *mediaPlayer_;
   QMediaPlaylist *playlist_;
+  // Podcast: global player instance living at MainWindow scope so playback
+  // survives tab switches / closings.
+  QMediaPlayer *podcastPlayer_;
 #else
 #ifdef HAVE_PHONON
   Phonon::MediaObject *mediaPlayer_;
   Phonon::AudioOutput *audioOutput_;
 #endif
 #endif
+
+  // Podcast: global player bar (bottom of the central widget).
+  QWidget *playerBarWidget_;
+  QToolButton *playerPlayButton_;
+  QLabel *playerTitleLabel_;
+  QSlider *playerProgressSlider_;
+  QLabel *playerTimeLabel_;
+  QToolButton *playerCloseButton_;
 
   bool soundNewNews_;
   QString soundNotifyPath_;
@@ -827,6 +871,9 @@ private:
   bool fullscreenModeNotify_;
   bool showNotifyInactiveApp_;
   bool onlySelectedFeeds_;
+  bool quietHoursOn_;
+  QTime quietHoursStart_;
+  QTime quietHoursEnd_;
 
   UpdateAppDialog *updateAppDialog_;
 

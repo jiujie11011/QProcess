@@ -212,11 +212,16 @@ QVariant FeedsModel::data(const QModelIndex &index, int role) const
 
     return QColor(textColor_);
   } else if (role == Qt::BackgroundRole) {
-    QModelIndex currentIndex = ((FeedsProxyModel*)view_->model())->mapToSource(view_->currentIndex());
-    if ((index.row() == currentIndex.row()) && (index.parent() == currentIndex.parent()) &&
-        view_->selectionModel()->selectedRows(0).count()) {
-      if (!focusedFeedBGColor_.isEmpty())
-        return QColor(focusedFeedBGColor_);
+    FeedsProxyModel *proxyModel =
+        qobject_cast<FeedsProxyModel*>(view_->model());
+    if (proxyModel) {
+      QModelIndex currentIndex = proxyModel->mapToSource(view_->currentIndex());
+      if ((index.row() == currentIndex.row()) &&
+          (index.parent() == currentIndex.parent()) &&
+          view_->selectionModel()->selectedRows(0).count()) {
+        if (!focusedFeedBGColor_.isEmpty())
+          return QColor(focusedFeedBGColor_);
+      }
     }
   } else if (role == Qt::DecorationRole) {
     if (indexColumnOf("text") == index.column()) {
@@ -276,8 +281,16 @@ QVariant FeedsModel::data(const QModelIndex &index, int role) const
         font.setBold(true);
       QFontMetrics fontMetrics(font);
 
-      if (width < fontMetrics.width(title))
+      if (width < fontMetrics.width(title)) {
+        // UI-5: append the update error to the tooltip of failed feeds
+        QString strStatus = indexSibling(index, "status").data(Qt::EditRole).toString();
+        if (strStatus.section(" ", 0, 0).toInt() < 0) {
+          QString error = strStatus.section(" ", 1).trimmed();
+          if (!error.isEmpty())
+            title += QString("\n%1").arg(error);
+        }
         return title;
+      }
     }
     return QString("");
   }

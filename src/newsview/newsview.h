@@ -44,6 +44,8 @@ signals:
   void pressKeyEnd(const QModelIndex &index);
   void pressKeyPageUp(const QModelIndex &index);
   void pressKeyPageDown(const QModelIndex &index);
+  void pressKeyNextUnread(const QModelIndex &index);
+  void pressKeyPrevUnread(const QModelIndex &index);
   void signalHoverRowChanged(int row);
   void signalRowsScrolledOut(QList<int> rows);
 
@@ -53,6 +55,7 @@ protected:
   virtual void mouseDoubleClickEvent(QMouseEvent*);
   virtual void keyPressEvent(QKeyEvent*);
   virtual void scrollContentsBy(int dx, int dy);
+  virtual void paintEvent(QPaintEvent *event);
 
 private:
   QModelIndex indexClicked_;
