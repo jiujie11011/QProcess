@@ -76,8 +76,17 @@
 static QString toSecondLevelDomain(const QUrl &url)
 {
 #if QT_VERSION >= 0x040800
+#if defined(QT6)
+  // QUrl::topLevelDomain() was removed in Qt6 (public-suffix support dropped).
+  // Approximate with the last two host labels - same limitation the code
+  // documents for Qt < 4.8 (.co.uk etc. count as second-level domain).
+  const QString urlHost = url.host();
+  const QString topLevelDomain =
+      (urlHost.indexOf(QL1C('.')) == -1) ? QString() : urlHost.section(QL1C('.'), -2);
+#else
   const QString topLevelDomain = url.topLevelDomain();
   const QString urlHost = url.host();
+#endif
 
   if (topLevelDomain.isEmpty() || urlHost.isEmpty()) {
     return QString();
