@@ -79,14 +79,43 @@ scan_qt6_aware() {
     # 该文件中位于 "QT6 为真" 条件块内的行号列表 (awk 状态机, 支持嵌套 ifdef)
     guarded=$(awk '
       BEGIN { depth=0; gd=-1 }
+      # QT6 为真的条件: defined(QT6) 且非 !defined(QT6); 或 QT_VERSION >= 6
+      function isQt6Pos(line) {
+        if (line ~ /!defined\(QT6\)/) return 0
+        return (line ~ /defined\(QT6\)/ || line ~ /QT_VERSION[ \t]*>=/)
+      }
+      # QT6 为假的条件: !defined(QT6) 或 QT_VERSION < 6
+      function isQt6Neg(line) {
+        return (line ~ /!defined\(QT6\)/ || line ~ /QT_VERSION[ \t]*</)
+      }
       /^[ \t]*#if/ {
         depth++
-        if (gd == -1 && ($0 ~ /defined\(QT6\)/ || $0 ~ /QT_VERSION[ \t]*>=/)) gd=depth
+        if (isQt6Pos($0)) { branch[depth]="pos"; if (gd==-1) gd=depth }
+        else if (isQt6Neg($0)) branch[depth]="neg"
+        else branch[depth]="other"
         next
       }
-      /^[ \t]*#elif/ { if (gd == depth) gd=-1; next }
-      /^[ \t]*#else/ { if (gd == depth) gd=-1; next }
-      /^[ \t]*#endif/ { if (gd == depth) gd=-1; depth--; next }
+      /^[ \t]*#elif/ {
+        # 上一分支(同深度)结束; #elif 条件成立则开启 QT6 真分支
+        if (gd==depth) gd=-1
+        if (isQt6Pos($0)) { branch[depth]="pos"; if (gd==-1) gd=depth }
+        else if (isQt6Neg($0)) branch[depth]="neg"
+        else branch[depth]="other"
+        next
+      }
+      /^[ \t]*#else/ {
+        # #else 是上一分支取反: 上一分支为 QT6 假(neg/other)时, else 分支可能是 QT6 真
+        if (gd==depth) { gd=-1; branch[depth]="neg" }
+        else if (branch[depth]=="neg") { gd=depth; branch[depth]="pos" }
+        else branch[depth]="other"
+        next
+      }
+      /^[ \t]*#endif/ {
+        if (gd==depth) gd=-1
+        delete branch[depth]
+        depth--
+        next
+      }
       { if (gd != -1) print NR }
     ' "$ROOT/$file" | tr '\n' ' ')
     out+=$(echo "$raw" | awk -F: -v file="$file" -v g="$guarded" '

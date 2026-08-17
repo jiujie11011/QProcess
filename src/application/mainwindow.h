@@ -926,7 +926,7 @@ private:
   SplitterHandle         *contentSplitterHandle_   = nullptr;  // 内容区拖拽手柄
   NewsCardDelegate       *newsCardDelegate_        = nullptr;  // 文章列表卡片代理
   RightPanel             *rightPanelWidget_        = nullptr;  // 右侧可折叠面板
-  PlayerBar              *playerBarWidget_         = nullptr;  // 底部播放条
+  PlayerBar              *codexPlayerBar_          = nullptr;  // 底部播放条（新 UI；改名避免与 903 行旧字段冲突）
   CommandPalette         *commandPalette_          = nullptr;  // 命令面板
   ThemeManager           *themeManager_            = nullptr;  // 主题管理单例（可选持有指针）
   NavigationContext      *navigationContext_       = nullptr;  // 导航上下文
