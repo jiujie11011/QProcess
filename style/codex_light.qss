@@ -1,18 +1,20 @@
 /* ============================================================
- * Codex Light Style
+ * Codex Light Style (v1.4)
  * Modern, clean Codex design language - light theme
+ * 全量 token 占位符（由 ThemeManager::renderQss 替换）
  * ============================================================ */
 
 /* ---- Global base ---- */
 QMainWindow, QDialog, QWidget {
+    font-family: %FONT_UI%;
     font-size: 14px;
 }
 
 QToolTip {
-    background-color: #FFFFFF;
-    color: #1e1e1e;
-    border: 1px solid #d9d9d9;
-    border-radius: 6px;
+    background-color: %BG_SURFACE%;
+    color: %TEXT_PRIMARY%;
+    border: 1px solid %BORDER_DEFAULT%;
+    border-radius: %RADIUS_SM%px;
     padding: 6px 8px;
 }
 
@@ -21,10 +23,10 @@ QToolTip {
 #categoriesTree, #fontTree, #languageFileList_,
 #filtersTree, #shortcutTree, #labelsTree_, #colorsTree_,
 #foldersTree_, #feedsTreeFR, #feedsTreeNotify_ {
-    background: #FFFFFF;
-    alternate-background-color: #F7F7F8;
-    border: 1px solid #E4E4E7;
-    border-radius: 8px;
+    background: %BG_SURFACE%;
+    alternate-background-color: %BG_SURFACE_ALT%;
+    border: 1px solid %BORDER_DEFAULT%;
+    border-radius: %RADIUS_MD%px;
     outline: none;
 }
 
@@ -35,11 +37,11 @@ QToolTip {
 #feedsTreeNotify_::item {
     min-height: 26px;
     padding-left: 4px;
-    border-radius: 6px;
+    border-radius: %RADIUS_SM%px;
 }
 
 #feedsView_::item:hover, #newsView_::item:hover {
-    background: #F0F0F1;
+    background: %BG_HOVER%;
 }
 
 #feedsView_::item:selected, #newsView_::item:selected,
@@ -50,7 +52,7 @@ QToolTip {
 #foldersTree_::item:selected, #feedsTreeFR::item:selected,
 #feedsTreeNotify_::item:selected {
     background: %ACCENT_SOFT%;
-    color: #1E1E1E;
+    color: %TEXT_PRIMARY%;
 }
 
 #feedsView_::item:selected:active, #newsView_::item:selected:active,
@@ -65,10 +67,10 @@ QToolTip {
 
 /* ---- Header ---- */
 QHeaderView::section {
-    background-color: #F7F7F8;
-    color: #6E6E73;
+    background-color: %BG_SURFACE_ALT%;
+    color: %TEXT_SECONDARY%;
     border: none;
-    border-bottom: 1px solid #E4E4E7;
+    border-bottom: 1px solid %BORDER_DEFAULT%;
     padding: 6px 8px;
     font-weight: 600;
 }
@@ -96,13 +98,13 @@ QToolBar {
 QToolButton {
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: %RADIUS_SM%px;
     padding: 4px 8px;
-    color: #1E1E1E;
+    color: %TEXT_PRIMARY%;
 }
 
 QToolButton:hover {
-    background: #F0F0F1;
+    background: %BG_HOVER%;
 }
 
 QToolButton:pressed, QToolButton:checked {
@@ -111,57 +113,58 @@ QToolButton:pressed, QToolButton:checked {
 
 /* ---- Menus ---- */
 QMenuBar {
-    background: #FFFFFF;
-    border-bottom: 1px solid #E4E4E7;
-    color: #1E1E1E;
+    background: %BG_SURFACE%;
+    border-bottom: 1px solid %BORDER_DEFAULT%;
+    color: %TEXT_PRIMARY%;
     padding: 2px 4px;
 }
 
 QMenuBar::item {
     background: transparent;
-    border-radius: 6px;
+    border-radius: %RADIUS_SM%px;
     padding: 5px 10px;
 }
 
 QMenuBar::item:selected {
-    background: #F0F0F1;
+    background: %BG_HOVER%;
 }
 
 QMenu {
-    background: #FFFFFF;
-    color: #1E1E1E;
-    border: 1px solid #E4E4E7;
-    border-radius: 8px;
+    background: %BG_SURFACE%;
+    color: %TEXT_PRIMARY%;
+    border: 1px solid %BORDER_DEFAULT%;
+    border-radius: %RADIUS_MD%px;
     padding: 6px;
+    box-shadow: %SHADOW_OVERLAY%;
 }
 
 QMenu::item {
-    border-radius: 6px;
+    border-radius: %RADIUS_SM%px;
     padding: 6px 24px 6px 12px;
 }
 
 QMenu::item:selected {
-    background: #F0F0F1;
+    background: %BG_HOVER%;
 }
 
 QMenu::separator {
     height: 1px;
-    background: #E4E4E7;
+    background: %BORDER_DEFAULT%;
     margin: 4px 8px;
 }
 
 /* ---- Buttons ---- */
 QPushButton {
-    background: #FFFFFF;
-    border: 1px solid #D0D0D5;
-    border-radius: 8px;
+    background: %BG_SURFACE%;
+    border: 1px solid %BORDER_DEFAULT%;
+    border-radius: %RADIUS_MD%px;
     padding: 6px 16px;
-    color: #1E1E1E;
+    color: %TEXT_PRIMARY%;
 }
 
 QPushButton:hover {
-    background: #F7F7F8;
-    border-color: #B8B8BE;
+    background: %BG_SURFACE_ALT%;
+    border-color: %BORDER_SUBTLE%;
 }
 
 QPushButton:pressed {
@@ -170,7 +173,7 @@ QPushButton:pressed {
 
 QPushButton:default {
     background: %ACCENT%;
-    color: #FFFFFF;
+    color: %TEXT_ON_ACCENT%;
     border-color: %ACCENT%;
 }
 
@@ -179,17 +182,17 @@ QPushButton:default:hover {
 }
 
 QPushButton:disabled {
-    background: #F7F7F8;
-    color: #A0A0A8;
-    border-color: #E4E4E7;
+    background: %BG_SURFACE_ALT%;
+    color: %TEXT_DISABLED%;
+    border-color: %BORDER_DEFAULT%;
 }
 
 /* ---- Inputs ---- */
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit {
-    background: #FFFFFF;
-    color: #1E1E1E;
-    border: 1px solid #D0D0D5;
-    border-radius: 8px;
+    background: %BG_SURFACE%;
+    color: %TEXT_PRIMARY%;
+    border: 1px solid %BORDER_DEFAULT%;
+    border-radius: %RADIUS_MD%px;
     padding: 5px 8px;
     selection-background-color: %ACCENT%;
 }
@@ -197,6 +200,7 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit {
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus,
 QPlainTextEdit:focus, QTextEdit:focus {
     border-color: %ACCENT%;
+    border-width: 1.5px;
 }
 
 QComboBox::drop-down {
@@ -205,18 +209,18 @@ QComboBox::drop-down {
 }
 
 QComboBox QAbstractItemView {
-    background: #FFFFFF;
-    border: 1px solid #E4E4E7;
-    border-radius: 8px;
-    selection-background-color: #F0F0F1;
-    selection-color: #1E1E1E;
+    background: %BG_SURFACE%;
+    border: 1px solid %BORDER_DEFAULT%;
+    border-radius: %RADIUS_MD%px;
+    selection-background-color: %BG_HOVER%;
+    selection-color: %TEXT_PRIMARY%;
     outline: none;
 }
 
 /* ---- Checkboxes / radio ---- */
 QCheckBox, QRadioButton {
     spacing: 6px;
-    color: #1E1E1E;
+    color: %TEXT_PRIMARY%;
 }
 
 QCheckBox::indicator, QRadioButton::indicator {
@@ -225,9 +229,9 @@ QCheckBox::indicator, QRadioButton::indicator {
 }
 
 QCheckBox::indicator:unchecked, QRadioButton::indicator:unchecked {
-    border: 1px solid #D0D0D5;
+    border: 1px solid %BORDER_DEFAULT%;
     border-radius: 4px;
-    background: #FFFFFF;
+    background: %BG_SURFACE%;
 }
 
 QCheckBox::indicator:checked, QRadioButton::indicator:checked {
@@ -238,34 +242,34 @@ QCheckBox::indicator:checked, QRadioButton::indicator:checked {
 
 /* ---- Tabs ---- */
 QTabWidget::pane {
-    border: 1px solid #E4E4E7;
-    border-radius: 8px;
+    border: 1px solid %BORDER_DEFAULT%;
+    border-radius: %RADIUS_MD%px;
     top: -1px;
 }
 
 QTabBar::tab {
     background: transparent;
-    color: #6E6E73;
+    color: %TEXT_SECONDARY%;
     border: none;
-    border-radius: 8px;
+    border-radius: %RADIUS_MD%px;
     padding: 7px 14px;
     margin-right: 4px;
 }
 
 QTabBar::tab:hover {
-    background: #F0F0F1;
+    background: %BG_HOVER%;
 }
 
 QTabBar::tab:selected {
     background: %ACCENT_SOFT%;
-    color: #1E1E1E;
+    color: %TEXT_PRIMARY%;
 }
 
 /* ---- Status bar ---- */
 QStatusBar {
-    background: #FFFFFF;
-    border-top: 1px solid #E4E4E7;
-    color: #6E6E73;
+    background: %BG_SURFACE%;
+    border-top: 1px solid %BORDER_DEFAULT%;
+    color: %TEXT_SECONDARY%;
 }
 
 QStatusBar::item {
@@ -273,29 +277,38 @@ QStatusBar::item {
 }
 
 #progressBar_, QProgressBar {
-    background: #F0F0F1;
+    background: %BG_HOVER%;
     border: none;
-    border-radius: 4px;
+    border-radius: %RADIUS_SM%px;
     text-align: center;
     min-height: 8px;
 }
 
 #progressBar_::chunk, QProgressBar::chunk {
     background: %ACCENT%;
-    border-radius: 4px;
+    border-radius: %RADIUS_SM%px;
 }
 
 /* ---- Splitter ---- */
 QSplitter::handle {
-    background: #E4E4E7;
+    background: transparent;
+    margin: 0 2px;
+}
+
+QSplitter::handle:hover {
+    background: %BORDER_DEFAULT%;
+}
+
+QSplitter::handle:pressed {
+    background: %ACCENT%;
 }
 
 QSplitter::handle:horizontal {
-    width: 3px;
+    width: 4px;
 }
 
 QSplitter::handle:vertical {
-    height: 3px;
+    height: 4px;
 }
 
 /* ---- Scrollbars ---- */
@@ -306,13 +319,13 @@ QScrollBar:vertical {
 }
 
 QScrollBar::handle:vertical {
-    background: #D0D0D5;
-    border-radius: 4px;
+    background: %BORDER_DEFAULT%;
+    border-radius: %RADIUS_SM%px;
     min-height: 30px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #B8B8BE;
+    background: %BORDER_SUBTLE%;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -330,13 +343,13 @@ QScrollBar:horizontal {
 }
 
 QScrollBar::handle:horizontal {
-    background: #D0D0D5;
-    border-radius: 4px;
+    background: %BORDER_DEFAULT%;
+    border-radius: %RADIUS_SM%px;
     min-width: 30px;
 }
 
 QScrollBar::handle:horizontal:hover {
-    background: #B8B8BE;
+    background: %BORDER_SUBTLE%;
 }
 
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
@@ -349,29 +362,31 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
 
 /* ---- Dialogs ---- */
 QDialog {
-    background: #FFFFFF;
+    background: %BG_SURFACE%;
+    font-family: %FONT_UI%;
 }
 
 QMessageBox {
-    background: #FFFFFF;
+    background: %BG_SURFACE%;
 }
 
 /* ---- Notifications ---- */
 #notificationWidget {
-    background: #FFFFFF;
-    border: 1px solid #E4E4E7;
+    background: %BG_SURFACE%;
+    border: 1px solid %BORDER_DEFAULT%;
     border-radius: 10px;
+    box-shadow: %SHADOW_OVERLAY%;
 }
 
 #titleNotification {
-    border-bottom: 1px solid #F0F0F1;
+    border-bottom: 1px solid %BG_HOVER%;
     border-top-left-radius: 10px;
     border-top-right-radius: 10px;
     padding: 6px;
 }
 
 #bottomNotification {
-    border-top: 1px solid #F0F0F1;
+    border-top: 1px solid %BG_HOVER%;
     border-bottom-left-radius: 10px;
     border-bottom-right-radius: 10px;
 }
@@ -379,8 +394,8 @@ QMessageBox {
 /* ---- Misc ---- */
 #webViewProgress_ {
     border: none;
-    border-bottom: 1px solid #E4E4E7;
-    background: #F7F7F8;
+    border-bottom: 1px solid %BORDER_DEFAULT%;
+    background: %BG_SURFACE_ALT%;
     text-align: center;
 }
 
@@ -391,8 +406,8 @@ QMessageBox {
 
 #contentLabel_ {
     background: %ACCENT%;
-    color: #FFFFFF;
-    border-radius: 4px;
+    color: %TEXT_ON_ACCENT%;
+    border-radius: %RADIUS_SM%px;
     padding: 2px 6px;
 }
 
@@ -406,7 +421,7 @@ QMessageBox {
 }
 
 #tabBarWidget {
-    border-bottom: 1px solid #E4E4E7;
+    border-bottom: 1px solid %BORDER_DEFAULT%;
 }
 
 QMainWindow::separator {
@@ -414,13 +429,13 @@ QMainWindow::separator {
 }
 
 #infoWidgetFR, #actionsWidgetFR {
-    background: #FFFFFF;
+    background: %BG_SURFACE%;
 }
 
 #click2flash-frame {
-    border: 1px solid #E4E4E7;
-    background: #F7F7F8;
-    border-radius: 8px;
+    border: 1px solid %BORDER_DEFAULT%;
+    background: %BG_SURFACE_ALT%;
+    border-radius: %RADIUS_MD%px;
 }
 
 #click2flash-toolbutton {

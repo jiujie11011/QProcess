@@ -1,0 +1,278 @@
+/* ============================================================
+ * QProcess 阅读区样式 - Dark Theme (v1.4)
+ * 由 ThemeManager 根据 tokens 替换占位符后注入 WebEngine
+ * 对应报告 §3.1 Dark 值 + §4.4 Phase 4
+ * ============================================================ */
+
+:root {
+  /* ===== 由 tokens 注入 ===== */
+  --bg-app: %BG_APP%;
+  --bg-surface: %BG_SURFACE%;
+  --bg-surface-alt: %BG_SURFACE_ALT%;
+  --bg-hover: %BG_HOVER%;
+  --bg-selected: %BG_SELECTED%;
+  --border-subtle: %BORDER_SUBTLE%;
+  --border-default: %BORDER_DEFAULT%;
+  --text-primary: %TEXT_PRIMARY%;
+  --text-secondary: %TEXT_SECONDARY%;
+  --text-tertiary: %TEXT_TERTIARY%;
+  --text-disabled: %TEXT_DISABLED%;
+  --accent: %ACCENT%;
+  --accent-soft: %ACCENT_SOFT%;
+  --accent-hover: %ACCENT_HOVER%;
+  --status-unread: %STATUS_UNREAD%;
+  --status-starred: %STATUS_STARRED%;
+  --status-error: %STATUS_ERROR%;
+  --status-success: %STATUS_SUCCESS%;
+  --font-ui: %FONT_UI%;
+  --font-mono: %FONT_MONO%;
+  --radius-sm: %RADIUS_SM%px;
+  --radius-md: %RADIUS_MD%px;
+  --radius-lg: %RADIUS_LG%px;
+  --reader-max-width: %READER_MAX_WIDTH%px;
+  --reader-line-height: %READER_LINE_HEIGHT%;
+  --reader-font-size: %READER_FONT_SIZE%px;
+  --space-1: %SPACE_1%px;
+  --space-2: %SPACE_2%px;
+  --space-3: %SPACE_3%px;
+  --space-4: %SPACE_4%px;
+  --space-5: %SPACE_5%px;
+  --space-6: %SPACE_6%px;
+}
+
+/* ============================================================
+ * 基础重置
+ * ============================================================ */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-ui);
+  font-size: var(--reader-font-size);
+  line-height: var(--reader-line-height);
+  color: var(--text-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  padding: var(--space-6) var(--space-5);
+  max-width: var(--reader-max-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 强制 color-scheme，让原生表单/滚动条跟随深色 */
+:root {
+  color-scheme: dark;
+}
+
+/* ============================================================
+ * 排版
+ * ============================================================ */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-ui);
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+
+h1 { font-size: 2.2rem; }
+h2 { font-size: 1.8rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.3rem; }
+h5 { font-size: 1.1rem; }
+h6 { font-size: 1rem; }
+
+p {
+  margin: 0 0 var(--space-3);
+  text-align: justify;
+  text-justify: inter-ideograph;
+}
+
+strong, b { font-weight: 600; }
+em, i { font-style: italic; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease-out, color 120ms ease-out;
+}
+a:hover { border-bottom-color: var(--accent); color: var(--accent-hover); }
+a:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+blockquote {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--accent);
+  background: var(--bg-surface-alt);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+blockquote p:last-child { margin-bottom: 0; }
+
+/* ============================================================
+ * 代码
+ * ============================================================ */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-surface-alt);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+}
+
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  background: #0D0D0F;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  overflow-x: auto;
+  margin: var(--space-4) 0;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* ============================================================
+ * 列表
+ * ============================================================ */
+ul, ol {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-5);
+}
+li { margin-bottom: var(--space-1); }
+li::marker { color: var(--text-secondary); }
+
+/* ============================================================
+ * 表格
+ * ============================================================ */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-4) 0;
+  font-size: 0.95rem;
+}
+th, td {
+  border: 1px solid var(--border-default);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+th {
+  background: var(--bg-surface-alt);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+tr:nth-child(even) td { background: var(--bg-surface-alt); }
+tr:hover td { background: var(--bg-hover); }
+
+/* ============================================================
+ * 图片
+ * ============================================================ */
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+figure {
+  margin: var(--space-5) 0;
+  text-align: center;
+}
+figcaption {
+  margin-top: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ============================================================
+ * 水平线
+ * ============================================================ */
+hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: var(--space-5) 0;
+}
+
+/* ============================================================
+ * 选择/高亮
+ * ============================================================ */
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+ * 滚动条（WebKit）
+ * ============================================================ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-subtle); }
+
+/* ============================================================
+ * 文章元信息行（若由应用注入）
+ * ============================================================ */
+.article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.article-meta .source { font-weight: 500; color: var(--text-primary); }
+.article-meta .time { white-space: nowrap; }
+.article-meta .tags { display: flex; gap: var(--space-1); }
+.article-meta .tag {
+  background: var(--bg-surface-alt);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+}
+
+/* ============================================================
+ * 图片灯箱/放大（可选，由 JS 控制类）
+ * ============================================================ */
+img.lightbox-ready { cursor: zoom-in; transition: opacity 150ms ease-out; }
+img.lightbox-ready:hover { opacity: 0.9; }
+
+/* ============================================================
+ * 打印样式
+ * ============================================================ */
+@media print {
+  body { max-width: none; padding: 0; background: white; color: black; }
+  a { color: black; border-bottom: 1px solid black; }
+  img { box-shadow: none; }
+  pre, code { background: #f5f5f5; }
+}

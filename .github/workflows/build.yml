@@ -353,18 +353,27 @@ jobs:
         run: |
           # Use absolute path to avoid any working-directory confusion.
           $workspace = $PSScriptRoot
-          $exe = Join-Path $workspace "release\target\Quill.exe"
+          # MSVC debug_and_release appends a release\ subdir to DESTDIR, so the
+          # exe lands in release\target\release\, not release\target\.
+          $exe = Join-Path $workspace "release\target\release\Quill.exe"
           if (-not (Test-Path $exe)) {
-            Write-Error "Quill.exe not found at: $exe"
-            # Show what's in release/target for debugging
-            Get-ChildItem (Join-Path $workspace "release\target") -ErrorAction SilentlyContinue | ForEach-Object { Write-Output "  $_" }
-            exit 1
+            $found = Get-ChildItem (Join-Path $workspace "release") -Recurse -Filter Quill.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) {
+              $exe = $found.FullName
+              Write-Output ("::warning::Quill.exe located at " + $exe + " instead of release\target\release\")
+            } else {
+              Write-Output "::error::Quill.exe not found under release\"
+              Get-ChildItem (Join-Path $workspace "release") -Recurse -ErrorAction SilentlyContinue | Select-Object -First 30 | ForEach-Object {
+                Write-Output ("::error::  " + $_.FullName)
+              }
+              exit 1
+            }
           }
           # install-qt-action prepends the Qt bin dir to PATH, so
           # windeployqt is callable directly.
           windeployqt.exe --release --compiler-runtime $exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Get-ChildItem (Join-Path $workspace "release\target") | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Output
+          Get-ChildItem (Join-Path $workspace "release\target\release") | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Output
 
       - name: Deploy OpenSSL 1.1.1 runtime (required for HTTPS feeds)
         shell: pwsh
@@ -375,7 +384,8 @@ jobs:
           # them next to Quill.exe.
           $ErrorActionPreference = 'Stop'
           $workspace = $PSScriptRoot
-          $targetDir = Join-Path $workspace "release\target"
+          # Same debug_and_release subdir as windeployqt above.
+          $targetDir = Join-Path $workspace "release\target\release"
           $sslLib = Join-Path $targetDir "libssl-1_1-x64.dll"
           $cryptoLib = Join-Path $targetDir "libcrypto-1_1-x64.dll"
 
@@ -423,7 +433,7 @@ jobs:
           # pwsh >= 7.3 ($PSNativeCommandUseErrorActionPreference). We check
           # exit codes explicitly instead.
           $ErrorActionPreference = 'Continue'
-          $langDir = "release/target/lang"
+          $langDir = "release/target/release/lang"
           New-Item -ItemType Directory -Force $langDir | Out-Null
 
           # Locate lrelease.exe (it lives in the same Qt bin dir as windeployqt).
@@ -463,15 +473,15 @@ jobs:
 
           # Copy Qt's own translations (standard buttons, dialogs) from the
           # windeployqt output into lang/ as well.
-          if (Test-Path "release/target/translations/qtbase_zh_CN.qm") {
-            Copy-Item release/target/translations/qtbase_*.qm $langDir
+          if (Test-Path "release/target/release/translations/qtbase_zh_CN.qm") {
+            Copy-Item release/target/release/translations/qtbase_*.qm $langDir
           }
           Get-ChildItem $langDir | Select-Object Name | Format-Table -AutoSize | Out-String | Write-Output
 
       - name: Package Windows distribution
         shell: pwsh
         run: |
-          Compress-Archive -Path release/target/* -DestinationPath Quill-windows.zip -Force
+          Compress-Archive -Path release/target/release/* -DestinationPath Quill-windows.zip -Force
           Get-Item Quill-windows.zip | Select-Object Name, Length
 
       - name: Upload build log
