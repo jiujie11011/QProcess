@@ -53,7 +53,12 @@ private:
     Type resolveSystemTheme() const;
 
     // 在 Windows 上监听 WM_SETTINGCHANGE
+    // 注意：Qt5 用 long*，Qt6 用 qintptr*（QAbstractNativeEventFilter 签名随版本变化）
+#if defined(QT6)
+    bool nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result) override;
+#else
     bool nativeEventFilter(const QByteArray& eventType, void* message, long* result) override;
+#endif
 
     Type current_ = Type::System;
     ThemeTokens currentTokens_;

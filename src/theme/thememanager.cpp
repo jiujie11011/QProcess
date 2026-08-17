@@ -111,7 +111,11 @@ ThemeManager::Type ThemeManager::resolveSystemTheme() const
 #endif
 }
 
+#if defined(QT6)
+bool ThemeManager::nativeEventFilter(const QByteArray& eventType, void* message, qintptr* result)
+#else
 bool ThemeManager::nativeEventFilter(const QByteArray& eventType, void* message, long* result)
+#endif
 {
 #if defined(Q_OS_WIN)
     MSG* msg = static_cast<MSG*>(message);
