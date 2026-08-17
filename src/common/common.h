@@ -20,6 +20,9 @@
 
 #include <QString>
 #include <QDir>
+#include <QRect>
+#include <QApplication>
+#include <QTextStream>
 
 #define TRACKING_ID "UA-99877778-1"
 
@@ -67,6 +70,71 @@ namespace Common
   QString operatingSystemLong();
 
   QString normalizeFeedUrl(const QString &url);
+
+  // Qt5/Qt6-compatible screen helpers. QApplication::desktop() was removed
+  // in Qt6; QScreen-based code works on both major versions.
+  static inline QRect desktopGeometry()
+  {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return QGuiApplication::primaryScreen()->geometry();
+#else
+    return QApplication::desktop()->geometry();
+#endif
+  }
+
+  static inline QRect desktopAvailableGeometry()
+  {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return QGuiApplication::primaryScreen()->availableGeometry();
+#else
+    return QApplication::desktop()->availableGeometry();
+#endif
+  }
+
+  static inline int desktopScreenCount()
+  {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return QGuiApplication::screens().count();
+#else
+    return QApplication::desktop()->screenCount();
+#endif
+  }
+
+  /*! Screen index of widget \a w (used by the notifier positioning). */
+  static inline int screenNumberForWidget(QWidget *w)
+  {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (!w) return 0;
+    QScreen *s = w->screen();
+    return s ? QGuiApplication::screens().indexOf(s) : 0;
+#else
+    return QApplication::desktop()->screenNumber(w);
+#endif
+  }
+
+  /*! Available geometry of screen \a screen (-1 or out-of-range = primary). */
+  static inline QRect screenAvailableGeometry(int screen)
+  {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QList<QScreen *> screens = QGuiApplication::screens();
+    if (screen >= 0 && screen < screens.size())
+      return screens.at(screen)->availableGeometry();
+    QScreen *primary = QGuiApplication::primaryScreen();
+    return primary ? primary->availableGeometry() : QRect();
+#else
+    return QApplication::desktop()->availableGeometry(screen);
+#endif
+  }
+
+  /*! QTextStream::setCodec() was removed in Qt6 (use setEncoding). */
+  static inline void setUtf8Codec(QTextStream &stream)
+  {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    stream.setEncoding(QStringConverter::Utf8);
+#else
+    stream.setCodec("UTF-8");
+#endif
+  }
 }
 
 #endif // COMMON_H

@@ -26,6 +26,7 @@
 
 #include "globals.h"
 #include "settings.h"
+#include "common.h"
 
 LogFile::LogFile()
 {
@@ -56,7 +57,7 @@ void LogFile::msgHandler(QtMsgType type, const QMessageLogContext &, const QStri
 
   QTextStream stream;
   stream.setDevice(&file);
-  stream.setCodec("UTF-8");
+  Common::setUtf8Codec(stream);
 
   if (file.isOpen()) {
     QString currentDateTime = QDateTime::currentDateTime().toString("dd.MM.yyyy hh:mm:ss.zzz");
@@ -107,7 +108,7 @@ void LogFile::msgHandler(QtMsgType type, const char *msg)
 
   QTextStream stream;
   stream.setDevice(&file);
-  stream.setCodec("UTF-8");
+  Common::setUtf8Codec(stream);
 
   if (file.isOpen()) {
     QString currentDateTime = QDateTime::currentDateTime().toString("dd.MM.yyyy hh:mm:ss.zzz");

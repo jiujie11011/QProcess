@@ -124,12 +124,12 @@ QString DownloadManager::getFileName(QNetworkReply* reply)
     if (value.contains(QzRegExp("filename\\s*\\*\\s*=\\s*UTF-8", Qt::CaseInsensitive))) {
       QzRegExp reg("filename\\s*\\*\\s*=\\s*UTF-8''([^;]*)", Qt::CaseInsensitive);
       reg.indexIn(value);
-      path = QUrl::fromPercentEncoding(reg.cap(1).toUtf8()).trimmed();
+      path = QString::fromUtf8(QByteArray::fromPercentEncoding(reg.cap(1).toUtf8())).trimmed();
     }
     else if (value.contains(QzRegExp("filename\\s*=", Qt::CaseInsensitive))) {
       QzRegExp reg("filename\\s*=([^;]*)", Qt::CaseInsensitive);
       reg.indexIn(value);
-      path = QUrl::fromPercentEncoding(reg.cap(1).toUtf8()).trimmed();
+      path = QString::fromUtf8(QByteArray::fromPercentEncoding(reg.cap(1).toUtf8())).trimmed();
 
       if (path.startsWith(QLatin1Char('"')) && path.endsWith(QLatin1Char('"'))) {
         path = path.mid(1, path.length() - 2);

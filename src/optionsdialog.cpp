@@ -212,17 +212,16 @@ OptionsDialog::OptionsDialog(QWidget *parent)
 
 void OptionsDialog::showEvent(QShowEvent*event)
 {
-  int desktopWidth = QApplication::desktop()->availableGeometry().width();
-  int desktopHeight = QApplication::desktop()->availableGeometry().height();
+  const QRect desktop = Common::desktopAvailableGeometry();
+  int desktopWidth = desktop.width();
+  int desktopHeight = desktop.height();
   int maxWidth = desktopWidth - (frameSize().width() - width());
   int maxHeight = desktopHeight - (frameSize().height() - height());
 
   setMaximumSize(maxWidth, maxHeight);
 
   if (frameSize().height() >= desktopHeight) {
-    QPoint point = QPoint(QApplication::desktop()->availableGeometry().topLeft().x(),
-                          QApplication::desktop()->availableGeometry().topLeft().y());
-    move(point);
+    move(desktop.topLeft());
   }
 
   Dialog::showEvent(event);
@@ -1262,7 +1261,7 @@ void OptionsDialog::createNotifierWidget()
 
   screenNotify_ = new QComboBox();
   screenNotify_->addItem("-1");
-  for (int i = 0; i < QApplication::desktop()->screenCount(); ++i) {
+  for (int i = 0; i < Common::desktopScreenCount(); ++i) {
     screenNotify_->addItem(QString::number(i));
   }
   screenNotify_->setCurrentIndex(1);
@@ -3759,7 +3758,7 @@ void OptionsDialog::slotRssHubAddInstance()
   QString raw = editor->toPlainText();
   raw.replace(',', '\n').replace(';', '\n')
      .replace('\t', '\n').replace(' ', '\n');
-  QStringList parts = raw.split('\n', QString::SkipEmptyParts);
+  QStringList parts = raw.split('\n', Qt::SkipEmptyParts);
 
   QStringList existing;
   for (int i = 0; i < rsshubInstancesList_->count(); ++i)

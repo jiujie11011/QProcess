@@ -118,7 +118,7 @@ void KeywordTrendsDialog::slotAnalyze()
 {
   QStringList keywords;
   foreach (const QString &k,
-           keywordEdit_->text().split(',', QString::SkipEmptyParts))
+           keywordEdit_->text().split(',', Qt::SkipEmptyParts))
     keywords << k.trimmed();
   keywords.removeAll(QString());
   if (keywords.isEmpty()) {

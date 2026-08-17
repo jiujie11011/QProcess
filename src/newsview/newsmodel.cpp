@@ -18,11 +18,52 @@
 #include "newsmodel.h"
 
 #include "mainapplication.h"
+#include "database.h"
+
+namespace {
+
+/** @brief WHERE fragment hiding articles that match any blocked word.
+ *
+ * A word hides an article when it appears in the title OR the content.
+ * Words are matched literally: LIKE wildcards (% _ \) and SQL quotes are
+ * escaped, so "100%" hides exactly "100%" and "it's" hides "it's". The whole
+ * clause is ANDed with the caller's filter. Returns an empty string when no
+ * words are configured.
+ *---------------------------------------------------------------------------*/
+QString blockedWordsClause()
+{
+  const QStringList words = Database::blockedWords();
+  if (words.isEmpty())
+    return QString();
+
+  QStringList conditions;
+  foreach (const QString &rawWord, words) {
+    QString word = rawWord.trimmed();
+    if (word.isEmpty())
+      continue;
+    // Escape LIKE wildcards so the word matches literally.
+    word.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
+    word.replace(QLatin1Char('%'), QLatin1String("\\%"));
+    word.replace(QLatin1Char('_'), QLatin1String("\\_"));
+    // Escape the single quote for the SQL string literal.
+    word.replace(QLatin1Char('\''), QLatin1String("''"));
+    conditions << QString(
+        "(UPPER(IFNULL(title,'')) NOT LIKE '%%1%' ESCAPE '\\' AND "
+        "UPPER(IFNULL(content,'')) NOT LIKE '%%1%' ESCAPE '\\')").arg(word);
+  }
+  if (conditions.isEmpty())
+    return QString();
+  return QString(" AND (%1)").arg(conditions.join(" AND "));
+}
+
+} // namespace
 
 NewsModel::NewsModel(QObject *parent, QTreeView *view)
   : QSqlTableModel(parent)
   , simplifiedDateTime_(true)
   , view_(view)
+  , loadedLimit_(0)
+  , totalCountCache_(-1)
 {
   setEditStrategy(QSqlTableModel::OnManualSubmit);
 }
@@ -87,7 +128,7 @@ QVariant NewsModel::data(const QModelIndex &index, int role) const
       return mainWindow->feedsModel_->dataField(feedIndex, "text").toString();
     } else if (QSqlTableModel::fieldIndex("title") == index.column()) {
       QString title = index.data(Qt::EditRole).toString();
-      if ((view_->header()->sectionSize(index.column()) - 14) < view_->header()->fontMetrics().width(title))
+      if ((view_->header()->sectionSize(index.column()) - 14) < view_->header()->fontMetrics().horizontalAdvance(title))
         return title;
     }
     return QString("");
@@ -297,7 +338,17 @@ void NewsModel::setFilter(const QString &filter)
   palette.setColor(QPalette::AlternateBase, mainApp->mainWindow()->alternatingRowColors_);
   view_->setPalette(palette);
 
-  QSqlTableModel::setFilter(filter);
+  // The blocked-words clause applies to every news list (all tabs, search
+  // results, newspaper view) because every caller goes through setFilter().
+  // totalCount() reads QSqlTableModel::filter(), so counts stay consistent.
+  QString effective = filter;
+  if (effective.trimmed().isEmpty())
+    effective = QLatin1String("1=1");
+  const QString blocked = blockedWordsClause();
+  if (!blocked.isEmpty())
+    effective.append(blocked);
+
+  QSqlTableModel::setFilter(effective);
 }
 
 bool NewsModel::select()
@@ -306,5 +357,64 @@ bool NewsModel::select()
   palette.setColor(QPalette::AlternateBase, mainApp->mainWindow()->alternatingRowColors_);
   view_->setPalette(palette);
 
-  return QSqlTableModel::select();
+  // Load only the first page; remaining rows arrive via fetchMore() as the
+  // user scrolls (see slotNewsListScrolled).
+  loadedLimit_ = pageSize;
+  totalCountCache_ = -1;
+  return selectWithLimit();
+}
+
+bool NewsModel::selectWithLimit()
+{
+  QString sql = selectStatement();
+  // Without an explicit sort (e.g. first load before the header restores its
+  // setting) SQLite would return the oldest rows first, which is the wrong
+  // first page for a paged list - default to newest first.
+  if (!sql.contains("ORDER BY", Qt::CaseInsensitive))
+    sql += QString(" ORDER BY id DESC");
+  sql += QString(" LIMIT %1").arg(loadedLimit_);
+  setQuery(sql, database());
+  return !lastError().isValid();
+}
+
+int NewsModel::totalCount() const
+{
+  if (totalCountCache_ >= 0)
+    return totalCountCache_;
+  int count = rowCount();
+  QSqlQuery q(database());
+  const QString sql = QString("SELECT COUNT(*) FROM %1%2").
+      arg(tableName()).arg(QSqlTableModel::filter());
+  if (q.exec(sql) && q.next())
+    count = q.value(0).toInt();
+  totalCountCache_ = count;
+  return count;
+}
+
+bool NewsModel::canFetchMore(const QModelIndex &parent) const
+{
+  if (parent.isValid())
+    return false;
+  return rowCount() < totalCount();
+}
+
+void NewsModel::fetchMore(const QModelIndex &parent)
+{
+  if (parent.isValid())
+    return;
+  if (rowCount() >= totalCount())
+    return;
+  loadedLimit_ += pageSize;
+  selectWithLimit();
+}
+
+void NewsModel::fetchAll()
+{
+  while (canFetchMore())
+    fetchMore();
+}
+
+bool NewsModel::allFetched() const
+{
+  return rowCount() >= totalCount();
 }

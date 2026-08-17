@@ -19,6 +19,7 @@
 
 #include "mainapplication.h"
 #include "filterrulesdialog.h"
+#include "blockedwordsdialog.h"
 #include "parseobject.h"
 #include "settings.h"
 
@@ -53,7 +54,7 @@ NewsFiltersDialog::NewsFiltersDialog(QWidget *parent)
     QSqlQuery q1;
     bool isFolder = false;
     QString strNameFeeds;
-    QStringList strIdFeeds = q.value(2).toString().split(",", QString::SkipEmptyParts);
+    QStringList strIdFeeds = q.value(2).toString().split(",", Qt::SkipEmptyParts);
     foreach (QString strIdFeed, strIdFeeds) {
       if (isFolder) strNameFeeds.append("; ");
       qStr = QString("SELECT text FROM feeds WHERE id==%1 AND xmlUrl!=''").
@@ -109,6 +110,9 @@ NewsFiltersDialog::NewsFiltersDialog(QWidget *parent)
   buttonsLayout->insertWidget(0, runFilterButton_);
   connect(runFilterButton_, SIGNAL(clicked()), SLOT(applyFilter()));
 
+  blockedWordsButton_ = new QPushButton(tr("Blocked Words..."), this);
+  connect(blockedWordsButton_, SIGNAL(clicked()), this, SLOT(showBlockedWords()));
+
   QVBoxLayout *buttonsVLayout = new QVBoxLayout();
   buttonsVLayout->addWidget(newButton);
   buttonsVLayout->addWidget(editButton_);
@@ -118,6 +122,7 @@ NewsFiltersDialog::NewsFiltersDialog(QWidget *parent)
   buttonsVLayout->addWidget(moveDownButton_);
   buttonsVLayout->addStretch();
   buttonsVLayout->addWidget(runFilterButton_);
+  buttonsVLayout->addWidget(blockedWordsButton_);
 
   QHBoxLayout *mainlayout = new QHBoxLayout();
   mainlayout->setMargin(0);
@@ -170,7 +175,7 @@ void NewsFiltersDialog::newFilter()
     QSqlQuery q1;
     bool isFolder = false;
     QString strNameFeeds;
-    QStringList strIdFeeds = q.value(1).toString().split(",", QString::SkipEmptyParts);
+    QStringList strIdFeeds = q.value(1).toString().split(",", Qt::SkipEmptyParts);
     foreach (QString strIdFeed, strIdFeeds) {
       if (isFolder) strNameFeeds.append("; ");
       qStr = QString("SELECT text FROM feeds WHERE id==%1 AND xmlUrl!=''").
@@ -231,7 +236,7 @@ void NewsFiltersDialog::editFilter()
     QSqlQuery q1;
     bool isFolder = false;
     QString strNameFeeds;
-    QStringList strIdFeeds = q.value(1).toString().split(",", QString::SkipEmptyParts);
+    QStringList strIdFeeds = q.value(1).toString().split(",", Qt::SkipEmptyParts);
     foreach (QString strIdFeed, strIdFeeds) {
       if (isFolder) strNameFeeds.append("; ");
       qStr = QString("SELECT text FROM feeds WHERE id==%1 AND xmlUrl!=''").
@@ -367,6 +372,12 @@ void NewsFiltersDialog::slotCurrentItemChanged(QTreeWidgetItem *current,
   }
 }
 
+void NewsFiltersDialog::showBlockedWords()
+{
+  BlockedWordsDialog blockedWordsDialog(this);
+  blockedWordsDialog.exec();
+}
+
 void NewsFiltersDialog::applyFilter()
 {
   QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
@@ -381,7 +392,7 @@ void NewsFiltersDialog::applyFilter()
       arg(filterId);
   q.exec(qStr);
   if (q.first()) {
-    QStringList strIdFeeds = q.value(0).toString().split(",", QString::SkipEmptyParts);
+    QStringList strIdFeeds = q.value(0).toString().split(",", Qt::SkipEmptyParts);
     q.finish();
     foreach (QString strIdFeed, strIdFeeds) {
       mainApp->runUserFilter(strIdFeed.toInt(), filterId);

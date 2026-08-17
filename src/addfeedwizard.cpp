@@ -581,7 +581,9 @@ void AddFeedWizard::slotFeedUrlFound(const QStringList &feedUrls)
 // ----------------------------------------------------------------------------
 void AddFeedWizard::slotNoFeedUrlFound()
 {
-  textWarning->setText(tr("Can't find feed URL!"));
+  textWarning->setText(tr("Can't find feed URL! If this page has no RSS feed, "
+                          "switch the subscription type to \"XPath scraping\" "
+                          "or \"Custom script\" to extract articles from it."));
   warningWidget_->setVisible(true);
 
   deleteFeed();

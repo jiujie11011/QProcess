@@ -107,7 +107,7 @@ NotificationWidget::NotificationWidget(QList<int> idFeedList,
   }
 
   if (screen_ == -1) {
-    screen_ = QApplication::desktop()->screenNumber(mainApp->mainWindow());
+    screen_ = Common::screenNumberForWidget(mainApp->mainWindow());
   }
 
   int transparency = 255*(100-transparency_)/100;
@@ -399,23 +399,23 @@ NotificationWidget::~NotificationWidget()
 
 void NotificationWidget::showEvent(QShowEvent*)
 {
+  const QRect desktop = Common::screenAvailableGeometry(screen_);
   QPoint point;
   switch (position_) {
   case 0:
-    point = QPoint(QApplication::desktop()->availableGeometry(screen_).topLeft().x(),
-                   QApplication::desktop()->availableGeometry(screen_).topLeft().y());
+    point = desktop.topLeft();
     break;
   case 1:
-    point = QPoint(QApplication::desktop()->availableGeometry(screen_).topRight().x()-width(),
-                   QApplication::desktop()->availableGeometry(screen_).topRight().y());
+    point = QPoint(desktop.topRight().x()-width(),
+                   desktop.topRight().y());
     break;
   case 2:
-    point = QPoint(QApplication::desktop()->availableGeometry(screen_).bottomLeft().x(),
-                   QApplication::desktop()->availableGeometry(screen_).bottomLeft().y()-height());
+    point = QPoint(desktop.bottomLeft().x(),
+                   desktop.bottomLeft().y()-height());
     break;
   default:
-    point = QPoint(QApplication::desktop()->availableGeometry(screen_).bottomRight().x()-width(),
-                   QApplication::desktop()->availableGeometry(screen_).bottomRight().y()-height());
+    point = QPoint(desktop.bottomRight().x()-width(),
+                   desktop.bottomRight().y()-height());
     break;
   }
   move(point);

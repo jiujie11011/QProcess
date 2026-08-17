@@ -149,7 +149,12 @@ void NetworkManager::loadCertificates()
       }
     }
 #else
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    caCerts_ += QSslCertificate::fromPath(path + "/*.crt", QSsl::Pem,
+                                          QRegularExpression::Wildcard);
+#else
     caCerts_ += QSslCertificate::fromPath(path + "/*.crt", QSsl::Pem, QRegExp::Wildcard);
+#endif
 #endif
   }
   // Local Certificates
@@ -167,7 +172,12 @@ void NetworkManager::loadCertificates()
     }
   }
 #else
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  localCerts_ = QSslCertificate::fromPath(mainApp->dataDir() + "/certificates/*.crt",
+                                          QSsl::Pem, QRegularExpression::Wildcard);
+#else
   localCerts_ = QSslCertificate::fromPath(mainApp->dataDir() + "/certificates/*.crt", QSsl::Pem, QRegExp::Wildcard);
+#endif
 #endif
 
   QSslSocket::setDefaultCaCertificates(caCerts_ + localCerts_);

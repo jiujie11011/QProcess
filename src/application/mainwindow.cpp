@@ -30,6 +30,7 @@
 #include "feedpropertiesdialog.h"
 #include "filterrulesdialog.h"
 #include "newsfiltersdialog.h"
+#include "blockedwordsdialog.h"
 #include "jsonfeeds.h"
 #include "feedsmanagementdialog.h"
 #include "intelligentrefreshcalculator.h"
@@ -571,7 +572,7 @@ void MainWindow::createFeedsWidget()
 
 #define CATEGORIES_HEIGHT 210
   QList <int> sizes;
-  sizes << QApplication::desktop()->height() << CATEGORIES_HEIGHT;
+  sizes << Common::desktopGeometry().height() << CATEGORIES_HEIGHT;
   feedsSplitter_->setSizes(sizes);
 
   QVBoxLayout *feedsLayout = new QVBoxLayout();
@@ -793,7 +794,7 @@ void MainWindow::createCentralWidget()
 
 #define FEEDS_WIDTH 180
   QList <int> sizes;
-  sizes << FEEDS_WIDTH << QApplication::desktop()->width();
+  sizes << FEEDS_WIDTH << Common::desktopGeometry().width();
   mainSplitter_->setSizes(sizes);
 
   QHBoxLayout *mainLayout1 = new QHBoxLayout();
@@ -876,7 +877,7 @@ void MainWindow::createPlayerBar()
  *---------------------------------------------------------------------------*/
 void MainWindow::playPodcast(const QUrl &url, const QString &title)
 {
-#ifdef HAVE_QT5
+#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
   if (!podcastPlayer_) {
     podcastPlayer_ = new QMediaPlayer(this);
     connect(podcastPlayer_, SIGNAL(positionChanged(qint64)),
@@ -890,16 +891,34 @@ void MainWindow::playPodcast(const QUrl &url, const QString &title)
   podcastPlayer_->stop();
   podcastPlayer_->setMedia(QMediaContent(url));
   podcastPlayer_->play();
+#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  // Qt6: QMediaContent/QMediaPlaylist were removed; QMediaPlayer::setSource
+  // takes a plain QUrl. The stateChanged signal now carries PlaybackState.
+  if (!podcastPlayer_) {
+    podcastPlayer_ = new QMediaPlayer(this);
+    connect(podcastPlayer_, &QMediaPlayer::positionChanged,
+            this, &MainWindow::slotPlayerPositionChanged);
+    connect(podcastPlayer_, &QMediaPlayer::durationChanged,
+            this, &MainWindow::slotPlayerDurationChanged);
+    connect(podcastPlayer_, &QMediaPlayer::stateChanged,
+            this, &MainWindow::slotPlayerStateChanged);
+  }
+
+  podcastPlayer_->stop();
+  podcastPlayer_->setSource(url);
+  podcastPlayer_->play();
+#else
+  Q_UNUSED(url)
+  Q_UNUSED(title)
+  playerBarWidget_->hide();
+  return;
+#endif
 
   playerTitleLabel_->setText(title.isEmpty() ? url.toString() : title);
   playerTitleLabel_->setToolTip(url.toString());
   playerTimeLabel_->setText(tr("00:00 / 00:00"));
   playerProgressSlider_->setRange(0, 0);
   playerBarWidget_->show();
-#else
-  Q_UNUSED(url)
-  Q_UNUSED(title)
-#endif
 }
 
 void MainWindow::slotPlayerTogglePlay()
@@ -1055,6 +1074,24 @@ void MainWindow::createActions()
   createBackupAct_->setIcon(QIcon(":/images/backup"));
   this->addAction(createBackupAct_);
   connect(createBackupAct_, SIGNAL(triggered()), this, SLOT(createBackup()));
+
+  backupDataAct_ = new QAction(this);
+  backupDataAct_->setObjectName("backupDataAct");
+  backupDataAct_->setIcon(QIcon(":/images/backup"));
+  this->addAction(backupDataAct_);
+  connect(backupDataAct_, SIGNAL(triggered()), this, SLOT(backupData()));
+
+  restoreDataAct_ = new QAction(this);
+  restoreDataAct_->setObjectName("restoreDataAct");
+  restoreDataAct_->setIcon(QIcon(":/images/importFeeds"));
+  this->addAction(restoreDataAct_);
+  connect(restoreDataAct_, SIGNAL(triggered()), this, SLOT(restoreData()));
+
+  blockedWordsAct_ = new QAction(this);
+  blockedWordsAct_->setObjectName("blockedWordsAct");
+  blockedWordsAct_->setIcon(QIcon(":/images/filterOff"));
+  this->addAction(blockedWordsAct_);
+  connect(blockedWordsAct_, SIGNAL(triggered()), this, SLOT(showBlockedWordsDlg()));
 
   showMenuBarAct_ = new QAction(this);
   showMenuBarAct_->setCheckable(true);
@@ -1993,6 +2030,8 @@ void MainWindow::createMenu()
   fileMenu_->addAction(aiAssistantAct_);
   fileMenu_->addSeparator();
   fileMenu_->addAction(createBackupAct_);
+  fileMenu_->addAction(backupDataAct_);
+  fileMenu_->addAction(restoreDataAct_);
   fileMenu_->addSeparator();
 #ifndef Q_OS_MAC
   fileMenu_->addAction(showMenuBarAct_);
@@ -2180,6 +2219,7 @@ void MainWindow::createMenu()
   toolsMenu_->addSeparator();
   toolsMenu_->addAction(showCleanUpWizardAct_);
   toolsMenu_->addAction(setNewsFiltersAct_);
+  toolsMenu_->addAction(blockedWordsAct_);
   toolsMenu_->addSeparator();
   toolsMenu_->addAction(optionsAct_);
 
@@ -2197,6 +2237,8 @@ void MainWindow::createMenu()
   mainMenu_->addAction(exportFeedsAct_);
   mainMenu_->addSeparator();
   mainMenu_->addAction(createBackupAct_);
+  mainMenu_->addAction(backupDataAct_);
+  mainMenu_->addAction(restoreDataAct_);
   mainMenu_->addSeparator();
   mainMenu_->addMenu(viewMenu_);
   mainMenu_->addMenu(feedMenu_);
@@ -2498,7 +2540,7 @@ void MainWindow::loadSettings()
                                "newAct,Separator,updateFeedAct,updateAllFeedsAct,"
                                "Separator,markFeedRead,Separator,autoLoadImagesToggle").toString();
 
-  foreach (QString actionStr, str.split(",", QString::SkipEmptyParts)) {
+  foreach (QString actionStr, str.split(",", Qt::SkipEmptyParts)) {
     if (actionStr == "Separator") {
       mainToolbar_->addSeparator();
     } else {
@@ -2519,7 +2561,7 @@ void MainWindow::loadSettings()
                                "newAct,Separator,updateAllFeedsAct,markFeedRead,"
                                "Separator,feedsFilter,findFeedAct").toString();
 
-  foreach (QString actionStr, str.split(",", QString::SkipEmptyParts)) {
+  foreach (QString actionStr, str.split(",", Qt::SkipEmptyParts)) {
     if (actionStr == "Separator") {
       feedsToolBar_->addSeparator();
     } else {
@@ -2675,7 +2717,7 @@ void MainWindow::loadSettings()
     showCategoriesButton_->setIcon(QIcon(":/images/images/panel_show.png"));
     showCategoriesButton_->setToolTip(tr("Show Categories"));
     QList <int> sizes;
-    sizes << QApplication::desktop()->height() << 20;
+    sizes << Common::desktopGeometry().height() << 20;
     feedsSplitter_->setSizes(sizes);
   }
   bool expandCategories = settings.value("categoriesTreeExpanded", true).toBool();
@@ -2691,6 +2733,15 @@ void MainWindow::loadSettings()
   // highlight until the style is re-applied later. Must run here, after all
   // Settings groups have been closed (Settings's ctor would end them).
   setStyleApp(styleGroup_->checkedAction());
+
+  // Follow the OS dark/light mode while the app is running: poll the
+  // platform state and re-apply the "System" style when it flips.
+  lastSystemDark_ = mainApp->systemDarkMode();
+  systemThemeTimer_ = new QTimer(this);
+  systemThemeTimer_->setInterval(5000);
+  connect(systemThemeTimer_, &QTimer::timeout,
+          this, &MainWindow::slotCheckSystemTheme);
+  systemThemeTimer_->start();
 }
 
 /** @brief Save settings in ini-file
@@ -3735,7 +3786,7 @@ void MainWindow::slotRecountCategoryCounts(QList<int> deletedList, QList<int> st
       }
       QString idString = labelList.at(i);
       if (!idString.isEmpty() && idString != ",") {
-        QStringList idList = idString.split(",", QString::SkipEmptyParts);
+        QStringList idList = idString.split(",", Qt::SkipEmptyParts);
         foreach (QString idStr, idList) {
           int id = idStr.toInt();
           if (allCountList.contains(id)) {
@@ -4755,8 +4806,8 @@ void MainWindow::showOptionDlg(int index)
   scrollMarkRead_ = optionsDialog_->scrollMarkRead_->isChecked();
   viewportMarkRead_ = optionsDialog_->viewportMarkRead_->isChecked();
   markExcludeOnlyStarred_ = optionsDialog_->markExcludeOnlyStarred_->isChecked();
-  excludedGroups_ = optionsDialog_->excludedGroups_->text().split(",", QString::SkipEmptyParts);
-  excludedFeeds_ = optionsDialog_->excludedFeeds_->text().split(",", QString::SkipEmptyParts);
+  excludedGroups_ = optionsDialog_->excludedGroups_->text().split(",", Qt::SkipEmptyParts);
+  excludedFeeds_ = optionsDialog_->excludedFeeds_->text().split(",", Qt::SkipEmptyParts);
   for (int i = 0; i < excludedGroups_.count(); i++)
     excludedGroups_[i] = excludedGroups_.at(i).trimmed();
   for (int i = 0; i < excludedFeeds_.count(); i++)
@@ -6007,6 +6058,9 @@ void MainWindow::retranslateStrings()
   saveProgressAct_->setToolTip(tr("Save reading progress immediately"));
 
   createBackupAct_->setText(tr("&Create Backup..."));
+  backupDataAct_->setText(tr("&Backup Data..."));
+  restoreDataAct_->setText(tr("&Restore Data..."));
+  blockedWordsAct_->setText(tr("&Blocked Words..."));
   showMenuBarAct_->setText(tr("S&how Menu Bar"));
 
   exitAct_->setText(tr("E&xit"));
@@ -6470,7 +6524,7 @@ void MainWindow::showFeedPropertiesDlg()
   Settings settings;
   settings.beginGroup("NewsHeader");
   QString indexColumnsStr = settings.value("columns").toString();
-  QStringList indexColumnsList = indexColumnsStr.split(",", QString::SkipEmptyParts);
+  QStringList indexColumnsList = indexColumnsStr.split(",", Qt::SkipEmptyParts);
   foreach (QString indexStr, indexColumnsList) {
     properties.columnDefault.columns.append(indexStr.toInt());
   }
@@ -6507,7 +6561,7 @@ void MainWindow::showFeedPropertiesDlg()
       properties.column.nameList.append(nextAction->text());
     }
     indexColumnsStr = feedsModel_->dataField(index, "columns").toString();
-    indexColumnsList = indexColumnsStr.split(",", QString::SkipEmptyParts);
+    indexColumnsList = indexColumnsStr.split(",", Qt::SkipEmptyParts);
     foreach (QString indexStr, indexColumnsList) {
       properties.column.columns.append(indexStr.toInt());
     }
@@ -7063,7 +7117,7 @@ void MainWindow::slotPlaySound(const QString &path)
   bool useMediaPlayer = settings.value("Settings/useMediaPlayer", true).toBool();
 
   if (useMediaPlayer) {
-#ifdef HAVE_QT5
+#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     if (mediaPlayer_ == NULL) {
       playlist_ = new QMediaPlaylist(this);
       mediaPlayer_ = new QMediaPlayer(this);
@@ -7080,6 +7134,16 @@ void MainWindow::slotPlaySound(const QString &path)
       mediaPlayer_->play();
     }
 
+    playing = true;
+#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Qt6: QMediaPlaylist was removed; play the notification sound once.
+    if (mediaPlayer_ == NULL) {
+      mediaPlayer_ = new QMediaPlayer(this);
+      connect(mediaPlayer_, &QMediaPlayer::errorOccurred,
+              this, &MainWindow::mediaError);
+    }
+    mediaPlayer_->setSource(QUrl::fromLocalFile(soundPath));
+    mediaPlayer_->play();
     playing = true;
 #else
 #ifdef HAVE_PHONON
@@ -7121,7 +7185,11 @@ void MainWindow::slotPlaySound(const QString &path)
 void MainWindow::mediaStatusChanged(QMediaPlayer::MediaStatus status)
 {
   if (status == QMediaPlayer::EndOfMedia) {
+#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
     playlist_->removeMedia(0);
+#else
+    Q_UNUSED(status)
+#endif
   }
 }
 
@@ -7486,6 +7554,22 @@ void MainWindow::setStyleApp(QAction *pAct)
       currentNewsTab->newsHeader_->saveStateColumns(currentNewsTab);
     currentNewsTab->setSettings(false);
   }
+}
+
+/** @brief Re-apply the "System" style when the OS theme flips at runtime
+ *---------------------------------------------------------------------------*/
+void MainWindow::slotCheckSystemTheme()
+{
+  // Only follow the OS while the user is in "System" style.
+  if (!systemStyle_->isChecked())
+    return;
+
+  const bool dark = mainApp->systemDarkMode();
+  if (dark == lastSystemDark_)
+    return;
+
+  lastSystemDark_ = dark;
+  setStyleApp(systemStyle_);
 }
 
 /** Switch focus forward between feed tree, news list and browser
@@ -8940,7 +9024,7 @@ void MainWindow::getLabelNews()
 
   if (indexes.count() == 1) {
     QModelIndex index = indexes.at(0);
-    QStringList strLabelIdList = index.data(Qt::EditRole).toString().split(",", QString::SkipEmptyParts);
+    QStringList strLabelIdList = index.data(Qt::EditRole).toString().split(",", Qt::SkipEmptyParts);
     foreach (QString strLabelId, strLabelIdList) {
       for (int i = 0; i < newsLabelGroup_->actions().count(); i++) {
         if (newsLabelGroup_->actions().at(i)->data().toString() == strLabelId)
@@ -9596,6 +9680,125 @@ void MainWindow::createBackup()
         arg(timeStr);
     QFile::copy(settings.fileName(), backupFileName);
   }
+}
+
+void MainWindow::backupData()
+{
+  const QString suggested = QDir::homePath() + "/QuiteRSS-backup-" +
+      QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss") + ".sqlite";
+  const QString fileName = QFileDialog::getSaveFileName(
+        this, tr("Backup QuiteRSS data"), suggested,
+        tr("QuiteRSS backup (*.sqlite *.db);;All files (*)"));
+  if (fileName.isEmpty())
+    return;
+
+  if (!Database::backupToFile(fileName)) {
+    QMessageBox::critical(this, tr("Backup"),
+                          tr("Failed to create the backup file:\n%1").arg(fileName));
+    return;
+  }
+
+  // Ship the settings INI next to the database snapshot so a restore can
+  // bring both back together.
+  Settings settings;
+  const QString iniPath = settings.fileName();
+  if (!iniPath.isEmpty() && QFile::exists(iniPath)) {
+    QFileInfo fi(fileName);
+    QFile::copy(iniPath, fi.absolutePath() + "/" + fi.completeBaseName() + ".ini");
+  }
+
+  QMessageBox::information(this, tr("Backup"),
+      tr("Backup created:\n%1\n\nThe settings file was saved next to it "
+         "as %2.ini").arg(fileName, QFileInfo(fileName).completeBaseName()));
+}
+
+void MainWindow::restoreData()
+{
+  const QString fileName = QFileDialog::getOpenFileName(
+        this, tr("Restore QuiteRSS data"), QDir::homePath(),
+        tr("QuiteRSS backup (*.sqlite *.db);;All files (*)"));
+  if (fileName.isEmpty())
+    return;
+
+  // Validate the selected file is a QuiteRSS SQLite database (has the
+  // feeds and news tables).
+  bool isValid = false;
+  {
+    QSqlDatabase check = QSqlDatabase::addDatabase("QSQLITE", "restoreCheck");
+    check.setDatabaseName(fileName);
+    if (check.open()) {
+      QSqlQuery q(check);
+      q.setForwardOnly(true);
+      if (q.exec("SELECT COUNT(*) FROM sqlite_master WHERE type='table' "
+                 "AND name IN ('feeds','news')") && q.next()) {
+        isValid = (q.value(0).toInt() >= 2);
+      }
+    }
+    check.close();
+  }
+  QSqlDatabase::removeDatabase("restoreCheck");
+  if (!isValid) {
+    QMessageBox::critical(this, tr("Restore"),
+                          tr("The selected file is not a valid QuiteRSS backup."));
+    return;
+  }
+
+  const int answer = QMessageBox::warning(this, tr("Restore"),
+      tr("Restoring will replace ALL current feeds, news and settings with "
+         "the content of the backup.\n\n"
+         "A safety copy of the current data is created first.\n"
+         "Continue?"),
+      QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+  if (answer != QMessageBox::Yes)
+    return;
+
+  // Safety copy of the current data before anything is touched.
+  const QString safetyDir = mainApp->dataDir() + "/backup";
+  QDir().mkpath(safetyDir);
+  const QString safety = safetyDir + "/before-restore-" +
+      QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss") + ".sqlite";
+  if (!Database::backupToFile(safety)) {
+    QMessageBox::critical(this, tr("Restore"),
+                          tr("Could not create the safety backup. Restore aborted."));
+    return;
+  }
+
+  if (!Database::restoreFromFile(fileName)) {
+    QMessageBox::critical(this, tr("Restore"),
+                          tr("Failed to restore the database from:\n%1").arg(fileName));
+    return;
+  }
+
+  // Bring the settings INI along when the backup shipped one next to it.
+  Settings settings;
+  const QFileInfo fi(fileName);
+  const QString iniPath = fi.absolutePath() + "/" + fi.completeBaseName() + ".ini";
+  if (QFile::exists(iniPath)) {
+    const QString destIni = settings.fileName();
+    if (QFile::exists(destIni))
+      QFile::remove(destIni);
+    QFile::copy(iniPath, destIni);
+    settings.sync();
+  }
+
+  // Run schema migrations (the backup may come from an older DB version),
+  // drop caches and reload every in-memory model.
+  Database::prepareDatabase();
+  Database::reloadBlockedWords();
+
+  feedsModelReload();
+  recountCategoryCounts();
+  slotUpdateNews(NewsTabWidget::RefreshAll);
+
+  QMessageBox::information(this, tr("Restore"),
+      tr("Restore complete. Your data has been replaced with the backup.\n"
+         "Some settings may need an application restart to take effect."));
+}
+
+void MainWindow::showBlockedWordsDlg()
+{
+  BlockedWordsDialog blockedWordsDialog(this);
+  blockedWordsDialog.exec();
 }
 
 void MainWindow::webViewFullScreen(bool on)

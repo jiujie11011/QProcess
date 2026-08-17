@@ -281,7 +281,7 @@ QVariant FeedsModel::data(const QModelIndex &index, int role) const
         font.setBold(true);
       QFontMetrics fontMetrics(font);
 
-      if (width < fontMetrics.width(title)) {
+      if (width < fontMetrics.horizontalAdvance(title)) {
         // UI-5: append the update error to the tooltip of failed feeds
         QString strStatus = indexSibling(index, "status").data(Qt::EditRole).toString();
         if (strStatus.section(" ", 0, 0).toInt() < 0) {

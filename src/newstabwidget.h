@@ -97,6 +97,8 @@ public:
   void updateWebView(QModelIndex index);
   void loadNewspaper(int refresh = RefreshAll);
   void hideWebContent();
+  // UI: attach native lazy loading to content <img> tags (Chromium >= 77).
+  void enableImageLazyLoading(QString &html);
   QString getLinkNews(int row);
 
   // S-2: group news by date (Today / Yesterday / Earlier)

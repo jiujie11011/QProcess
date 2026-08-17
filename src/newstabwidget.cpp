@@ -31,6 +31,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QPointer>
+#include <QRegularExpression>
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
@@ -69,8 +70,8 @@ NewsTabWidget::NewsTabWidget(QWidget *parent, TabType type, int feedId, int feed
 
   // Offline image cache: re-render the current article when the images for
   // the article being shown have finished downloading.
-  connect(mainApp->imageCache(), SIGNAL(contentReady(int, QString)),
-          this, SLOT(slotImageCacheReady(int, QString)));
+  connect(mainApp->imageCache(), &ImageCacheManager::contentReady,
+          this, &NewsTabWidget::slotImageCacheReady);
 
   newsIconTitle_ = new QLabel();
   newsIconMovie_ = new QMovie(":/images/loading");
@@ -88,8 +89,8 @@ NewsTabWidget::NewsTabWidget(QWidget *parent, TabType type, int feedId, int feed
         "QToolButton:hover {"
         "image: url(:/images/closeHover); }"
         );
-  connect(closeButton_, SIGNAL(clicked()),
-          this, SLOT(slotTabClose()));
+  connect(closeButton_, &QAbstractButton::clicked,
+          this, &NewsTabWidget::slotTabClose);
 
   QHBoxLayout *newsTitleLayout = new QHBoxLayout();
   newsTitleLayout->setMargin(0);
@@ -168,22 +169,22 @@ NewsTabWidget::NewsTabWidget(QWidget *parent, TabType type, int feedId, int feed
     }
   }
 
-  connect(this, SIGNAL(signalSetTextTab(QString,NewsTabWidget*)),
-          mainWindow_, SLOT(setTextTitle(QString,NewsTabWidget*)));
+  connect(this, &NewsTabWidget::signalSetTextTab,
+          mainWindow_, &MainWindow::setTextTitle);
 
   if (mainWindow_->aiAssistant_) {
-    connect(mainWindow_->aiAssistant_, SIGNAL(summaryReady(int,QString)),
-            this, SLOT(slotAutoSummaryReady(int,QString)));
-    connect(mainWindow_->aiAssistant_, SIGNAL(translationReady(int,QString,QString)),
-            this, SLOT(slotAutoTranslationReady(int,QString,QString)));
-    connect(mainWindow_->aiAssistant_, SIGNAL(recommendationsReady(int,QString)),
-            this, SLOT(slotAutoRecommendationsReady(int,QString)));
+    connect(mainWindow_->aiAssistant_, &AIAssistant::summaryReady,
+            this, &NewsTabWidget::slotAutoSummaryReady);
+    connect(mainWindow_->aiAssistant_, &AIAssistant::translationReady,
+            this, &NewsTabWidget::slotAutoTranslationReady);
+    connect(mainWindow_->aiAssistant_, &AIAssistant::recommendationsReady,
+            this, &NewsTabWidget::slotAutoRecommendationsReady);
   }
 
   if (mainWindow_->translationService_) {
     connect(mainWindow_->translationService_,
-            SIGNAL(translationReady(int,QString,QString)),
-            this, SLOT(slotAutoTranslationReady(int,QString,QString)));
+            &TranslationService::translationReady,
+            this, &NewsTabWidget::slotAutoTranslationReady);
   }
 }
 
@@ -240,8 +241,8 @@ void NewsTabWidget::createNewsList()
         newsModel_->fieldIndex("title"),
         new NewsTitleDelegate(newsView_));
 
-  connect(newsView_->verticalScrollBar(), SIGNAL(valueChanged(int)),
-          this, SLOT(slotNewsListScrolled()));
+  connect(newsView_->verticalScrollBar(), &QAbstractSlider::valueChanged,
+          this, &NewsTabWidget::slotNewsListScrolled);
 
   newsHeader_->init();
 
@@ -256,7 +257,7 @@ void NewsTabWidget::createNewsList()
                           "newsFilter,Separator,deleteNewsAct";
   QString str = settings.value("Settings/newsToolBar", actionListStr).toString();
 
-  foreach (QString actionStr, str.split(",", QString::SkipEmptyParts)) {
+  foreach (QString actionStr, str.split(",", Qt::SkipEmptyParts)) {
     if (actionStr == "Separator") {
       newsToolBar_->addSeparator();
     } else {
@@ -314,8 +315,8 @@ void NewsTabWidget::createNewsList()
   errorBannerRetryButton_ = new QToolButton();
   errorBannerRetryButton_->setText(tr("Retry"));
   errorBannerRetryButton_->setAutoRaise(true);
-  connect(errorBannerRetryButton_, SIGNAL(clicked()),
-          this, SLOT(slotRetryCurrentFeed()));
+  connect(errorBannerRetryButton_, &QAbstractButton::clicked,
+          this, &NewsTabWidget::slotRetryCurrentFeed);
   bannerLayout->addWidget(errorBannerIcon_);
   bannerLayout->addWidget(errorBannerLabel_, 1);
   bannerLayout->addWidget(errorBannerRetryButton_);
@@ -337,8 +338,8 @@ void NewsTabWidget::createNewsList()
   // UI-3: periodically capture the article scroll position
   articleScrollTimer_ = new QTimer(this);
   articleScrollTimer_->setInterval(3000);
-  connect(articleScrollTimer_, SIGNAL(timeout()),
-          this, SLOT(slotSaveArticleScroll()));
+  connect(articleScrollTimer_, &QTimer::timeout,
+          this, &NewsTabWidget::slotSaveArticleScroll);
   articleScrollTimer_->start();
 
   QFile htmlFile;
@@ -363,63 +364,63 @@ void NewsTabWidget::createNewsList()
   htmlRtlString_ = QString::fromUtf8(htmlFile.readAll());
   htmlFile.close();
 
-  connect(newsView_, SIGNAL(pressed(QModelIndex)),
-          this, SLOT(slotNewsViewClicked(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyUp(QModelIndex)),
-          this, SLOT(slotNewsUpPressed(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyDown(QModelIndex)),
-          this, SLOT(slotNewsDownPressed(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyHome(QModelIndex)),
-          this, SLOT(slotNewsHomePressed(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyEnd(QModelIndex)),
-          this, SLOT(slotNewsEndPressed(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyPageUp(QModelIndex)),
-          this, SLOT(slotNewsPageUpPressed(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyPageDown(QModelIndex)),
-          this, SLOT(slotNewsPageDownPressed(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyNextUnread(QModelIndex)),
-          this, SLOT(slotNewsNextUnreadPressed(QModelIndex)));
-  connect(newsView_, SIGNAL(pressKeyPrevUnread(QModelIndex)),
-          this, SLOT(slotNewsPrevUnreadPressed(QModelIndex)));
-  connect(newsView_, SIGNAL(signalSetItemRead(QModelIndex, int)),
-          this, SLOT(slotSetItemRead(QModelIndex, int)));
-  connect(newsView_, SIGNAL(signalSetItemStar(QModelIndex,int)),
-          this, SLOT(slotSetItemStar(QModelIndex,int)));
-  connect(newsView_, SIGNAL(signalDoubleClicked(QModelIndex)),
-          this, SLOT(slotNewsViewDoubleClicked(QModelIndex)));
-  connect(newsView_, SIGNAL(signalMiddleClicked(QModelIndex)),
-          this, SLOT(slotNewsMiddleClicked(QModelIndex)));
-  connect(newsView_, SIGNAL(signaNewslLabelClicked(QModelIndex)),
-          this, SLOT(slotNewslLabelClicked(QModelIndex)));
-  connect(markNewsReadTimer_, SIGNAL(timeout()),
-          this, SLOT(slotMarkReadTimeout()));
-  connect(newsView_, SIGNAL(customContextMenuRequested(QPoint)),
-          this, SLOT(showContextMenuNews(const QPoint &)));
+  connect(newsView_, &QAbstractItemView::pressed,
+          this, &NewsTabWidget::slotNewsViewClicked);
+  connect(newsView_, &NewsView::pressKeyUp,
+          this, &NewsTabWidget::slotNewsUpPressed);
+  connect(newsView_, &NewsView::pressKeyDown,
+          this, &NewsTabWidget::slotNewsDownPressed);
+  connect(newsView_, &NewsView::pressKeyHome,
+          this, &NewsTabWidget::slotNewsHomePressed);
+  connect(newsView_, &NewsView::pressKeyEnd,
+          this, &NewsTabWidget::slotNewsEndPressed);
+  connect(newsView_, &NewsView::pressKeyPageUp,
+          this, &NewsTabWidget::slotNewsPageUpPressed);
+  connect(newsView_, &NewsView::pressKeyPageDown,
+          this, &NewsTabWidget::slotNewsPageDownPressed);
+  connect(newsView_, &NewsView::pressKeyNextUnread,
+          this, &NewsTabWidget::slotNewsNextUnreadPressed);
+  connect(newsView_, &NewsView::pressKeyPrevUnread,
+          this, &NewsTabWidget::slotNewsPrevUnreadPressed);
+  connect(newsView_, &NewsView::signalSetItemRead,
+          this, &NewsTabWidget::slotSetItemRead);
+  connect(newsView_, &NewsView::signalSetItemStar,
+          this, &NewsTabWidget::slotSetItemStar);
+  connect(newsView_, &NewsView::signalDoubleClicked,
+          this, &NewsTabWidget::slotNewsViewDoubleClicked);
+  connect(newsView_, &NewsView::signalMiddleClicked,
+          this, &NewsTabWidget::slotNewsMiddleClicked);
+  connect(newsView_, &NewsView::signaNewslLabelClicked,
+          this, &NewsTabWidget::slotNewslLabelClicked);
+  connect(markNewsReadTimer_, &QTimer::timeout,
+          this, &NewsTabWidget::slotMarkReadTimeout);
+  connect(newsView_, &QWidget::customContextMenuRequested,
+          this, &NewsTabWidget::showContextMenuNews);
 
   interactiveMarkController_ = new InteractiveMarkController(newsView_, newsModel_, db_, this);
-  connect(newsView_, SIGNAL(signalHoverRowChanged(int)),
-          interactiveMarkController_, SLOT(slotHoverRowChanged(int)));
-  connect(newsView_, SIGNAL(signalRowsScrolledOut(QList<int>)),
-          interactiveMarkController_, SLOT(slotRowsScrolledOut(QList<int>)));
-  connect(newsModel_, SIGNAL(rowsInserted(QModelIndex,int,int)),
-          interactiveMarkController_, SLOT(slotRowsInserted()));
-  connect(interactiveMarkController_, SIGNAL(rowsMarkedRead(int)),
-          this, SLOT(slotInteractiveMarkRead(int)));
+  connect(newsView_, &NewsView::signalHoverRowChanged,
+          interactiveMarkController_, &InteractiveMarkController::slotHoverRowChanged);
+  connect(newsView_, &NewsView::signalRowsScrolledOut,
+          interactiveMarkController_, &InteractiveMarkController::slotRowsScrolledOut);
+  connect(newsModel_, &QAbstractItemModel::rowsInserted,
+          interactiveMarkController_, &InteractiveMarkController::slotRowsInserted);
+  connect(interactiveMarkController_, &InteractiveMarkController::rowsMarkedRead,
+          this, &NewsTabWidget::slotInteractiveMarkRead);
 
-  connect(newsModel_, SIGNAL(signalSort(int,int)),
-          this, SLOT(slotSort(int,int)));
+  connect(newsModel_, &NewsModel::signalSort,
+          this, &NewsTabWidget::slotSort);
 
-  connect(findText_, SIGNAL(textChanged(QString)),
-          this, SLOT(slotFindText(QString)));
-  connect(findText_, SIGNAL(signalSelectFind()),
-          this, SLOT(slotSelectFind()));
-  connect(findText_, SIGNAL(returnPressed()),
-          this, SLOT(slotSelectFind()));
-  connect(findText_, SIGNAL(signalVisible(bool)),
-          mainWindow_, SLOT(findText()));
+  connect(findText_, &QLineEdit::textChanged,
+          this, &NewsTabWidget::slotFindText);
+  connect(findText_, &FindTextContent::signalSelectFind,
+          this, &NewsTabWidget::slotSelectFind);
+  connect(findText_, &QLineEdit::returnPressed,
+          this, &NewsTabWidget::slotSelectFind);
+  connect(findText_, &FindTextContent::signalVisible,
+          mainWindow_, &MainWindow::findText);
 
-  connect(mainWindow_->newsToolbarToggle_, SIGNAL(toggled(bool)),
-          newsPanelWidget_, SLOT(setVisible(bool)));
+  connect(mainWindow_->newsToolbarToggle_, &QAction::toggled,
+          newsPanelWidget_, &QWidget::setVisible);
 }
 
 /** @brief Call context menu of selected news in news list
@@ -489,8 +490,8 @@ void NewsTabWidget::createWebWidget()
   webViewProgress_->setMinimum(0);
   webViewProgress_->setMaximum(100);
   webViewProgress_->setVisible(true);
-  connect(this, SIGNAL(loadProgress(int)),
-          webViewProgress_, SLOT(setValue(int)), Qt::QueuedConnection);
+  connect(this, &NewsTabWidget::loadProgress,
+          webViewProgress_, &QProgressBar::setValue, Qt::QueuedConnection);
 
   webViewProgressLabel_ = new QLabel(this);
   webViewProgressLabel_->setObjectName("webViewProgressLabel_");
@@ -529,8 +530,8 @@ void NewsTabWidget::createWebWidget()
   galleryAct_->setIcon(QIcon(":/images/imagesOn"));
   galleryAct_->setToolTip(tr("Image gallery"));
   webToolBar_->addAction(galleryAct_);
-  connect(galleryAct_, SIGNAL(triggered()),
-          this, SLOT(slotShowImageGallery()));
+  connect(galleryAct_, &QAction::triggered,
+          this, &NewsTabWidget::slotShowImageGallery);
 
   locationBar_ = new LocationBar(webView_, this);
 
@@ -569,41 +570,47 @@ void NewsTabWidget::createWebWidget()
   urlExternalBrowserAct_ = new QAction(this);
   urlExternalBrowserAct_->setIcon(QIcon(":/images/openBrowser"));
 
-  connect(webHomePageAct_, SIGNAL(triggered()),
-          this, SLOT(webHomePage()));
-  connect(webExternalBrowserAct_, SIGNAL(triggered()),
-          this, SLOT(openPageInExternalBrowser()));
-  connect(urlExternalBrowserAct_, SIGNAL(triggered()),
-          this, SLOT(openUrlInExternalBrowser()));
-  connect(this, SIGNAL(signalSetHtmlWebView(QString)),
-          SLOT(slotSetHtmlWebView(QString)), Qt::QueuedConnection);
-  connect(webView_, SIGNAL(loadStarted()), this, SLOT(slotLoadStarted()));
-  connect(webView_, SIGNAL(loadFinished(bool)), this, SLOT(slotLoadFinished(bool)));
-  connect(webView_, SIGNAL(linkClicked(QUrl)), this, SLOT(slotLinkClicked(QUrl)));
-  connect(webView_->page(), SIGNAL(linkHovered(QString,QString,QString)),
-          this, SLOT(slotLinkHovered(QString,QString,QString)));
+  connect(webHomePageAct_, &QAction::triggered,
+          this, &NewsTabWidget::webHomePage);
+  connect(webExternalBrowserAct_, &QAction::triggered,
+          this, &NewsTabWidget::openPageInExternalBrowser);
+  connect(urlExternalBrowserAct_, &QAction::triggered,
+          this, &NewsTabWidget::openUrlInExternalBrowser);
+  connect(this, &NewsTabWidget::signalSetHtmlWebView,
+          this, &NewsTabWidget::slotSetHtmlWebView, Qt::QueuedConnection);
+  connect(webView_, &QWebEngineView::loadStarted,
+          this, &NewsTabWidget::slotLoadStarted);
+  connect(webView_, &QWebEngineView::loadFinished,
+          this, &NewsTabWidget::slotLoadFinished);
+  connect(webView_, &QWebEngineView::linkClicked,
+          this, &NewsTabWidget::slotLinkClicked);
+  connect(webView_->page(), &QWebEnginePage::linkHovered,
+          this, &NewsTabWidget::slotLinkHovered);
   // S-4: warn before jumping to external links
-  connect((WebPage*)webView_->page(), SIGNAL(navigationRequested(QUrl)),
-          this, SLOT(slotNavigationRequested(QUrl)));
-  connect(webView_, SIGNAL(loadProgress(int)), this, SLOT(slotSetValue(int)), Qt::QueuedConnection);
+  connect((WebPage*)webView_->page(), &WebPage::navigationRequested,
+          this, &NewsTabWidget::slotNavigationRequested);
+  connect(webView_, &QWebEngineView::loadProgress,
+          this, &NewsTabWidget::slotSetValue, Qt::QueuedConnection);
 
-  connect(webView_, SIGNAL(titleChanged(QString)),
-          this, SLOT(webTitleChanged(QString)));
+  connect(webView_, &QWebEngineView::titleChanged,
+          this, &NewsTabWidget::webTitleChanged);
 
-  connect(webView_, SIGNAL(showContextMenu(QPoint)),
-          this, SLOT(showContextWebPage(QPoint)), Qt::QueuedConnection);
-  connect(webView_, SIGNAL(signalGoHome()),
-          this, SLOT(webHomePage()));
+  connect(webView_, &WebView::showContextMenu,
+          this, &NewsTabWidget::showContextWebPage, Qt::QueuedConnection);
+  connect(webView_, &WebView::signalGoHome,
+          this, &NewsTabWidget::webHomePage);
 
-  connect(mainWindow_->autoLoadImagesToggle_, SIGNAL(triggered()),
-          this, SLOT(setAutoLoadImages()));
-  connect(mainWindow_->browserToolbarToggle_, SIGNAL(triggered()),
-          this, SLOT(setWebToolbarVisible()));
+  connect(mainWindow_->autoLoadImagesToggle_, &QAction::triggered,
+          this, &NewsTabWidget::setAutoLoadImages);
+  connect(mainWindow_->browserToolbarToggle_, &QAction::triggered,
+          this, [this]() { setWebToolbarVisible(); });
 
-  connect(locationBar_, SIGNAL(returnPressed()),this, SLOT(slotUrlEnter()));
-  connect(webView_, SIGNAL(rssChanged(bool)), locationBar_, SLOT(showRssIcon(bool)));
-  connect(webView_, SIGNAL(urlChanged(QUrl)),
-          this, SLOT(slotUrlChanged(QUrl)), Qt::QueuedConnection);
+  connect(locationBar_, &QLineEdit::returnPressed,
+          this, &NewsTabWidget::slotUrlEnter);
+  connect(webView_, &WebView::rssChanged,
+          locationBar_, &LocationBar::showRssIcon);
+  connect(webView_, &QWebEngineView::urlChanged,
+          this, &NewsTabWidget::slotUrlChanged, Qt::QueuedConnection);
 }
 
 /** @brief Enable/disable date grouping in the news list (S-2)
@@ -1034,6 +1041,29 @@ void NewsTabWidget::slotNewsViewSelected(QModelIndex index, bool clicked)
 // ----------------------------------------------------------------------------
 void NewsTabWidget::slotNewsListScrolled()
 {
+  // Paging: load the next page when the user scrolls near the bottom.
+  if (newsModel_ && newsModel_->canFetchMore()) {
+    QScrollBar *sb = newsView_->verticalScrollBar();
+    if (sb->value() >= sb->maximum() - sb->pageStep() * 2) {
+      const int newsId = currentShownNewsId_;
+      const int scrollValue = sb->value();
+      newsModel_->fetchMore();
+      // The fetch resets the model; restore the selection and scroll offset.
+      if (newsId > 0) {
+        QModelIndex start = newsModel_->index(0, newsModel_->fieldIndex("id"));
+        QModelIndexList list = newsModel_->match(start, Qt::EditRole, newsId);
+        if (!list.isEmpty()) {
+          QModelIndex target = newsIndexFromSource(
+                newsModel_->index(list.first().row(),
+                                  newsModel_->fieldIndex("title")));
+          if (target.isValid())
+            newsView_->setCurrentIndex(target);
+        }
+      }
+      sb->setValue(qMin(scrollValue, sb->maximum()));
+    }
+  }
+
   if (!mainWindow_->progressService_) return;
 
   QModelIndex index = newsIndexToSource(newsView_->currentIndex());
@@ -1600,6 +1630,7 @@ void NewsTabWidget::deleteAllNewsList()
 {
   if (type_ >= TabTypeWeb) return;
 
+  newsModel_->fetchAll();
   int cnt = newsModel_->rowCount();
   if (cnt == 0) return;
 
@@ -2302,8 +2333,8 @@ void NewsTabWidget::slotFetchFullText()
 
   if (!fullTextPage_) {
     fullTextPage_ = new QWebEnginePage(this);
-    connect(fullTextPage_, SIGNAL(loadFinished(bool)),
-            this, SLOT(slotFullTextPageLoaded(bool)));
+    connect(fullTextPage_, &QWebEnginePage::loadFinished,
+            this, &NewsTabWidget::slotFullTextPageLoaded);
   }
   fullTextPage_->load(QUrl(link));
 }
@@ -2384,6 +2415,8 @@ void NewsTabWidget::slotFullTextPageLoaded(bool ok)
 void NewsTabWidget::loadNewspaper(int refresh)
 {
   if (mainWindow_->newsLayout_ != 1) return;
+  // Paging: the newspaper render pass walks every row, so load them all.
+  newsModel_->fetchAll();
   setWebToolbarVisible(false, false);
   webView_->setUpdatesEnabled(false);
 
@@ -2428,6 +2461,7 @@ void NewsTabWidget::loadNewspaper(int refresh)
         htmlStr.append(lbTag);
     }
 
+    enableImageLazyLoading(htmlStr);
     webView_->setHtml(htmlStr);
   }
 
@@ -2683,6 +2717,24 @@ void NewsTabWidget::loadNewspaper(int refresh)
   webView_->setUpdatesEnabled(true);
 }
 
+/** @brief Attach native lazy loading to content images
+ *
+ * The Chromium engine bundled with Qt 5.15 (83) supports the standard
+ * loading="lazy" attribute, which defers offscreen images until they scroll
+ * into view. Only applied when image autoloading is enabled; tags that
+ * already carry a loading attribute are left untouched.
+ *---------------------------------------------------------------------------*/
+void NewsTabWidget::enableImageLazyLoading(QString &html)
+{
+  if (!autoLoadImages_)
+    return;
+
+  static const QRegularExpression imgRe(
+        QStringLiteral("<img(?![^>]*\\bloading\\s*=)"),
+        QRegularExpression::CaseInsensitiveOption);
+  html.replace(imgRe, QStringLiteral("<img loading=\"lazy\""));
+}
+
 /** @brief Asynchorous update web view
  *----------------------------------------------------------------------------*/
 void NewsTabWidget::slotSetHtmlWebView(const QString &html)
@@ -2693,7 +2745,9 @@ void NewsTabWidget::slotSetHtmlWebView(const QString &html)
   // full article" right after opening another one).
   webView_->stop();
   webView_->history()->clear();
-  webView_->setHtml(html);
+  QString pageHtml = html;
+  enableImageLazyLoading(pageHtml);
+  webView_->setHtml(pageHtml);
 }
 
 /** @brief Persist the article scroll position to the news_ex table (UI-3)
@@ -2826,7 +2880,7 @@ void NewsTabWidget::slotLinkClicked(QUrl url)
   if (url.scheme() == QLatin1String("podcast")) {
     QString encoded = url.toString(QUrl::FullyEncoded);
     encoded = encoded.mid(QStringLiteral("podcast://").size());
-    QUrl mediaUrl(QUrl::fromPercentEncoding(encoded.toUtf8()));
+    QUrl mediaUrl(QUrl::fromEncoded(QByteArray::fromPercentEncoding(encoded.toUtf8())));
     QString title;
     if (newsView_->currentIndex().isValid()) {
       QModelIndex curIdx = newsIndexToSource(newsView_->currentIndex());
@@ -3278,6 +3332,9 @@ void NewsTabWidget::slotFindText(const QString &text)
     }
 
     newsModel_->setFilter(filterStr);
+    // Paging: the filtered result is initially limited to one page; the
+    // target row may live further out, so load the whole result set.
+    newsModel_->fetchAll();
 
     QModelIndex index = newsModel_->index(0, newsModel_->fieldIndex("id"));
     QModelIndexList indexList = newsModel_->match(index, Qt::EditRole, newsId);
@@ -3533,6 +3590,9 @@ void NewsTabWidget::increaseNewsList()
 int NewsTabWidget::findUnreadNews(bool next)
 {
   int newsRow = -1;
+
+  // Paging: unread may live beyond the loaded page - load everything first.
+  newsModel_->fetchAll();
 
   int newsRowCur = newsIndexToSource(newsView_->currentIndex()).row();
   QModelIndex index;
@@ -3854,7 +3914,7 @@ void NewsTabWidget::savePageAsDescript()
 QString NewsTabWidget::getHtmlLabels(int row)
 {
   QStringList strLabelIdList = newsModel_->dataField(row, "label").toString().
-      split(",", QString::SkipEmptyParts);
+      split(",", Qt::SkipEmptyParts);
   QString labelsString;
   QList<QTreeWidgetItem *> labelListItems = mainWindow_->categoriesTree_->getLabelListItems();
   foreach (QTreeWidgetItem *item, labelListItems) {

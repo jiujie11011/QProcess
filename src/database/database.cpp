@@ -26,7 +26,7 @@
 
 #include <sqlite3.h>
 
-const int versionDB = 23;
+const int versionDB = 24;
 
 const QString kCreateFeedsTableQuery(
     "CREATE TABLE feeds("
@@ -275,6 +275,15 @@ const QString kCreateRecommendationsTableQuery(
     "content varchar "            // JSON array of recommended articles
     ")");
 
+// Version 24: global "blocked words" list. Articles whose title or content
+// contains any of these words are hidden from the news list (non-destructive:
+// removing a word brings the articles back, unlike the "Delete" filter action).
+const QString kCreateBlockedWordsTableQuery(
+    "CREATE TABLE IF NOT EXISTS blockedWords("
+    "id integer primary key, "
+    "word varchar "               // word / phrase to hide
+    ")");
+
 int Database::version()
 {
   return versionDB;
@@ -430,6 +439,11 @@ void Database::prepareDatabase()
           createFtsTable(db);
         }
 
+        // Version 24: blocked words list
+        if (dbVersion < 24) {
+          db.exec(kCreateBlockedWordsTableQuery);
+        }
+
         createIndexes(db);
 
         // Update appVersion anyway
@@ -508,6 +522,8 @@ void Database::createTables(QSqlDatabase &db)
   db.exec(kCreateRecommendationsTableQuery);
   // Version 23: FTS5 full-text index (best-effort, see createFtsTable)
   createFtsTable(db);
+  // Version 24: blocked words list
+  db.exec(kCreateBlockedWordsTableQuery);
 
   db.commit();
 }
@@ -699,6 +715,119 @@ void Database::sqliteDBMemFile(const QSqlDatabase &db, bool save)
     }
   }
   qWarning() << "sqliteDBMemFile(): finished!";
+}
+
+// ---------------------------------------------------------------------------
+// Blocked words: a small in-memory cache over the blockedWords table. The
+// cache is invalidated via reloadBlockedWords() whenever the dialog saves.
+namespace {
+QStringList g_blockedWords;
+bool g_blockedWordsLoaded = false;
+} // namespace
+
+QStringList Database::blockedWords()
+{
+  if (g_blockedWordsLoaded)
+    return g_blockedWords;
+
+  g_blockedWords.clear();
+  QSqlDatabase db = Database::connection();
+  QSqlQuery q(db);
+  q.setForwardOnly(true);
+  if (q.exec("SELECT word FROM blockedWords ORDER BY id")) {
+    while (q.next())
+      g_blockedWords.append(q.value(0).toString());
+  }
+  g_blockedWordsLoaded = true;
+  return g_blockedWords;
+}
+
+void Database::reloadBlockedWords()
+{
+  g_blockedWordsLoaded = false;
+  g_blockedWords.clear();
+}
+
+/** @brief Online, consistent copy of the live database into a new file.
+ *
+ * Uses the sqlite3_backup API instead of QFile::copy so the result is a
+ * single consistent snapshot even when the live connection is in WAL mode
+ * (plain copying would miss the -wal / -shm files).
+ *---------------------------------------------------------------------------*/
+bool Database::backupToFile(const QString &destPath)
+{
+  QSqlDatabase db = Database::connection();
+  QVariant v = db.driver()->handle();
+  if (!v.isValid() || qstrcmp(v.typeName(), "sqlite3*") != 0)
+    return false;
+
+  sqlite3 *pFrom = *static_cast<sqlite3 **>(v.data());
+  if (!pFrom)
+    return false;
+
+  sqlite3 *pFile = 0;
+  int rc = sqlite3_open(destPath.toUtf8().constData(), &pFile);
+  if (rc != SQLITE_OK) {
+    if (pFile)
+      sqlite3_close(pFile);
+    return false;
+  }
+
+  sqlite3_backup *pBackup = sqlite3_backup_init(pFile, "main", pFrom, "main");
+  if (!pBackup) {
+    sqlite3_close(pFile);
+    return false;
+  }
+  do {
+    rc = sqlite3_backup_step(pBackup, 10000);
+    if ((rc == SQLITE_OK) || (rc == SQLITE_BUSY) || (rc == SQLITE_LOCKED))
+      sqlite3_sleep(100);
+  } while ((rc == SQLITE_OK) || (rc == SQLITE_BUSY) || (rc == SQLITE_LOCKED));
+
+  const bool ok = (rc == SQLITE_DONE);
+  (void)sqlite3_backup_finish(pBackup);
+  sqlite3_close(pFile);
+  return ok;
+}
+
+/** @brief Replace the content of the live database with the content of a
+ * backup file (reverse sqlite3_backup). Works for file-backed and in-memory
+ * databases and does not require closing any connection or restarting.
+ *---------------------------------------------------------------------------*/
+bool Database::restoreFromFile(const QString &srcPath)
+{
+  QSqlDatabase db = Database::connection();
+  QVariant v = db.driver()->handle();
+  if (!v.isValid() || qstrcmp(v.typeName(), "sqlite3*") != 0)
+    return false;
+
+  sqlite3 *pDest = *static_cast<sqlite3 **>(v.data());
+  if (!pDest)
+    return false;
+
+  sqlite3 *pFile = 0;
+  int rc = sqlite3_open(srcPath.toUtf8().constData(), &pFile);
+  if (rc != SQLITE_OK) {
+    if (pFile)
+      sqlite3_close(pFile);
+    return false;
+  }
+
+  sqlite3_backup *pBackup = sqlite3_backup_init(pDest, "main", pFile, "main");
+  if (!pBackup) {
+    sqlite3_close(pFile);
+    return false;
+  }
+  do {
+    rc = sqlite3_backup_step(pBackup, 10000);
+    if ((rc == SQLITE_OK) || (rc == SQLITE_BUSY) || (rc == SQLITE_LOCKED))
+      sqlite3_sleep(100);
+  } while ((rc == SQLITE_OK) || (rc == SQLITE_BUSY) || (rc == SQLITE_LOCKED));
+
+  const bool ok = (rc == SQLITE_DONE);
+  (void)sqlite3_backup_finish(pBackup);
+  sqlite3_close(pFile);
+  return ok;
 }
 
 void Database::setVacuum()

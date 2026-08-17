@@ -31,12 +31,21 @@ public:
   static void sqliteDBMemFile(const QSqlDatabase &db, bool save = true);
   static void setVacuum();
 
+  // Blocked words (DB v24)
+  static QStringList blockedWords();
+  static void reloadBlockedWords();
+
+  // Online backup / restore (sqlite3_backup API, WAL-safe)
+  static bool backupToFile(const QString &destPath);
+  static bool restoreFromFile(const QString &srcPath);
+  // Runs schema migrations on the (restored) database; used by restoreData().
+  static void prepareDatabase();
+
 private:
   static void setPragma(QSqlDatabase &db);
   static void createTables(QSqlDatabase &db);
   static void createIndexes(QSqlDatabase &db);
   static void createFtsTable(QSqlDatabase &db);
-  static void prepareDatabase();
   static void createLabels(QSqlDatabase &db);
   static void addColumnsToFeedsTables(QSqlDatabase &db);
 

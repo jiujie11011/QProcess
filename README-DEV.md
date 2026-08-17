@@ -432,3 +432,30 @@ exit $status
 - **DB 迁移**：v18 新增列/表全部使用幂等 DDL，兼容旧 17 版库。
 - **JSON Feed 兼容**：解析器对非 XML 内容按 JSON Feed v1 处理，复用 RSS 入库函数；请求与嗅探层均声明 JSON 支持。旧库/旧配置不受影响。
 - **URL 规范化**：`Common::normalizeFeedUrl` 统一去 fragment、映射 `rsshub://`，在导入/添加/请求三条路径同时生效，保证查重与请求一致。
+
+---
+
+## 最新一轮进展（2026-08，与 README.md 对齐）
+
+### 已完成
+
+- **UI 增强 6 项**：键盘导航+多标签页（vim 键/F9 专注/Ctrl+Shift+T 撤销/Ctrl+Tab 切标签）、图片 Lightbox、阅读进度记忆（`news_ex.webScroll`）、空状态引导、内联错误卡片（`errorBanner_`+Retry）、通知静默时段（`notifyQuietHoursOn/Start/End`）。
+- **性能/安全 4 项**：Readability 全文提取、`maybeAutoCleanUp` 自动清理、`podcast://` 全局播客播放器、WAL+FTS5+索引（DB v23）与条件 GET。
+- **阅读体验（本轮）**：系统浅/深色主题跟随（5s 轮询 `systemDarkMode`）；`<img loading="lazy">` 原生懒加载；`NewsModel` 500 条分页惰性加载（`canFetchMore/fetchMore`，无 ORDER BY 默认 `id DESC`）；`newstabwidget.cpp` 22 处 `SIGNAL/SLOT` → 函数指针 `connect`。
+- **Qt6 兼容（已完成收尾）**：新增 `src/common/qt6compat.h`（`foreach` 兼容头 + Qt6 隐式依赖 `QRegExp`/`QTextCodec`，qmake 强制注入）；`common.h` 六组桌面/编码辅助函数；5 个文件去 `QApplication::desktop()`；10 文件 `SkipEmptyParts`→`Qt::SkipEmptyParts`；3 处 `QFontMetrics::width`→`horizontalAdvance`；`QuiteRSS.pro` 统一 Qt5/Qt6 模块清单；本轮再修 `endl`→`Qt::endl`、`QSslCertificate` 通配符、`QTextCodec::setCodec`、`QUrl::fromPercentEncoding`、Qt6 媒体播放（`setSource`/`PlaybackState`/`errorOccurred`、无 playlist 分支）。**CI：`build.yml` 新增 `build-linux-qt6` job**（Qt 6.5.3 + `qtwebengine qt5compat`），与 Qt5 并行验证。
+- **测试闭环（本轮修复）**：`tests/tests.pro` 的 `tst_common` 此前两平台退出码 2，已定位为 QTest 运行时断言失败而非编译失败——`HtmlSanitizer` 两处真实 bug：`removeAll` 的 `setPatternOptions` 整体覆盖丢大小写选项（大写 `<SCRIPT>` 不剥离）、`jsUrl` 替换不保留引号风格（`src='#'` 变 `src="#"`）。已修复，测试无需改动。
+- **数据管理与安全（本轮新增）**：拦截词（`blockedwordsdialog.*` + DB v24 `blockedWords` 表 + `NewsModel::setFilter` 统一注入，LIKE 通配符/引号转义，非破坏性隐藏）；数据备份/恢复（`Database::backupToFile/restoreFromFile` 基于 `sqlite3_backup`，WAL 安全在线快照、恢复前安全副本、恢复后跑迁移重载模型，菜单「备份数据…/恢复数据…」）；C.7 无 RSS 站点抓取核实（XPath/脚本抓取链路完整，向导失败提示引导切换类型）。
+
+### 待办
+
+- 提交 + 触发 CI：双 job 全绿验证（Qt5/Qt6 + 单元测试）。
+- 可选：全项目 1000+ 处旧式 connect 迁移（暂缓）。
+
+### 错误教训
+
+- 外部审计报告多项声明与代码实际状态不符（DB 实际 v23、自动清理/播放器/FTS 均已实现），须先核对源码。
+- `replace_in_file` 大段替换失败时应 `read_file` 重读再拆段重试。
+- GHA Linux `bash -e` 会吞诊断、`::error::` 有 4092 上限——详见上文"CI 构建经验教训"。
+- Qt6 阻塞面广：`foreach`/`QRegExp`/`QTextCodec`/`endl`/`QDesktopWidget` 等，`foreach` 走兼容头统一注入。
+- **QTest 退出码 = 失败测试函数数**：CI 报"测试退出码 2"时先怀疑运行时断言失败（`QTest::qExec` 返回失败数）而非编译失败；本次两平台退出码 2 = `HtmlSanitizer` 两个失败用例。
+- **`QRegularExpression::setPatternOptions` 是整体覆盖**：追加选项必须 `patternOptions() | 新选项`，覆盖会静默丢失构造期设置（如 `CaseInsensitiveOption`）。

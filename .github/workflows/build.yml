@@ -104,6 +104,110 @@ jobs:
           path: release/target/QuiteRSS
           if-no-files-found: warn
 
+  # Qt6 matrix leg: catches Qt5-only API usage that would silently rot the
+  # codebase. Kept separate from build-linux so a Qt6-only failure does not
+  # block the stable Qt5 artifacts.
+  build-linux-qt6:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libx11-dev \
+            mesa-common-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-0 \
+            libnss3 \
+            libasound2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libdbus-1-3 \
+            libegl1 \
+            libpulse-dev \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xinerama0
+
+      - name: Install Qt 6 (with QtWebEngine and Qt5Compat)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.5.3'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          modules: 'qtwebengine qt5compat'
+          cache: true
+
+      - name: Run qmake
+        run: |
+          qmake QuiteRSS.pro CONFIG+=release
+
+      - name: Build
+        run: |
+          set +e
+          make -j$(nproc) 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "::error::DBG_QT6 make_status=$status log_lines=$(wc -l < build.log 2>/dev/null || echo 0)"
+            grep -nE 'error:|undefined reference|collect2:|fatal error' build.log | head -60 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            tail -40 build.log | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+          fi
+          exit $status
+
+      - name: Build and run unit tests
+        run: |
+          mkdir -p build-tests && cd build-tests
+          qmake ../tests/tests.pro CONFIG+=release
+          set +e
+          make -j$(nproc) 2>&1 | tee test-build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "::error::DBG_TEST_QT6 make_status=$status"
+            grep -nE 'error:|undefined reference|collect2:|fatal error' test-build.log | head -60 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            tail -40 test-build.log | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            exit $status
+          fi
+          ./tst_common
+
+      - name: Upload build log (Qt6)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-linux-qt6
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Upload artifact (Qt6)
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuiteRSS-linux-qt6
+          path: release/target/QuiteRSS
+          if-no-files-found: warn
+
   build-windows:
     runs-on: windows-2022
     steps:

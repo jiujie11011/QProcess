@@ -18,10 +18,13 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#ifdef HAVE_QT5
+#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 #include <QtWidgets>
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
+#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QtWidgets>
+#include <QMediaPlayer>
 #else
 #include <QtGui>
 #ifdef HAVE_PHONON
@@ -507,6 +510,7 @@ private slots:
   void slotFeedPrevious();
   void slotFeedNext();
   void setStyleApp(QAction*);
+  void slotCheckSystemTheme();
   void applyDimReadSettings();
   void applyReduceMotionSettings();
   void slotSwitchFocus();
@@ -625,6 +629,9 @@ private slots:
   void showSettingPageLabels();
 
   void createBackup();
+  void backupData();
+  void restoreData();
+  void showBlockedWordsDlg();
 
 private:
   void closeEvent(QCloseEvent *event);
@@ -783,6 +790,9 @@ private:
   QAction *undoCloseTabAct_;
 
   QAction *createBackupAct_;
+  QAction *backupDataAct_;
+  QAction *restoreDataAct_;
+  QAction *blockedWordsAct_;
   QAction *showMenuBarAct_;
 
   QMenu *fileMenu_;
@@ -824,6 +834,9 @@ private:
   QPushButton *pushButtonNull_;
 
   QTimer *updateFeedsTimer_;
+  // Runtime OS dark/light mode polling (only active in "System" style).
+  QTimer *systemThemeTimer_;
+  bool lastSystemDark_;
   int updateIntervalSec_;
   int updateTimeCount_;
   bool updateFeedsEnable_;
@@ -843,11 +856,14 @@ private:
   int openingFeedAction_;
   bool openNewsWebViewOn_;
 
-#ifdef HAVE_QT5
+#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
   QMediaPlayer *mediaPlayer_;
-  QMediaPlaylist *playlist_;
+  QMediaPlaylist *playlist_;   // Qt5 only: QMediaPlaylist was removed in Qt6
   // Podcast: global player instance living at MainWindow scope so playback
   // survives tab switches / closings.
+  QMediaPlayer *podcastPlayer_;
+#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  QMediaPlayer *mediaPlayer_;
   QMediaPlayer *podcastPlayer_;
 #else
 #ifdef HAVE_PHONON

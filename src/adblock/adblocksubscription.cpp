@@ -127,7 +127,7 @@ void AdBlockSubscription::loadSubscription(const QStringList &disabledRules)
   }
 
   QTextStream textStream(&file);
-  textStream.setCodec("UTF-8");
+  Common::setUtf8Codec(textStream);
   // Header is on 3rd line
   textStream.readLine(1024);
   textStream.readLine(1024);
@@ -344,13 +344,13 @@ void AdBlockCustomList::loadSubscription(const QStringList &disabledRules)
   QFile file(filePath());
   if (file.open(QFile::WriteOnly | QFile::Append)) {
     QTextStream stream(&file);
-    stream.setCodec("UTF-8");
+    Common::setUtf8Codec(stream);
 
     if (!rules.contains(ddg1 + QLatin1String("\n")))
-      stream << ddg1 << endl;
+      stream << ddg1 << Qt::endl;
 
     if (!rules.contains(QLatin1String("\n") + ddg2))
-      stream << ddg2 << endl;
+      stream << ddg2 << Qt::endl;
   }
   file.close();
 
@@ -367,13 +367,13 @@ void AdBlockCustomList::saveSubscription()
   }
 
   QTextStream textStream(&file);
-  textStream.setCodec("UTF-8");
-  textStream << "Title: " << title() << endl;
-  textStream << "Url: " << url().toString() << endl;
-  textStream << "[Adblock Plus 1.1.1]" << endl;
+  Common::setUtf8Codec(textStream);
+  textStream << "Title: " << title() << Qt::endl;
+  textStream << "Url: " << url().toString() << Qt::endl;
+  textStream << "[Adblock Plus 1.1.1]" << Qt::endl;
 
   foreach (const AdBlockRule* rule, m_rules) {
-    textStream << rule->filter() << endl;
+    textStream << rule->filter() << Qt::endl;
   }
 
   file.close();

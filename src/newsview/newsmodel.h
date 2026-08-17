@@ -48,6 +48,13 @@ public:
   void setFilter(const QString &filter);
   bool select();
 
+  // Paging: the list is loaded in chunks and grows as the user scrolls.
+  // Bulk operations must call fetchAll() first so their rowCount() loops
+  // see every matching row.
+  static const int pageSize = 500;  //!< rows loaded per select/fetchMore
+  void fetchAll();                  //!< load the remaining pages immediately
+  bool allFetched() const;          //!< true once every row is loaded
+
   QString formatDate_;
   QString formatTime_;
   bool simplifiedDateTime_;
@@ -62,8 +69,14 @@ public:
 signals:
   void signalSort(int column, int order);
 
+protected:
+  bool selectWithLimit();
+
 private:
   QTreeView *view_;
+  int loadedLimit_;
+  mutable int totalCountCache_;
+  int totalCount() const;
 
 };
 

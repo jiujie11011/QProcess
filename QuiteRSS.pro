@@ -31,9 +31,25 @@ exists(.git) {
   }
 }
 
-isEqual(QT_MAJOR_VERSION, 5) {
+greaterThan(QT_MAJOR_VERSION, 4) {
+  # Qt5 and Qt6 share the same modern module set (Qt6 WebEngine module is
+  # "webenginewidgets" as well). HAVE_QT5 selects the modern code path; the
+  # legacy Qt4/Phonon path only applies to Qt <= 4 builds.
   QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia concurrent
   DEFINES += HAVE_QT5
+  greaterThan(QT_MAJOR_VERSION, 5) {
+    # Qt6: QRegExp/QTextCodec moved to Qt5Compat, C++17 is mandatory.
+    QT += core5compat
+    CONFIG += c++17
+    # Force-include a small compat header so the legacy `foreach` macro
+    # (removed from Qt6) keeps working in every translation unit.
+    unix {
+      QMAKE_CXXFLAGS += -include "$$PWD/src/common/qt6compat.h"
+    }
+    win32-msvc* {
+      QMAKE_CXXFLAGS += /FI"$$PWD/src/common/qt6compat.h"
+    }
+  }
 } else {
   QT += core gui network xml webengine sql concurrent
   os2 {
@@ -139,6 +155,7 @@ HEADERS += \
     src/common/toolbutton.h \
     src/newsfilters/filterrulesdialog.h \
     src/newsfilters/newsfiltersdialog.h \
+    src/newsfilters/blockedwordsdialog.h \
     src/newsfilters/itemcondition.h \
     src/newsfilters/itemaction.h \
     src/network/sslerrordialog.h \
@@ -238,6 +255,7 @@ SOURCES += \
     src/common/toolbutton.cpp \
     src/newsfilters/filterrulesdialog.cpp \
     src/newsfilters/newsfiltersdialog.cpp \
+    src/newsfilters/blockedwordsdialog.cpp \
     src/newsfilters/itemcondition.cpp \
     src/newsfilters/itemaction.cpp \
     src/network/sslerrordialog.cpp \

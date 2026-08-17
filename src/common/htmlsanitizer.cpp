@@ -26,8 +26,12 @@ QString removeAll(const QString &html, const QString &pattern,
                   Qt::CaseSensitivity cs = Qt::CaseInsensitive)
 {
   QString result = html;
+  // The constructor already sets DotMatchesEverythingOption and (for
+  // cs==CaseInsensitive) ORs in CaseInsensitiveOption. Do NOT call
+  // setPatternOptions() here: it *replaces* the whole option set, silently
+  // dropping CaseInsensitive and turning <SCRIPT> handling into a
+  // case-sensitive match.
   QzRegExp re(pattern, cs);
-  re.setPatternOptions(QRegularExpression::DotMatchesEverythingOption);
   result.remove(re);
   return result;
 }
@@ -68,10 +72,12 @@ QString HtmlSanitizer::sanitize(const QString &html)
 
   // 3. Dangerous URL schemes. Replace the whole attribute value with a safe
   //    fragment so the surrounding markup stays intact.
-  QzRegExp jsUrl("(href|src|action|xlink:href|background)\\s*=\\s*[\"']?\\s*"
+  // Capture the surrounding quote (if any) so the replacement keeps the
+  // original quote style:  src='vbscript:...'  ->  src='#'  (not src="#").
+  QzRegExp jsUrl("(href|src|action|xlink:href|background)\\s*=\\s*([\"']?)\\s*"
                  "(javascript|vbscript|data:text/html)\\s*:[^\"'>\\s]*",
                  Qt::CaseInsensitive);
-  result.replace(jsUrl, "\\1=\"#\"");
+  result.replace(jsUrl, "\\1=\\2#\\2");
 
   return result;
 }

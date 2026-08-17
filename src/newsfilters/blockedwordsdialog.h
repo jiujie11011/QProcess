@@ -15,43 +15,38 @@
 * You should have received a copy of the GNU General Public License
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 * ============================================================ */
-#ifndef NEWSFILTERSDIALOG_H
-#define NEWSFILTERSDIALOG_H
-
-#include <QTreeWidget>
+#ifndef BLOCKEDWORDSDIALOG_H
+#define BLOCKEDWORDSDIALOG_H
 
 #include "dialog.h"
 
-class NewsFiltersDialog : public Dialog
+class QListWidget;
+class QLineEdit;
+
+/** @brief Manager for the global "blocked words" list.
+ *
+ * Articles whose title or content contains any configured word are hidden
+ * from the news list (non-destructive: removing the word brings them back).
+ * The list is stored in the blockedWords table (DB v24) and the WHERE clause
+ * is injected by NewsModel::setFilter(), so every news list is affected.
+ *---------------------------------------------------------------------------*/
+class BlockedWordsDialog : public Dialog
 {
   Q_OBJECT
 public:
-  explicit NewsFiltersDialog(QWidget *parent);
-  QTreeWidget *filtersTree_;
+  explicit BlockedWordsDialog(QWidget *parent);
 
 private slots:
-  void closeDialog();
-  void newFilter();
-  void editFilter();
-  void deleteFilter();
-  void showBlockedWords();
-
-  void moveUpFilter();
-  void moveDownFilter();
-
-  void slotCurrentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *);
-  void slotItemChanged(QTreeWidgetItem *item,int column);
-
-  void applyFilter();
+  void addWord();
+  void removeWord();
+  void clearWords();
 
 private:
-  QPushButton *editButton_;
-  QPushButton *deleteButton_;
-  QPushButton *moveUpButton_;
-  QPushButton *moveDownButton_;
-  QPushButton *runFilterButton_;
-  QPushButton *blockedWordsButton_;
+  void loadWords();
+  void saveWords();
 
+  QListWidget *wordsList_;
+  QLineEdit *wordEdit_;
 };
 
-#endif // NEWSFILTERSDIALOG_H
+#endif // BLOCKEDWORDSDIALOG_H
