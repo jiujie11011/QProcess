@@ -62,7 +62,7 @@ signals:
   void contentReady(int newsId, const QString &cachedHtml);
 
 private slots:
-  void slotImageDownloaded(QNetworkReply *reply);
+  void slotImageDownloaded();
 
 private:
   struct CacheJob {
