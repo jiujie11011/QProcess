@@ -8,11 +8,12 @@
 
 #include <QWidget>
 #include <QMediaPlayer>
-#include <QAudioOutput>
 #include <QTimer>
 #include <QUrl>
 
-#if !defined(QT6)
+#if defined(QT6)
+#include <QAudioOutput>
+#else
 #include <QMediaContent>
 #endif
 
@@ -75,7 +76,11 @@ private:
     void updateControls();
 
     QMediaPlayer* player_;
+#if defined(QT6)
     QAudioOutput* audioOutput_;
+#else
+    // Qt5: 无 QAudioOutput 对象，音量经 QMediaPlayer::setVolume 控制
+#endif
     QUrl currentUrl_;
     MediaType currentType_ = MediaType::Audio;
 

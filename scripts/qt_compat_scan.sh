@@ -62,6 +62,59 @@ scan_src_only() {
   scan "$pattern" | grep -v "qt6compat\.h" || true
 }
 
+# --- 条件编译感知扫描 ---
+# Qt6-only API 在"双分支写法"中必然出现在 #if defined(QT6) / QT_VERSION>=6 守卫内,
+# 纯 grep 会把这些合法保留误报为回归。本函数只保留"守卫外裸用"的行,
+# 即真正会导致 Qt5 编译失败的回归。用于 strict 模式守护新增 Qt6-only API。
+scan_qt6_aware() {
+  local pattern="$1"
+  local raw
+  raw=$(scan_src_only "$pattern")
+  [[ -z "$raw" ]] && return
+  local out=""
+  local file
+  local guarded
+  for file in $(echo "$raw" | cut -d: -f1 | sort -u); do
+    [[ -f "$ROOT/$file" ]] || continue
+    # 该文件中位于 "QT6 为真" 条件块内的行号列表 (awk 状态机, 支持嵌套 ifdef)
+    guarded=$(awk '
+      BEGIN { depth=0; gd=-1 }
+      /^[ \t]*#if/ {
+        depth++
+        if (gd == -1 && ($0 ~ /defined\(QT6\)/ || $0 ~ /QT_VERSION[ \t]*>=/)) gd=depth
+        next
+      }
+      /^[ \t]*#elif/ { if (gd == depth) gd=-1; next }
+      /^[ \t]*#else/ { if (gd == depth) gd=-1; next }
+      /^[ \t]*#endif/ { if (gd == depth) gd=-1; depth--; next }
+      { if (gd != -1) print NR }
+    ' "$ROOT/$file" | tr '\n' ' ')
+    out+=$(echo "$raw" | awk -F: -v file="$file" -v g="$guarded" '
+      BEGIN { n=split(g, a, " "); for (i=1; i<=n; i++) if (a[i] != "") gset[a[i]]=1 }
+      $1 == file && !($2 in gset) { print }
+    ')
+    out+=$'\n'
+  done
+  echo "$out" | sed '/^$/d'
+}
+
+# installNativeEventFilter 配对检查: 调用方对应的 .h 必须继承 QAbstractNativeEventFilter
+check_native_filter() {
+  local matches
+  matches=$(scan "installNativeEventFilter" | grep -v "qt6compat\.h" || true)
+  [[ -z "$matches" ]] && return
+  local bad=""
+  local file
+  for file in $(echo "$matches" | cut -d: -f1 | sort -u); do
+    local hdr="${file%.cpp}.h"
+    if [[ ! -f "$ROOT/$hdr" ]] || ! grep -qE "class\s+\w+[^\{]*QAbstractNativeEventFilter" "$ROOT/$hdr"; then
+      bad+=$(echo "$matches" | grep "^$file:")
+      bad+=$'\n'
+    fi
+  done
+  echo "$bad" | sed '/^$/d'
+}
+
 # --- 严格模式清单: 当前已确认 0 残留, 任何新增命中都代表"未做兼容处理"的回归 ---
 if [[ $STRICT -eq 1 ]]; then
   echo -e "${YELLOW}=== 严格模式: Qt5/Qt6 必炸项回归扫描 ===${NC}"
@@ -81,6 +134,11 @@ if [[ $STRICT -eq 1 ]]; then
   report "QTime 计时器用法 (Qt6 移除 QTime::start/elapsed -> QElapsedTimer; 声明后 200 字符内调用)" "$(grep -rnP "QTime\s+(\w+)\s*;(\n|.){0,200}?\b\1\.(start|elapsed)\(" "$ROOT/src" --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "qt6compat\.h" || true)"
   report "QStringRef/QStringView 与 C 风格字符串字面量比较 (Qt6 QChar 构造歧义 -> 用 QStringLiteral 包一层)" "$(scan_src_only "\.name\(\)\s*==\s*\"[^\"]*\"")"
   report "Qt::Modifier+Modifier 用加号组合 (Qt6 删除 Qt::operator+ -> 改 QKeySequence(QStringLiteral(...)))" "$(scan_src_only "Qt::(CTRL|SHIFT|ALT)\s*\+\s*Qt::(CTRL|SHIFT|ALT)")"
+  echo -e "${YELLOW}--- 新增 UI 模块 Qt6-only API 裸用 (必须 #if defined(QT6) 守卫; 守卫内命中自动豁免) ---${NC}"
+  report "QMediaPlayer::setSource / setAudioOutput / QAudioOutput (Qt6-only; Qt5 用 setMedia/QMediaContent)" "$(scan_qt6_aware "setSource\(|setAudioOutput\(|QAudioOutput\b")"
+  report "QMediaPlayer::playbackState() (Qt6-only; Qt5 是 state())" "$(scan_qt6_aware "playbackState\(")"
+  report "QEnterEvent 裸用 (Qt6-only; Qt5 是 QEvent* -> 必须 #if defined(QT6) 守卫)" "$(scan_qt6_aware "QEnterEvent\b")"
+  report "installNativeEventFilter 但对应 .h 未继承 QAbstractNativeEventFilter" "$(check_native_filter)"
   echo ""
   if [[ $found -eq 1 ]]; then
     echo -e "${RED}严格模式发现必炸项, 请修复后再提交${NC}"

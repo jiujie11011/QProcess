@@ -154,12 +154,12 @@ void PlayerBar::setupUI()
 void PlayerBar::setupPlayer()
 {
     player_ = new QMediaPlayer(this);
-    audioOutput_ = new QAudioOutput(this);
 #if defined(QT6)
+    audioOutput_ = new QAudioOutput(this);
     player_->setAudioOutput(audioOutput_);
 #else
-    // Qt5：QAudioOutput 不直接挂接 QMediaPlayer，音量经 player_->setVolume 生效
-    player_->setVolume(0.8);
+    // Qt5：无 QAudioOutput 对象，音量经 QMediaPlayer::setVolume(0-100) 生效
+    player_->setVolume(80);
 #endif
 
 #if defined(QT6)
@@ -244,7 +244,11 @@ void PlayerBar::setPosition(qint64 ms)
 
 void PlayerBar::setVolume(float volume)
 {
+#if defined(QT6)
     audioOutput_->setVolume(volume);
+#else
+    player_->setVolume(static_cast<int>(volume * 100.0 + 0.5));
+#endif
     emit volumeChanged(volume);
 }
 

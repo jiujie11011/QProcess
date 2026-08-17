@@ -440,3 +440,79 @@ QStyleOptionViewItemV4      V4                             已确认安全（Qt4
 | macOS 部署目标 | `QMAKE_MACOSX_DEPLOYMENT_TARGET\s*=\s*10\.[0-9]`（扫 .pro） | ✅ 已改 10.13 |
 
 **strict 6 项 = 上表前 6 行**，全部为"当前 0 残留、新增即必炸"，由 CI `compat-scan` job 守护。
+
+---
+
+## 十一、第三波：新增 UI 模块 8 组编译修复 + 回归防护（2026-08-17）
+
+> 场景：UI 改善 6 项（键盘导航/lightbox/阅读进度/空状态/错误卡片/通知中心）完成后，
+> 新增了 9 个新模块（playerbar、rightpanel、thememanager、svgiconengine、tokens、
+> navigationcontext、readertoolbar、newscarddelegate、splitterhandle），用户实测发现
+> 这些模块存在 **Qt6-only API 裸用、缺 include、签名错误**等 8 组问题（A–D 级），
+> 并指出 **CI 的 qt6 job 从加入之日起从未通过**（§31 已确认），存在"带病合入"风险。
+
+### 11.1 修复清单（8 组，全部已提交）
+
+| # | 模块 | 问题 | 修复 |
+|---|---|---|---|
+| 1 | `src/player/playerbar.h/.cpp` | Qt6-only API 裸用（`setSource`/`playbackState`/`setAudioOutput`/`QAudioOutput`/`errorOccurred` 信号） | Qt5/Qt6 双分支：`setMedia(QMediaContent(url))`+`state()`+`SIGNAL(...)` vs `setSource(url)`+`playbackState()`+`&QMediaPlayer::...`；**额外修复：`QAudioOutput` 的 include、成员、`new` 全部移入 `#if defined(QT6)` 守卫（原在守卫外，Qt5 必挂）；Qt5 分支 `setVolume(0.8)` → `setVolume(80)`（参数是 0-100 整数）** |
+| 2 | `src/newsview/readertoolbar.h/.cpp` | `enterEvent(QEnterEvent*)` 是 Qt6 签名，缺 include | 双签名：`#if defined(QT6) #include <QEnterEvent> #endif`；`enterEvent` 在声明与实现处均双分支包裹 |
+| 3 | `src/theme/thememanager.h/.cpp` | `nativeEventFilter` 标 override 但类未继承 `QAbstractNativeEventFilter`（构建阻断点） | `ThemeManager : public QObject, public QAbstractNativeEventFilter`；`installEventFilter` → `installNativeEventFilter`；基类调用改为 `QAbstractNativeEventFilter::nativeEventFilter(...)` |
+| 4 | `src/newsview/newscarddelegate.h/.cpp` | `editorEvent(...) const override` 基类非 const；缺 include；**feedId 字段被当方法调用**；**缺 `Q_DECLARE_METATYPE`（Qt5 下 `QVariant::fromValue` static_assert 必挂）** | `editorEvent` 去 const；补 `<QDateTime>/<QStringList>/<QMouseEvent>/<QVariant>`；`data.feedId()` → `data.feedId`；类定义后补 `Q_DECLARE_METATYPE(NewsCardDelegate::ArticleData)` |
+| 5 | `src/widgets/splitterhandle.h/.cpp` | `hoverEnterEvent/hoverLeaveEvent` 不是 `QSplitterHandle` 虚函数 | 改重写 `bool event(QEvent*)`，switch 匹配 `QEvent::HoverEnter/HoverLeave`（参照 newsheader.cpp 既有范式） |
+| 6 | `src/panels/rightpanel.h/.cpp` | lambda 未捕获；`emptyPage_` 等声明为 `QWidget*` 却调用子类接口 | lambda 补捕获；成员改具体类型 `QLabel*`/`QScrollArea*` |
+| 7 | `src/application/navigationcontext.h/.cpp` | `pubDate` 用 QDateTime 未 include | 补 `<QDateTime>/<QStringList>/<QHash>` |
+| 8 | `src/theme/svgiconengine.h/.cpp` | 缺 include | 补 `<QSvgRenderer>/<QRegularExpression>/<QStringList>/<QIcon>` |
+
+**Quill.pro**：新模块全部注册进构建（HEADERS/SOURCES 各 +9），`QT += ... svg`，INCLUDEPATH 追加 `src/player`、`src/panels`、`src/widgets`、`src/theme`。
+**moc 清理**：各 .cpp 末尾手动 `#include "moc_*.cpp"` 全部移除（注册进 HEADERS 后由 qmake automoc 自动处理）。
+
+### 11.2 图标资源落地（用户反馈：GitHub API 限流 + v0.453.0 tag 404）
+
+- **`scripts/fetch_lucide_icons.sh` 换源**：不再用 GitHub API/raw（限流且 tag 404），改为 **unpkg / jsdelivr 双 CDN + raw GitHub 兜底**，包为 npm `lucide-static@0.453.0`，无需 jq。
+- **图标名按 0.453.0 标准名校正**（实测旧名全部 404）：`home→house`、`alert-circle→circle-alert`、`check-circle→circle-check`、`more-horizontal→ellipsis`、`edit-2→pen`、`stop→circle-stop`、`loader-2→loader-circle`、`more-vertical→ellipsis-vertical`、`help-circle→circle-help`。映射写入脚本注释，防止再踩。
+- **59 个图标已下载并预处理**（stroke-width=1.75、去固定 width/height、保留 viewBox），含 `index.json` 索引。
+- **`Quill.qrc` 新增 `<qresource prefix="/icons">`**：59 个 SVG 全部注册（共 106 个 qrc 条目，已校验 0 缺失）；`SvgIconEngine::fromLucide` 的 `:/icons/%1.svg` 路径打通。
+
+### 11.3 compat-scan --strict 扩展（回应"拦不住新增模块裸用"）
+
+新增 4 项 strict 检查（**条件编译感知**，解决"Qt6 守卫内合法保留被误报"问题）：
+
+| 检查项 | 说明 |
+|---|---|
+| `setSource\|setAudioOutput\|QAudioOutput` | Qt6-only 多媒体 API；Qt5 用 setMedia/QMediaContent（守卫外裸用即拦） |
+| `playbackState(` | Qt6-only；Qt5 是 state() |
+| `QEnterEvent` | Qt6-only 事件类型；Qt5 是 QEvent* |
+| `installNativeEventFilter` 配对检查 | 调用方对应 .h 必须继承 `QAbstractNativeEventFilter` |
+
+- 新增 `scan_qt6_aware()`：awk 状态机跟踪 `#if defined(QT6)` / `QT_VERSION >= QT_VERSION_CHECK(6,…)` 嵌套守卫，**自动豁免守卫内行**（playerbar.cpp 的 QT6 分支、mainwindow.cpp 的 `#elif QT_VERSION >= …` 分支、QSoundEffect 均在守卫内，无误报）。
+- **新检查项立刻抓到真回归**：`playerbar.h:11/78`、`playerbar.cpp:157` 的 `QAudioOutput` 守卫外裸用（Qt5 必挂）——已在 11.1 修复。全库复扫：0 裸用残留。
+- 本地 Windows 无 bash（WSL 未安装），脚本在 CI `compat-scan` job（ubuntu）执行最终裁决；手动用 `search_content` 复现 15 处匹配，确认全部位于 QT6 守卫内。
+
+### 11.4 QTest 测试覆盖（回应"新增 UI 模块零测试覆盖"）
+
+**`tests/tests.pro` 单 target 扩展**（CI 步骤零改动，`./tst_common` 不变）：
+- `QT -= gui` → `QT += core gui widgets testlib`；`CONFIG += c++17`；
+- 新增统一入口 `tests/main.cpp`：Linux 无头自动 `QT_QPA_PLATFORM=offscreen`，依次 `QTest::qExec` 三套件；
+- 编译单元并入 `thememanager.cpp`、`tokens.cpp`、`newscarddelegate.cpp`。
+
+| 套件 | 覆盖点 |
+|---|---|
+| `TestCommon`（原有） | HtmlSanitizer / FtsSearch，类声明抽到 `tst_common.h` 复用 |
+| `TestThemeManager`（新增） | 默认 System、明暗 tokens 差异（含 accent）、apply 持久化到 QSettings、refresh 稳定性、System 安全解析 |
+| `TestNewsCardDelegate`（新增） | **feedId 字段级往返（点名回归点）**、全字段往返、空数据默认值、视觉层级访问器、sizeHint 非负 |
+
+### 11.5 自检结果
+
+- `read_lints`：全 workspace 0 诊断；
+- qrc 一致性：106 条全部存在（PowerShell 逐条校验）；
+- SVG 质量：抽查 5 个（house/circle-check/ellipsis/loader-circle/circle-stop）均含 viewBox、无 width/height、stroke 已统一；
+- 新增模块无 `foreach` 迭代改容器（10.1 审查模式复查 0 命中）；
+- Qt6 行为差异（高 DPI / 中文配置 UTF-8 / WebEngine / 多媒体后端）：属运行时回归范畴，需真实环境截图验证，列入 11.6 待办。
+
+### 11.6 已知待办（不阻塞构建，但"编译绿 ≠ UI 完成"）
+
+1. **新增模块 TODO 占位**：playerbar.cpp 按钮图标为文本占位（`updateControls` 未接 Lucide）、navrail.cpp 未接 `fromLucide`、rightpanel.cpp 终端页为空 QLabel、CommandPalette 无模糊匹配——均为功能骨架，未达 Codex 风格 UI 完成度。
+2. **图标名与代码的正式接线**：`SvgIconEngine::fromLucide` 目前 0 调用方（全部在 TODO 中），图标资源已就位但 UI 尚未消费。
+3. **ThemeManager 与旧 `setStyleApplication` 的 %ACCENT% 混合算法**：新 tokens 的 accentSoft 混合与旧逻辑需在真机对照，避免暗色块色偏。
+4. **Qt6 运行时回归**：高 DPI（AA_EnableHighDpiScaling 变 no-op）、QSettings/QTextStream UTF-8 对旧 ini 的兼容、WebEngine lightbox/阅读进度全链路、通知音（Qt6 Linux 走 FFmpeg）——需实机截图/实播验证。

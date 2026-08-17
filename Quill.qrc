@@ -176,4 +176,65 @@
         <file>images/share/whatsapp.png</file>
         <file>images/share/viber.png</file>
     </qresource>
+    <qresource prefix="/icons">
+        <file>resources/icons/bell.svg</file>
+        <file>resources/icons/book-open.svg</file>
+        <file>resources/icons/bookmark.svg</file>
+        <file>resources/icons/chevron-down.svg</file>
+        <file>resources/icons/chevron-left.svg</file>
+        <file>resources/icons/chevron-right.svg</file>
+        <file>resources/icons/chevron-up.svg</file>
+        <file>resources/icons/circle-alert.svg</file>
+        <file>resources/icons/circle-check.svg</file>
+        <file>resources/icons/circle-help.svg</file>
+        <file>resources/icons/circle-stop.svg</file>
+        <file>resources/icons/cloud-off.svg</file>
+        <file>resources/icons/copy.svg</file>
+        <file>resources/icons/download.svg</file>
+        <file>resources/icons/ellipsis-vertical.svg</file>
+        <file>resources/icons/ellipsis.svg</file>
+        <file>resources/icons/external-link.svg</file>
+        <file>resources/icons/eye-off.svg</file>
+        <file>resources/icons/eye.svg</file>
+        <file>resources/icons/fast-forward.svg</file>
+        <file>resources/icons/filter.svg</file>
+        <file>resources/icons/flag.svg</file>
+        <file>resources/icons/globe.svg</file>
+        <file>resources/icons/heart.svg</file>
+        <file>resources/icons/house.svg</file>
+        <file>resources/icons/info.svg</file>
+        <file>resources/icons/loader-circle.svg</file>
+        <file>resources/icons/mail.svg</file>
+        <file>resources/icons/maximize-2.svg</file>
+        <file>resources/icons/maximize.svg</file>
+        <file>resources/icons/menu.svg</file>
+        <file>resources/icons/minimize.svg</file>
+        <file>resources/icons/minus.svg</file>
+        <file>resources/icons/music.svg</file>
+        <file>resources/icons/pause.svg</file>
+        <file>resources/icons/pen.svg</file>
+        <file>resources/icons/play.svg</file>
+        <file>resources/icons/plus.svg</file>
+        <file>resources/icons/refresh-cw.svg</file>
+        <file>resources/icons/repeat.svg</file>
+        <file>resources/icons/rewind.svg</file>
+        <file>resources/icons/rotate-ccw.svg</file>
+        <file>resources/icons/search.svg</file>
+        <file>resources/icons/settings.svg</file>
+        <file>resources/icons/shield-alert.svg</file>
+        <file>resources/icons/shield-check.svg</file>
+        <file>resources/icons/shuffle.svg</file>
+        <file>resources/icons/skip-back.svg</file>
+        <file>resources/icons/skip-forward.svg</file>
+        <file>resources/icons/star.svg</file>
+        <file>resources/icons/tag.svg</file>
+        <file>resources/icons/trash-2.svg</file>
+        <file>resources/icons/upload.svg</file>
+        <file>resources/icons/user.svg</file>
+        <file>resources/icons/volume-1.svg</file>
+        <file>resources/icons/volume-2.svg</file>
+        <file>resources/icons/volume-x.svg</file>
+        <file>resources/icons/wifi-off.svg</file>
+        <file>resources/icons/x.svg</file>
+    </qresource>
 </RCC>

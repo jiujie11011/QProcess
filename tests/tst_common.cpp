@@ -5,34 +5,14 @@
 *  - HtmlSanitizer: script/style/event-handler/dangerous-URL removal
 *  - FtsSearch: ASCII detection and MATCH-term escaping
 *
-* Built as a standalone QTest target (tests/tests.pro) so the CI
-* loop can run "build + test" without needing the full application.
+* 类声明见 tst_common.h；统一入口 main.cpp 依次执行本套件与
+* ThemeManager / NewsCardDelegate 套件（单 target，CI 无需改步骤）。
 * ============================================================ */
 #include <QtTest>
 
+#include "tst_common.h"
 #include "htmlsanitizer.h"
 #include "ftssearch.h"
-
-class TestCommon : public QObject
-{
-  Q_OBJECT
-private slots:
-  // HtmlSanitizer
-  void stripsScriptBlocks();
-  void stripsStyleBlocks();
-  void stripsEventHandlers();
-  void stripsDangerousSchemes();
-  void stripsIframeObjectEmbedLinkBase();
-  void stripsMetaRefresh();
-  void preservesContent();
-  void preservesFileAndDataUrls();
-  void handlesEmptyInput();
-
-  // FtsSearch
-  void asciiDetection();
-  void matchTermEscaping();
-  void matchTermEmpty();
-};
 
 // ----------------------------------------------------------------- HtmlSanitizer
 void TestCommon::stripsScriptBlocks()
@@ -145,6 +125,3 @@ void TestCommon::matchTermEmpty()
   QCOMPARE(FtsSearch::matchTerm(QString("   ")), QString("*"));
   QCOMPARE(FtsSearch::matchTerm(QString()), QString("*"));
 }
-
-QTEST_APPLESS_MAIN(TestCommon)
-#include "tst_common.moc"

@@ -102,4 +102,9 @@ private:
                     const ArticleData& data) const;
 };
 
+// 供 setArticleData/articleData 的 QVariant 序列化使用。
+// Qt5 下 QVariant::fromValue/value<T>/canConvert<T> 依赖 Q_DECLARE_METATYPE，
+// 缺失会导致 static_assert 编译失败（与 Qt6 无关，务必保留）。
+Q_DECLARE_METATYPE(NewsCardDelegate::ArticleData)
+
 #endif // NEWSCARDDELEGATE_H
