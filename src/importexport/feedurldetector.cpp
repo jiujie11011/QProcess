@@ -92,8 +92,10 @@ void FeedUrlDetector::probeNext()
   request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                        QNetworkRequest::AlwaysNetwork);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-  // Qt6 移除了 FollowRedirectsAttribute，改用重定向策略
-  request.setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
+  // Qt6 移除了 FollowRedirectsAttribute，且无 setRedirectPolicy 便捷方法，
+  // 需通过 RedirectPolicyAttribute 属性设置重定向策略（默认即 NoLessSafe）
+  request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                       QNetworkRequest::NoLessSafeRedirectPolicy);
 #else
   request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
 #endif

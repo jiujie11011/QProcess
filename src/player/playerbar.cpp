@@ -58,7 +58,10 @@ void PlayerBar::setupUI()
 
     QLabel* titleLabel = new QLabel("标题");
     titleLabel->setObjectName("playerTitle");
+#if defined(QT6)
+    // Qt6-only API；Qt5 无 setElideMode，长标题交给布局伸缩
     titleLabel->setElideMode(Qt::ElideRight);
+#endif
     QLabel* artistLabel = new QLabel("作者/来源");
     artistLabel->setObjectName("playerArtist");
     trackLayout->addWidget(titleLabel);
@@ -117,6 +120,7 @@ void PlayerBar::setupUI()
         setVolume(v / 100.0f);
     });
     connect(btnMute, &QToolButton::clicked, this, [this, volumeSlider] {
+#if defined(QT6)
         if (audioOutput_->volume() > 0) {
             audioOutput_->setVolume(0);
             volumeSlider->setValue(0);
@@ -124,6 +128,16 @@ void PlayerBar::setupUI()
             audioOutput_->setVolume(0.8f);
             volumeSlider->setValue(80);
         }
+#else
+        // Qt5: 音量经 QMediaPlayer 直接控制 (0-100)
+        if (player_->volume() > 0) {
+            player_->setVolume(0);
+            volumeSlider->setValue(0);
+        } else {
+            player_->setVolume(80);
+            volumeSlider->setValue(80);
+        }
+#endif
     });
 
     ctrlLayout->addWidget(btnMute);
@@ -154,14 +168,18 @@ void PlayerBar::setupUI()
 void PlayerBar::setupPlayer()
 {
     player_ = new QMediaPlayer(this);
+
+    // Qt6: QAudioOutput 对象；Qt5: 无
 #if defined(QT6)
     audioOutput_ = new QAudioOutput(this);
-    player_->setAudioOutput(audioOutput_);
+    QMEDIAPLAYER_SET_AUDIO_OUTPUT(player_, audioOutput_);
+    QMEDIAPLAYER_SET_VOLUME(player_, 0.8f);
 #else
-    // Qt5：无 QAudioOutput 对象，音量经 QMediaPlayer::setVolume(0-100) 生效
-    player_->setVolume(80);
+    // Qt5: 直接在 QMediaPlayer 上设置音量 (0-100)
+    QMEDIAPLAYER_SET_VOLUME(player_, 80);
 #endif
 
+    // Qt6: playbackStateChanged; Qt5: stateChanged
 #if defined(QT6)
     connect(player_, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState state) {
         emit playbackStateChanged(state);
@@ -213,11 +231,7 @@ void PlayerBar::play(const QUrl& url, MediaType type)
 {
     currentUrl_ = url;
     currentType_ = type;
-#if defined(QT6)
-    player_->setSource(url);
-#else
-    player_->setMedia(QMediaContent(url));
-#endif
+    QMEDIAPLAYER_SET_SOURCE(player_, url);
     player_->play();
     setVisible(true);
     updateControls();
@@ -247,11 +261,7 @@ void PlayerBar::setPosition(qint64 ms)
 
 void PlayerBar::setVolume(float volume)
 {
-#if defined(QT6)
-    audioOutput_->setVolume(volume);
-#else
-    player_->setVolume(static_cast<int>(volume * 100.0 + 0.5));
-#endif
+    QMEDIAPLAYER_SET_VOLUME(player_, volume);
     emit volumeChanged(volume);
 }
 

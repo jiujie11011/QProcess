@@ -925,7 +925,7 @@ void MainWindow::playPodcast(const QUrl &url, const QString &title)
   }
 
   podcastPlayer_->stop();
-  podcastPlayer_->setSource(url);
+  QMEDIAPLAYER_SET_SOURCE(podcastPlayer_, url);
   podcastPlayer_->play();
 #else
   Q_UNUSED(url)
@@ -952,7 +952,7 @@ void MainWindow::slotPlayerTogglePlay()
 #elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
   // Qt6: QMediaPlayer::state() was renamed playbackState().
   if (!podcastPlayer_) return;
-  if (podcastPlayer_->playbackState() == QMediaPlayer::PlayingState)
+  if (QMEDIAPLAYER_PLAYBACK_STATE(podcastPlayer_) == QMediaPlayer::PlayingState)
     podcastPlayer_->pause();
   else
     podcastPlayer_->play();
@@ -1006,7 +1006,7 @@ void MainWindow::slotPlayerStateChanged()
 #elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
   // Qt6: QMediaPlayer::state() was renamed playbackState().
   if (!podcastPlayer_) return;
-  if (podcastPlayer_->playbackState() == QMediaPlayer::PlayingState)
+  if (QMEDIAPLAYER_PLAYBACK_STATE(podcastPlayer_) == QMediaPlayer::PlayingState)
     playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
   else
     playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));

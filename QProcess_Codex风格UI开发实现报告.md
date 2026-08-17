@@ -967,12 +967,18 @@ body->addWidget(statusBarLite_);
 | - mainSplitterCodex_ / sidebarSplitter_ / contentSplitter_ | | | ✅ |
 | - codexLayoutEnabled_ (布局开关) | | | ✅ |
 | - sidebarWidth_ / rightPanelWidth_ (宽度记忆) | | | ✅ |
+| - 11 个新控件类指针声明（前向声明，未接线） | `src/application/mainwindow.h` | §4.2, §13 | ✅ 完成 |
+|   navRail_ / sidebarSplitterHandle_ / contentSplitterHandle_ | | | ✅ |
+|   newsCardDelegate_ / rightPanelWidget_ / playerBarWidget_ | | | ✅ |
+|   commandPalette_ / themeManager_ / navigationContext_ | | | ✅ |
+|   faviconEngine_ / readerToolbar_ | | | ✅ |
+|   → 对应 §14 11 个新控件类，均在 mainwindow.h 中前向声明为指针 | | | ✅ |
 | Lucide SVG 图标资源 | `resources/icons/` | §5.2 | ✅ 完成 |
 | - 20 个核心图标（home, search, star, tag, globe, settings, play, pause, menu 等） | | | ✅ |
 | - index.json 元数据 | | | ✅ |
 
 **下一步并行可做（仍不触碰编译链）：**
-- HTML 原型迭代（拖拽分割线、工具栏、两级导航）
+- 界面布局可视化调试（Qt Designer / `qmlscene` 预览 QSS 效果、拖拽分割线手感、工具栏按钮顺序、两级导航交互）
 
 **等编译全绿后接线顺序：**
 1. `ThemeManager` 实现 `renderQss()` + `apply()` + `themeChanged` 信号

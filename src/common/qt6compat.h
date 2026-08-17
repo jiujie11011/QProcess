@@ -98,4 +98,36 @@
 #  define QWEBENGINE_STD_CONTEXTMENU(view) ((view)->page()->createStandardContextMenu())
 #endif
 
+// ============================================================
+// Multimedia (QMediaPlayer / QAudioOutput) - Qt5 vs Qt6
+// Qt5: QMediaPlayer::setMedia(), state(), setVolume(0-100), QMediaPlaylist
+// Qt6: QMediaPlayer::setSource(), setAudioOutput(), playbackState(), QAudioOutput
+// ============================================================
+#if QUIL_QT6
+// Qt6 multimedia
+#  include <QAudioOutput>
+#  include <QMediaPlayer>
+#  define QMEDIAPLAYER_SET_SOURCE(player, url) ((player)->setSource(url))
+#  define QMEDIAPLAYER_SET_AUDIO_OUTPUT(player, output) ((player)->setAudioOutput(output))
+#  define QMEDIAPLAYER_PLAYBACK_STATE(player) ((player)->playbackState())
+#  define QMEDIAPLAYER_SET_VOLUME(player, vol) do { \
+    if ((player)->audioOutput()) (player)->audioOutput()->setVolume(vol); \
+  } while(0)
+#  define QMEDIAPLAYER_POSITION(player) ((player)->position())
+#  define QMEDIAPLAYER_DURATION(player) ((player)->duration())
+#else
+// Qt5 multimedia
+#  include <QMediaPlayer>
+#  include <QMediaPlaylist>
+#  define QMEDIAPLAYER_SET_SOURCE(player, url) ((player)->setMedia(url))
+#  define QMEDIAPLAYER_SET_AUDIO_OUTPUT(player, output) ((void)0)
+#  define QMEDIAPLAYER_PLAYBACK_STATE(player) ((player)->state())
+#  define QMEDIAPLAYER_SET_VOLUME(player, vol) ((player)->setVolume(vol))
+#  define QMEDIAPLAYER_POSITION(player) ((player)->position())
+#  define QMEDIAPLAYER_DURATION(player) ((player)->duration())
+#endif
+
+// QMediaPlayer::PlayingState enum value is the same in Qt5/Qt6
+// QAudioOutput exists only in Qt6 - use pointer with #if QUIL_QT6
+
 #endif // QT6COMPAT_H

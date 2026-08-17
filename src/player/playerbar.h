@@ -10,12 +10,7 @@
 #include <QMediaPlayer>
 #include <QTimer>
 #include <QUrl>
-
-#if defined(QT6)
-#include <QAudioOutput>
-#else
-#include <QMediaContent>
-#endif
+#include "qt6compat.h"
 
 class QSlider;
 
@@ -47,11 +42,7 @@ public:
 
     // 是否正在播放
     bool isPlaying() const {
-#if defined(QT6)
-        return player_->playbackState() == QMediaPlayer::PlayingState;
-#else
-        return player_->state() == QMediaPlayer::PlayingState;
-#endif
+        return QMEDIAPLAYER_PLAYBACK_STATE(player_) == QMediaPlayer::PlayingState;
     }
 
     // 当前媒体信息
@@ -59,11 +50,9 @@ public:
     MediaType currentMediaType() const { return currentType_; }
 
 signals:
-#if defined(QT6)
-    void playbackStateChanged(QMediaPlayer::PlaybackState state);
-#else
-    void playbackStateChanged(QMediaPlayer::State state);
-#endif
+    // 使用 Qt5/Qt6 通用的 QMediaPlayer::State (Qt5) / PlaybackState (Qt6)
+    // 在 Qt5/Qt6 中 PlayingState 值相同，可直接用 int
+    void playbackStateChanged(int state);
     void positionChanged(qint64 ms);
     void durationChanged(qint64 ms);
     void volumeChanged(float volume);

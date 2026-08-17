@@ -38,9 +38,16 @@ scan() {
   shift 2 || true
   local matches
   if [[ $# -eq 0 ]]; then
-    matches=$(grep -rnE "$pattern" "$ROOT/$files" --include="*.cpp" --include="*.h" --include="*.hpp" --include="*.c" --include="*.cc" 2>/dev/null || true)
+    # 排除整行注释和行内注释
+    matches=$(grep -rnE "$pattern" "$ROOT/$files" --include="*.cpp" --include="*.h" --include="*.hpp" --include="*.c" --include="*.cc" 2>/dev/null \
+      | sed 's|//.*||' \
+      | grep -v "^\s*$" \
+      | grep -vE ':[0-9]+:[[:space:]]*$' || true)
   else
-    matches=$(grep -rnE "$pattern" "$ROOT/$files" "$@" 2>/dev/null || true)
+    matches=$(grep -rnE "$pattern" "$ROOT/$files" "$@" 2>/dev/null \
+      | sed 's|//.*||' \
+      | grep -v "^\s*$" \
+      | grep -vE ':[0-9]+:[[:space:]]*$' || true)
   fi
   echo "$matches"
 }
@@ -120,7 +127,8 @@ scan_qt6_aware() {
     ' "$ROOT/$file" | tr '\n' ' ')
     out+=$(echo "$raw" | awk -F: -v file="$file" -v g="$guarded" '
       BEGIN { n=split(g, a, " "); for (i=1; i<=n; i++) if (a[i] != "") gset[a[i]]=1 }
-      $1 == file && !($2 in gset) { print }
+      # 跳过 sed 清空注释后残留的 "file:line:" 空前缀行
+      $1 == file && !($2 in gset) && $3 ~ /[^[:space:]]/ { print }
     ')
     out+=$'\n'
   done
