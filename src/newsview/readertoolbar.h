@@ -1,7 +1,7 @@
 /* ============================================================
  * QProcess ReaderToolbar
- * 阅读区顶部工具栏：已读/收藏/原文/分享/更多菜单
- * 版本：v1.4（对应报告 §13.3, §13.4）
+ * Reader top toolbar: read/starred/original/share/more menu
+ * Version: v1.4 (report section 13.3, 13.4)
  * ============================================================ */
 #ifndef READERTOOLBAR_H
 #define READERTOOLBAR_H
@@ -21,10 +21,10 @@ public:
     explicit ReaderToolbar(QWidget* parent = nullptr);
     ~ReaderToolbar() override = default;
 
-    // 设置当前文章状态（由外部调用，如文章切换时）
+    // Set current article state (called externally, e.g. on article switch)
     void setArticleState(bool unread, bool starred);
 
-    // 悬停显示策略：默认只显示"更多"，悬停时展开
+    // Hover reveal policy: by default only "More" shows, expands on hover
     void setHoverExpand(bool expand);
 
 signals:
@@ -45,7 +45,7 @@ private:
     void setupLayout();
     void updateIcons();
 
-    // 动作
+    // actions
     QAction* actMarkRead_;
     QAction* actStarred_;
     QAction* actOpenOriginal_;
@@ -53,7 +53,7 @@ private:
     QAction* actMore_;
     QMenu* moreMenu_;
 
-    // 内部状态
+    // internal state
     bool currentUnread_ = true;
     bool currentStarred_ = false;
     bool hoverExpand_ = false;

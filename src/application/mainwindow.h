@@ -693,6 +693,7 @@ private slots:
 
   int addTab(NewsTabWidget *widget);
 
+private:
   NewsModel *newsModel_;
 #ifndef Q_OS_MAC
   QMenu *mainMenu_;

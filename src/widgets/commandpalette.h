@@ -1,7 +1,7 @@
 /* ============================================================
  * QProcess CommandPalette
- * Ctrl+K 全局命令面板：搜文章/订阅源/命令三合一
- * 版本：v1.4（对应报告 §4.3, §8.2）
+ * Ctrl+K global command palette: search articles/feeds/commands
+ * Version: v1.4 (report section 4.3, 8.2)
  * ============================================================ */
 #ifndef COMMANDPALETTE_H
 #define COMMANDPALETTE_H
@@ -16,29 +16,29 @@ class CommandPalette : public QFrame
     Q_OBJECT
 public:
     enum class ResultType {
-        Article,      // 文章标题（FTS 搜索）
-        Feed,         // 订阅源
-        Command       // 动作命令
+        Article,      // article title (FTS search)
+        Feed,         // feed
+        Command       // action command
     };
 
     struct Result {
         ResultType type;
         QString id;         // articleId / feedId / commandId
-        QString title;      // 显示标题
-        QString subtitle;   // 副标题（来源/分类/快捷键）
+        QString title;      // display title
+        QString subtitle;   // subtitle (source/category/shortcut)
         QIcon icon;
     };
 
     explicit CommandPalette(QWidget* parent = nullptr);
     ~CommandPalette() override = default;
 
-    // 显示面板（居中弹出）
+    // Show the palette (centered popup)
     void showPalette();
 
-    // 隐藏面板
+    // Hide the palette
     void hidePalette();
 
-    // 设置数据源（由外部注入）
+    // Set data sources (injected externally)
     void setArticleResults(const QList<Result>& results);
     void setFeedResults(const QList<Result>& results);
     void setCommandResults(const QList<Result>& results);

@@ -1,7 +1,7 @@
 /* ============================================================
  * QProcess PlayerBar
- * 底部按需出现的音频/视频播放条
- * 版本：v1.4（对应报告 §4.2, §4.3, §11.3）
+ * On-demand audio/video player bar at the bottom
+ * Version: v1.4 (report section 4.2, 4.3, 11.3)
  * ============================================================ */
 #ifndef PLAYERBAR_H
 #define PLAYERBAR_H
@@ -24,39 +24,39 @@ public:
     explicit PlayerBar(QWidget* parent = nullptr);
     ~PlayerBar() override = default;
 
-    // 播放指定 URL
+    // Play the given URL
     void play(const QUrl& url, MediaType type = MediaType::Audio);
 
-    // 暂停/恢复
+    // Pause/resume
     void pause();
     void resume();
 
-    // 停止并隐藏
+    // Stop and hide
     void stop();
 
-    // 跳转进度
+    // Seek to position
     void setPosition(qint64 ms);
 
-    // 音量
+    // Volume
     void setVolume(float volume); // 0.0-1.0
 
-    // 是否正在播放
+    // Whether playing
     bool isPlaying() const {
         return QMEDIAPLAYER_PLAYBACK_STATE(player_) == QMediaPlayer::PlayingState;
     }
 
-    // 当前媒体信息
+    // Current media info
     QUrl currentUrl() const { return currentUrl_; }
     MediaType currentMediaType() const { return currentType_; }
 
 signals:
-    // 使用 Qt5/Qt6 通用的 QMediaPlayer::State (Qt5) / PlaybackState (Qt6)
-    // 在 Qt5/Qt6 中 PlayingState 值相同，可直接用 int
+    // Uses Qt5/Qt6 common QMediaPlayer::State (Qt5) / PlaybackState (Qt6)
+    // PlayingState has the same value in Qt5/Qt6, so int is safe
     void playbackStateChanged(int state);
     void positionChanged(qint64 ms);
     void durationChanged(qint64 ms);
     void volumeChanged(float volume);
-    void mediaEnded(); // 自然播放结束
+    void mediaEnded(); // natural playback finished
     void errorOccurred(const QString& error);
 
 private:
@@ -68,18 +68,18 @@ private:
 #if defined(QT6)
     QAudioOutput* audioOutput_;
 #else
-    // Qt5: 无 QAudioOutput 对象，音量经 QMediaPlayer::setVolume 控制
+    // Qt5: no QAudioOutput object; volume controlled via QMediaPlayer::setVolume
 #endif
     QUrl currentUrl_;
     MediaType currentType_ = MediaType::Audio;
 
-    // UI 组件
-    QWidget* trackInfo_;      // 标题/作者
-    QSlider* progressBar_;    // 进度条（可拖拽）
-    QWidget* controls_;       // 播放/暂停/停止/静音/音量
-    QWidget* extra_;          // 倍速/播放列表/全屏等
+    // UI widgets
+    QWidget* trackInfo_;      // title/author
+    QSlider* progressBar_;    // seek bar (draggable)
+    QWidget* controls_;       // play/pause/stop/mute/volume
+    QWidget* extra_;          // speed/playlist/fullscreen etc.
 
-    // 状态
+    // State
     bool userSeeking_ = false;
 };
 

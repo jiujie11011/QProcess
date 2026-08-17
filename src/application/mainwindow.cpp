@@ -901,8 +901,10 @@ void MainWindow::createCodexLayout()
         break;
     }
   });
-  connect(navRail_, &NavRail::settingsRequested, this, &MainWindow::slotOptions);
-  connect(navRail_, &NavRail::syncAccountRequested, this, &MainWindow::slotSyncAccount);
+  connect(navRail_, &NavRail::settingsRequested, this, &MainWindow::showOptionDlg);
+  connect(navRail_, &NavRail::syncAccountRequested, this, [this]() {
+    showMessageStatusBar(tr("Account sync is not available yet"), 4000);
+  });
   connect(navRail_, &NavRail::themeToggleRequested, this, [this]() {
     if (darkStyle_ && lightStyle_) {
       QAction* current = darkStyle_->isChecked() ? darkStyle_ : lightStyle_;
@@ -983,8 +985,12 @@ void MainWindow::createCodexLayout()
   connect(readerToolbar_, &ReaderToolbar::toggleStarredRequested, this, [this](bool starred) {
     Q_UNUSED(starred);
   });
-  connect(readerToolbar_, &ReaderToolbar::openOriginalRequested, this, &MainWindow::slotOpenCurrentNewsOriginal);
-  connect(readerToolbar_, &ReaderToolbar::shareRequested, this, &MainWindow::slotShareCurrentNews);
+  connect(readerToolbar_, &ReaderToolbar::openOriginalRequested, this, &MainWindow::openInBrowserNews);
+  connect(readerToolbar_, &ReaderToolbar::shareRequested, this, [this]() {
+    if (shareMenu_ && currentNewsTab) {
+      shareMenu_->popup(readerToolbar_->mapToGlobal(QPoint(0, readerToolbar_->height())));
+    }
+  });
 }
 
 /** @brief Create the global podcast player bar (hidden until first play)

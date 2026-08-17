@@ -1,10 +1,12 @@
 /* ============================================================
  * QProcess SvgIconEngine
- * 运行时按主题色渲染 Lucide SVG（stroke/recolor）
- * 版本：v1.4（对应报告 §5.2, §6.1, §13.4）
+ * Renders Lucide SVG at runtime with theme colors (stroke/recolor)
+ * Version: v1.4 (report section 5.2, 6.1, 13.4)
  * ============================================================ */
 #ifndef SVGICONENGINE_H
 #define SVGICONENGINE_H
+
+#include "../common/qt6compat.h"
 
 #include <QIconEngine>
 #include <QIcon>
@@ -17,63 +19,65 @@
 class SvgIconEngine : public QIconEngine
 {
 public:
-    // 图标状态
+    // Icon states
     enum class State { Normal, Hover, Pressed, Disabled, Active, ActiveHover };
 
-    // 构造：SVG 路径 + 状态色映射
-    // colorMap: 状态 -> 颜色（十六进制或 QColor 名称）
-    // 若 colorMap 为空，使用 ThemeManager 当前 tokens 的默认映射
+    // Constructor: SVG path + state color map
+    // colorMap: state -> color (hex or QColor name)
+    // If colorMap is empty, use ThemeManager current tokens default mapping
     explicit SvgIconEngine(const QString& svgPath,
                            const QHash<State, QColor>& colorMap = {});
 
     ~SvgIconEngine() override = default;
 
-    // QIconEngine 接口
+    // QIconEngine interface
     QIconEngine* clone() const override;
     void paint(QPainter* painter, const QRect& rect, QIcon::Mode mode,
                QIcon::State state) override;
     QPixmap pixmap(const QSize& size, QIcon::Mode mode,
                    QIcon::State state) override;
 
-    // 运行时更新颜色映射（主题切换时调用）
+    // Runtime update of color map (called on theme switch)
     void setColorMap(const QHash<State, QColor>& colorMap);
 
-    // 设置 SVG 内容（用于动态加载）
+    // Set SVG content (for dynamic loading)
     void setSvgContent(const QString& svgContent);
 
-    // 静态工厂：按 Lucide 图标名快速创建 QIcon
-    // 内部维护缓存，避免重复解析 SVG
+    // Static factory: quickly create QIcon by Lucide icon name
+    // Maintains an internal cache to avoid repeated SVG parsing
     static QIcon fromLucide(const QString& iconName,
                             SvgIconEngine::State state = State::Normal);
 
-    // 预加载所有 Lucide 图标到内存（应用启动时调用）
+    // Preload all Lucide icons into memory (called at app startup)
     static void preloadAll(const QString& iconsDir);
 
 private:
     QString svgPath_;
-    mutable QString svgContent_;  // 解析后的 SVG XML（已替换 stroke/fill），mutable 因 const 函数内延迟加载
+    mutable QString svgContent_;  // parsed SVG XML (stroke/fill replaced); mutable for lazy load in const methods
     QHash<State, QColor> colorMap_;
-    // QSize 哈希：Qt5 无 qHash(QSize)，Qt6 无 QSize::operator<（QMap 不可用）。
-    // 统一用 (w<<32)|h 组合键，跨 Qt5/Qt6 均可哈希。
+    // QSize hashing: Qt5 lacks qHash(QSize), Qt6 lacks QSize::operator< (QMap unusable).
+    // Unified (w<<32)|h composite key works across Qt5/Qt6.
     mutable QHash<qint64, QPixmap> pixmapCache_;
 
-    // 将当前状态映射到颜色
+    // Map current state to color
     QColor colorForMode(QIcon::Mode mode, QIcon::State state) const;
 
-    // 渲染 SVG 到 QPixmap（带颜色替换）
+    // Render SVG to QPixmap (with color replacement)
     QPixmap renderPixmap(const QSize& size, QIcon::Mode mode,
                          QIcon::State state) const;
 
-    // 对 SVG 字符串做 stroke/fill 颜色替换
+    // Replace stroke/fill colors in SVG string
     static QString recolorSvg(const QString& svg, const QColor& strokeColor,
                               const QColor& fillColor = Qt::transparent);
 };
 
-// Qt5 无内建 enum class 哈希，需提供 qHash 重载（QHash<State, QColor> 依赖）
-// Qt6 已有通用 enum qHash 模板，此重载在 Qt6 下不参与重载决议（更特化）
+// Qt5 lacks a built-in enum class hash; provide a qHash overload (QHash<State, QColor> depends on it)
+// Qt6 already has a generic enum qHash template; this overload does not participate in Qt6 overload resolution
+#if !QUIL_QT6
 inline uint qHash(SvgIconEngine::State s, uint seed = 0) noexcept
 {
     return qHash(static_cast<int>(s), seed);
 }
+#endif
 
 #endif // SVGICONENGINE_H

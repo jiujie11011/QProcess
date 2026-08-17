@@ -1,7 +1,7 @@
 /* ============================================================
  * QProcess NewsCardDelegate
- * 文章列表卡片化代理：V2/V3 两级视觉层级、微交互
- * 版本：v1.4（对应报告 §6.4, §11.1–11.3）
+ * News list card delegate: V2/V3 two visual levels, micro-interactions
+ * Version: v1.4 (report section 6.4, 11.1-11.3)
  * ============================================================ */
 #ifndef NEWSCARDDELEGATE_H
 #define NEWSCARDDELEGATE_H
@@ -20,9 +20,9 @@ class NewsCardDelegate : public QStyledItemDelegate
     Q_OBJECT
 public:
     enum class VisualLevel {
-        V1_List,    // 紧凑列表（单行，仅标题+来源）
-        V2_Card,    // 卡片（多行，标题+摘要+元信息，默认）
-        V3_Featured // 特大卡片（置顶/精选，大图+完整摘要）
+        V1_List,    // compact list (single line, title + source)
+        V2_Card,    // card (multi-line, title + summary + meta, default)
+        V3_Featured // featured card (pinned/featured, big image + full summary)
     };
     Q_ENUM(VisualLevel)
 
@@ -32,42 +32,42 @@ public:
         QString summary;
         QString feedId;
         QString feedTitle;
-        QString feedIcon;      // Lucide 图标名
+        QString feedIcon;      // Lucide icon name
         QDateTime pubDate;
         bool unread = true;
         bool starred = false;
         QStringList tags;
-        QString imageUrl;      // 缩略图（V3 用）
-        int readTime = 0;      // 分钟
+        QString imageUrl;      // thumbnail (used by V3)
+        int readTime = 0;      // minutes
     };
 
     explicit NewsCardDelegate(QObject* parent = nullptr);
     ~NewsCardDelegate() override = default;
 
-    // 设置视觉层级
+    // Set visual level
     void setVisualLevel(VisualLevel level) { visualLevel_ = level; }
     VisualLevel visualLevel() const { return visualLevel_; }
 
-    // 设置数据（由外部 Model 通过 setItemData 注入）
+    // Set data (injected by external Model via setItemData)
     static void setArticleData(QAbstractItemModel* model, const QModelIndex& index,
                                const ArticleData& data);
 
     static ArticleData articleData(const QModelIndex& index);
 
-    // 卡片尺寸计算
+    // Card size calculation
     QSize sizeHint(const QStyleOptionViewItem& option,
                    const QModelIndex& index) const override;
 
-    // 绘制
+    // Painting
     void paint(QPainter* painter, const QStyleOptionViewItem& option,
                const QModelIndex& index) const override;
 
-    // 编辑器（不需要）
+    // Editor (not needed)
     QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option,
                           const QModelIndex& index) const override { return nullptr; }
 
 signals:
-    // 卡片内按钮点击（由 paint 中的鼠标事件转发）
+    // Card button clicks (forwarded from mouse events in paint)
     void starClicked(const QString& articleId);
     void tagClicked(const QString& tag);
     void feedClicked(const QString& feedId);
@@ -80,13 +80,13 @@ protected:
 private:
     VisualLevel visualLevel_ = VisualLevel::V2_Card;
 
-    // 布局常量（按 tokens 缩放）
+    // Layout constants (scaled by tokens)
     int cardMargin_ = 12;
     int cardSpacing_ = 8;
     int cardRadius_ = 8;
-    int imageHeight_ = 140; // V3 用
+    int imageHeight_ = 140; // used by V3
 
-    // 绘制辅助
+    // Drawing helpers
     void drawCardBackground(QPainter* painter, const QRect& rect,
                             const QStyleOptionViewItem& option) const;
     void drawV1(QPainter* painter, const QRect& rect,
@@ -96,15 +96,15 @@ private:
     void drawV3(QPainter* painter, const QRect& rect,
                 const ArticleData& data, const QStyleOptionViewItem& option) const;
 
-    // 点击区域检测
+    // Hit area detection
     enum class HitArea { None, Star, Tag, Feed, Title, Summary };
     HitArea hitTest(const QPoint& pos, const QRect& cardRect,
                     const ArticleData& data) const;
 };
 
-// 供 setArticleData/articleData 的 QVariant 序列化使用。
-// Qt5 下 QVariant::fromValue/value<T>/canConvert<T> 依赖 Q_DECLARE_METATYPE，
-// 缺失会导致 static_assert 编译失败（与 Qt6 无关，务必保留）。
+// Used for QVariant serialization in setArticleData/articleData.
+// Qt5 QVariant::fromValue/value<T>/canConvert<T> depend on Q_DECLARE_METATYPE;
+// missing it causes static_assert compile failure (unrelated to Qt6, keep it).
 Q_DECLARE_METATYPE(NewsCardDelegate::ArticleData)
 
 #endif // NEWSCARDDELEGATE_H

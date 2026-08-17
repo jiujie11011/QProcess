@@ -1,7 +1,7 @@
 /* ============================================================
  * QProcess NavRail
- * 左侧 48px 图标导航栏（替代传统菜单栏入口职责）
- * 版本：v1.4（对应报告 §4.2, §4.3, §6.2, §13.2）
+ * Left 48px icon nav rail (replaces traditional menu bar entry duties)
+ * Version: v1.4 (report section 4.2, 4.3, 6.2, 13.2)
  * ============================================================ */
 #ifndef NAVRAIL_H
 #define NAVRAIL_H
@@ -16,28 +16,28 @@ class NavRail : public QFrame
     Q_OBJECT
 public:
     enum class Item {
-        AllArticles,   // 🏠 全部文章
-        Unread,        // 📥 未读
-        Starred,       // ⭐ 星标/收藏
-        Tags,          // 🏷 标签
-        BrowserTabs,   // 🌐 浏览器标签
-        Settings,      // ⚙ 设置
-        SyncAccount    // 👤 同步账号
+        AllArticles,   // All articles
+        Unread,        // Unread
+        Starred,       // Starred/favorites
+        Tags,          // Tags
+        BrowserTabs,   // Browser tabs
+        Settings,      // Settings
+        SyncAccount    // Sync account
     };
     Q_ENUM(Item)
 
     explicit NavRail(QWidget* parent = nullptr);
     ~NavRail() override = default;
 
-    // 设置当前选中项
+    // Set the current selected item
     void setCurrentItem(Item item);
 
-    // 设置同步账号状态（底部指示灯）
+    // Set sync account status (bottom indicator light)
     void setSyncStatus(bool connected, bool syncing);
 
 signals:
     void itemClicked(Item item);
-    void themeToggleRequested();  // 底部主题快切
+    void themeToggleRequested();  // bottom theme quick toggle
     void settingsRequested();
     void syncAccountRequested();
 
@@ -54,7 +54,7 @@ private:
     QToolButton* btnBrowser_;
     QToolButton* btnSettings_;
     QToolButton* btnSync_;
-    QToolButton* btnTheme_; // 底部主题切换
+    QToolButton* btnTheme_; // bottom theme toggle
 };
 
 #endif // NAVRAIL_H

@@ -119,5 +119,3 @@ void NavRail::updateIcons()
     btnSync_->setText("👤");
     btnTheme_->setText("◐");
 }
-
-#include "moc_navrail.cpp"

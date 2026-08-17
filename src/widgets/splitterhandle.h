@@ -1,7 +1,7 @@
 /* ============================================================
  * QProcess SplitterHandle
- * 自定义分割线手柄：hover 高亮、拖拽实时反馈、最小/最大宽度约束
- * 版本：v1.4（对应报告 §13.1, §4.2, §4.3）
+ * Custom splitter handle: hover highlight, drag feedback, min/max width limits
+ * Version: v1.4 (report section 13.1, 4.2, 4.3)
  * ============================================================ */
 #ifndef SPLITTERHANDLE_H
 #define SPLITTERHANDLE_H
@@ -21,14 +21,14 @@ public:
     explicit SplitterHandle(Qt::Orientation orientation, QSplitter* parent = nullptr);
     ~SplitterHandle() override = default;
 
-    // 设置面板宽度约束（像素）
+    // Set panel width constraints (pixels)
     void setConstraints(int minPx, int maxPx);
 
-    // 设置是否为右侧面板的分割线（影响最大宽度计算：70vw）
+    // Set whether this is the right panel splitter (affects max width: 70vw)
     void setRightPanelHandle(bool isRight) { isRightPanel_ = isRight; }
 
 signals:
-    // 拖拽过程中实时发射（供外部同步其他面板）
+    // Emitted live during drag (for external panel syncing)
     void dragged(int pos);
 
 protected:
@@ -40,7 +40,7 @@ protected:
 
 private:
     int minPx_ = 200;
-    int maxPx_ = 10000; // 无上限默认
+    int maxPx_ = 10000; // no-limit default
     bool isRightPanel_ = false;
     bool hovered_ = false;
     bool pressed_ = false;
