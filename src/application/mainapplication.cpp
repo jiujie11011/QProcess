@@ -286,7 +286,12 @@ void MainApplication::loadSettings()
   static bool interceptorRegistered = false;
   if (!interceptorRegistered) {
     interceptorRegistered = true;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Qt6 renamed setRequestInterceptor -> setUrlRequestInterceptor
+    QWebEngineProfile::defaultProfile()->setUrlRequestInterceptor(new WebPluginFactory());
+#else
     QWebEngineProfile::defaultProfile()->setRequestInterceptor(new WebPluginFactory());
+#endif
   }
 }
 

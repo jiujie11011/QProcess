@@ -901,7 +901,9 @@ void MainWindow::playPodcast(const QUrl &url, const QString &title)
             this, &MainWindow::slotPlayerPositionChanged);
     connect(podcastPlayer_, &QMediaPlayer::durationChanged,
             this, &MainWindow::slotPlayerDurationChanged);
-    connect(podcastPlayer_, &QMediaPlayer::stateChanged,
+    // Qt6.5 removed QMediaPlayer::stateChanged; playbackStateChanged carries the
+    // same PlaybackState payload and slotPlayerStateChanged() takes no arguments.
+    connect(podcastPlayer_, &QMediaPlayer::playbackStateChanged,
             this, &MainWindow::slotPlayerStateChanged);
   }
 
@@ -1831,7 +1833,7 @@ void MainWindow::createShortcut()
 {
   addFeedAct_->setShortcut(QKeySequence(QKeySequence::New));
   listActions_.append(addFeedAct_);
-  addFolderAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_N));
+  addFolderAct_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+N")));
   listActions_.append(addFolderAct_);
   listActions_.append(deleteFeedAct_);
   listActions_.append(createBackupAct_);
@@ -1903,7 +1905,7 @@ void MainWindow::createShortcut()
 
   switchFocusAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_Tab));
   listActions_.append(switchFocusAct_);
-  switchFocusPrevAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_Tab));
+  switchFocusPrevAct_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+Tab")));
   listActions_.append(switchFocusPrevAct_);
 
   feedsWidgetVisibleAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_D));
@@ -1920,17 +1922,17 @@ void MainWindow::createShortcut()
 
   printAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_P));
   listActions_.append(printAct_);
-  printPreviewAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_P));
+  printPreviewAct_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+P")));
   listActions_.append(printPreviewAct_);
 
   savePageAsAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_S));
   listActions_.append(savePageAsAct_);
   listActions_.append(savePageAsDescriptAct_);
 
-  saveProgressAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_S));
+  saveProgressAct_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+S")));
   listActions_.append(saveProgressAct_);
 
-  aiAssistantAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_A));
+  aiAssistantAct_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+A")));
   listActions_.append(aiAssistantAct_);
 
   fullScreenAct_->setShortcut(QKeySequence(Qt::Key_F11));
@@ -1948,7 +1950,7 @@ void MainWindow::createShortcut()
   listActions_.append(nextTabAct_);
   listActions_.append(prevTabAct_);
 
-  undoCloseTabAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_T));
+  undoCloseTabAct_->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+T")));
   listActions_.append(undoCloseTabAct_);
 
   focusModeAct_->setShortcut(QKeySequence(Qt::Key_F9));
@@ -1958,7 +1960,7 @@ void MainWindow::createShortcut()
                             << QKeySequence(Qt::CTRL + Qt::Key_Tab)
                             << QKeySequence(Qt::CTRL + Qt::Key_PageDown));
   prevTabAct_->setShortcuts(QList<QKeySequence>()
-                            << QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_Tab)
+                            << QKeySequence(QStringLiteral("Ctrl+Shift+Tab"))
                             << QKeySequence(Qt::CTRL + Qt::Key_PageUp));
 
   reduceNewsListAct_->setShortcut(QKeySequence(Qt::ALT+ Qt::Key_Up));

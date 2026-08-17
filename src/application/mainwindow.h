@@ -18,11 +18,14 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+// NOTE: use qmake-injected QT5/QT6 macros here, NOT QT_VERSION_CHECK: this
+// #if sits before any Qt include, and qt6compat.h (force-included first) no
+// longer pulls in <QtGlobal> for translation units whose INCPATH lacks Qt dirs.
+#if defined(HAVE_QT5) && !defined(QT6)
 #include <QtWidgets>
 #include <QMediaPlayer>
 #include <QMediaPlaylist>
-#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#elif defined(QT6)
 #include <QtWidgets>
 #include <QMediaPlayer>
 #else
@@ -38,7 +41,7 @@
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
 #include <QPrinter>
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if defined(QT6)
 #include <QtMultimedia/QSoundEffect>
 #else
 #include <QSound>
@@ -865,13 +868,13 @@ private:
   int openingFeedAction_;
   bool openNewsWebViewOn_;
 
-#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+#if defined(HAVE_QT5) && !defined(QT6)
   QMediaPlayer *mediaPlayer_;
   QMediaPlaylist *playlist_;   // Qt5 only: QMediaPlaylist was removed in Qt6
   // Podcast: global player instance living at MainWindow scope so playback
   // survives tab switches / closings.
   QMediaPlayer *podcastPlayer_;
-#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#elif defined(QT6)
   QMediaPlayer *mediaPlayer_;
   QMediaPlayer *podcastPlayer_;
 #else

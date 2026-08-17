@@ -23,6 +23,8 @@
 #include <QRect>
 #include <QApplication>
 #include <QTextStream>
+#include <QWidget>   // complete type for screenNumberForWidget() / windowType()
+#include <QScreen>   // QGuiApplication::primaryScreen() returns QScreen*, needs complete type
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QStringConverter>  // QTextStream::setEncoding / QStringConverter::Utf8
 #else
