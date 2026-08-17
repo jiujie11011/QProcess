@@ -108,7 +108,15 @@ jobs:
             done
             exit $status
           fi
-          ./tst_common
+          ./tst_common 2>&1 | tee test-run.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            echo "::error::DBG_TESTRUN exit=$status"
+            tail -60 test-run.log | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+          fi
+          exit $status
 
       - name: Upload build log
         if: always()
@@ -174,7 +182,7 @@ jobs:
           # on Qt6 (they were implicit on Qt5), but the .pro and QtWebEngine's
           # own .prf require them, so install them explicitly or qmake fails
           # with "Unknown module(s) in QT: multimedia webchannel positioning".
-          modules: 'qtwebengine qt5compat qtmultimedia qtwebchannel qtpositioning'
+          modules: 'qtwebengine qt5compat qtmultimedia qtwebchannel qtpositioning qtpdf'
           cache: true
 
       - name: Run qmake

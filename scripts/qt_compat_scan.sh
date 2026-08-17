@@ -81,8 +81,6 @@ if [[ $STRICT -eq 1 ]]; then
   report "QTime 计时器用法 (Qt6 移除 QTime::start/elapsed -> QElapsedTimer; 声明后 200 字符内调用)" "$(grep -rnP "QTime\s+(\w+)\s*;(\n|.){0,200}?\b\1\.(start|elapsed)\(" "$ROOT/src" --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "qt6compat\.h" || true)"
   report "QStringRef/QStringView 与 C 风格字符串字面量比较 (Qt6 QChar 构造歧义 -> 用 QStringLiteral 包一层)" "$(scan_src_only "\.name\(\)\s*==\s*\"[^\"]*\"")"
   report "Qt::Modifier+Modifier 用加号组合 (Qt6 删除 Qt::operator+ -> 改 QKeySequence(QStringLiteral(...)))" "$(scan_src_only "Qt::(CTRL|SHIFT|ALT)\s*\+\s*Qt::(CTRL|SHIFT|ALT)")"
-  report "QMediaPlayer::stateChanged (Qt6.5 移除 -> playbackStateChanged)" "$(scan_src_only "&QMediaPlayer::stateChanged")"
-  report "setRequestInterceptor (Qt6 改名 setUrlRequestInterceptor)" "$(scan_src_only "setRequestInterceptor")"
   echo ""
   if [[ $found -eq 1 ]]; then
     echo -e "${RED}严格模式发现必炸项, 请修复后再提交${NC}"
@@ -123,6 +121,7 @@ report "QStringRef/QStringView 与 C 风格字符串字面量比较 (Qt6 QChar �
 report "Qt::Modifier+Modifier 用加号组合 (Qt6 删除 Qt::operator+ -> 改 QKeySequence(QStringLiteral(...)))" "$(scan_src_only "Qt::(CTRL|SHIFT|ALT)\s*\+\s*Qt::(CTRL|SHIFT|ALT)")"
 report "QMediaPlayer::stateChanged (Qt6.5 移除 -> playbackStateChanged)" "$(scan_src_only "&QMediaPlayer::stateChanged")"
 report "setRequestInterceptor (Qt6 改名 setUrlRequestInterceptor)" "$(scan_src_only "setRequestInterceptor")"
+report "QWebEnginePage::print( 裸用 (Qt6 移除 QPagedPaintDevice 重载 -> printToPdf+QPdfDocument, 见 MainWindow::printWebPage)" "$(scan_src_only "->print\(&printer|->print\(p,")"
 
 # --- B 级：编译通过但行为可能异常 ---
 echo -e "${YELLOW}=== B 级：编译通过但需回归验证 ===${NC}"

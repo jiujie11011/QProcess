@@ -59,7 +59,10 @@ greaterThan(QT_MAJOR_VERSION, 4) {
   }
   greaterThan(QT_MAJOR_VERSION, 5) {
     # Qt6: QRegExp/QTextCodec moved to Qt5Compat, C++17 is mandatory.
-    QT += core5compat
+    # Qt6 also needs QtPdf: QWebEnginePage::print(QPagedPaintDevice*) was
+    # removed, printing now goes printToPdf() -> QPdfDocument rasterization
+    # (see MainWindow::printWebPage).
+    QT += core5compat pdf
     CONFIG += c++17
   }
 } else {

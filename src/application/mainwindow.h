@@ -441,6 +441,9 @@ public slots:
   void slotFeedUrlChanged(int feedId, const QString &newUrl);
   void slotPrint(QWebEnginePage *page = 0);
   void slotPrintPreview(QWebEnginePage* page = 0);
+  // Qt5: QWebEnginePage::print(QPagedPaintDevice*); Qt6: printToPdf() ->
+  // QPdfDocument rasterization. Both end up painting onto the QPrinter.
+  void printWebPage(QWebEnginePage *page, QPrinter *printer);
 
 signals:
   void signalQuitApp();

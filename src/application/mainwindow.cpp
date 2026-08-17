@@ -48,6 +48,14 @@
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
+#if defined(QT6)
+// Qt6 removed QWebEnginePage::print(QPagedPaintDevice*); we rasterize the
+// printToPdf() output via QtPdf (QPdfDocument is in the global namespace up
+// to Qt 6.5; it moved to QtPdf:: in 6.6).
+#include <QPdfDocument>
+#include <QEventLoop>
+#include <QPainter>
+#endif
 
 #if defined(Q_OS_WIN)
 #include <windows.h>
@@ -7079,9 +7087,9 @@ void MainWindow::slotRefreshInfoTray(int newCount, int unreadCount)
       QRect rectangle(0, 0, 128, 128);
       QLinearGradient gradient(rectangle.bottomLeft(), rectangle.topLeft());
       QColor color("#117C04");
-      gradient.setColorAt(0, color.light());
+      gradient.setColorAt(0, color.lighter());
       gradient.setColorAt(0.5, color);
-      gradient.setColorAt(1, color.light());
+      gradient.setColorAt(1, color.lighter());
       trayPainter.setBrush(gradient);
       trayPainter.drawRoundedRect(rectangle, 20, 20);
       trayPainter.setFont(font);
@@ -8576,6 +8584,45 @@ void MainWindow::slotReportProblem()
 
 /** @brief Print browser page
  *---------------------------------------------------------------------------*/
+#if defined(QT6)
+// Synchronously render the page to PDF bytes. QPrintPreviewDialog's
+// paintRequested() needs the content before returning, so we block on a local
+// event loop instead of using the async callback directly.
+static QByteArray renderPageToPdfSync(QWebEnginePage *page, const QPageLayout &layout)
+{
+  QByteArray pdf;
+  QEventLoop loop;
+  page->printToPdf([&](const QByteArray &data) { pdf = data; loop.quit(); }, layout);
+  loop.exec();
+  return pdf;
+}
+
+void MainWindow::printWebPage(QWebEnginePage *page, QPrinter *printer)
+{
+  const QByteArray pdf = renderPageToPdfSync(page, printer->pageLayout());
+  if (pdf.isEmpty()) return;
+
+  QPdfDocument doc;
+  if (doc.load(pdf) != QPdfDocument::Error::None) return;
+
+  QPainter painter(printer);
+  for (int i = 0; i < doc.pageCount(); ++i) {
+    if (i > 0) printer->newPage();
+    // PDF page size is in points (1/72 in); convert to device pixels.
+    const QSizeF pts = doc.pagePointSize(i);
+    const QSize px = (pts * (printer->resolution() / 72.0)).toSize();
+    const QImage img = doc.render(i, px);
+    painter.drawImage(printer->pageRect(QPrinter::DevicePixel).topLeft(), img);
+  }
+  painter.end();
+}
+#else
+void MainWindow::printWebPage(QWebEnginePage *page, QPrinter *printer)
+{
+  page->print(printer, [](bool) {});
+}
+#endif
+
 void MainWindow::slotPrint(QWebEnginePage *page)
 {
   if (currentNewsTab->type_ == NewsTabWidget::TabTypeDownloads) return;
@@ -8585,11 +8632,11 @@ void MainWindow::slotPrint(QWebEnginePage *page)
   QPrintDialog *printDlg = new QPrintDialog(&printer);
   if (!page)
     connect(printDlg, &QDialog::accepted, currentNewsTab->webView_, [this, &printer]() {
-      currentNewsTab->webView_->page()->print(&printer, [](bool) {});
+      printWebPage(currentNewsTab->webView_->page(), &printer);
     });
   else
     connect(printDlg, &QDialog::accepted, page, [&printer, page]() {
-      page->print(&printer, [](bool) {});
+      printWebPage(page, &printer);
     });
   printDlg->exec();
   printDlg->deleteLater();
@@ -8608,11 +8655,11 @@ void MainWindow::slotPrintPreview(QWebEnginePage *page)
   prevDlg->resize(650, 800);
   if (!page)
     connect(prevDlg, &QPrintPreviewDialog::paintRequested, currentNewsTab->webView_, [this](QPrinter *p) {
-      currentNewsTab->webView_->page()->print(p, [](bool) {});
+      printWebPage(currentNewsTab->webView_->page(), p);
     });
   else
     connect(prevDlg, &QPrintPreviewDialog::paintRequested, page, [page](QPrinter *p) {
-      page->print(p, [](bool) {});
+      printWebPage(page, p);
     });
   prevDlg->exec();
   prevDlg->deleteLater();
