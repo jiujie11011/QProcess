@@ -56,16 +56,20 @@ void SvgIconEngine::paint(QPainter* painter, const QRect& rect,
 QPixmap SvgIconEngine::pixmap(const QSize& size, QIcon::Mode mode,
                               QIcon::State state)
 {
-    // 缓存键包含颜色（Qt5/Qt6 通用的组合键，见头文件 pixmapCache_ 注释）
-    QColor color = colorForMode(mode, state);
-    qint64 cacheKey = (qint64(size.width()) << 32) | qint64(size.height());
-    cacheKey ^= qint64(color.rgba()) << 8;
+    // Cache key: size occupies (width << 32) | height; the resolved color is
+    // mixed in with a golden-ratio hash so different colors never alias the
+    // same entry (works identically on Qt5/Qt6, see pixmapCache_ comment).
+    const QColor color = colorForMode(mode, state);
+    qint64 cacheKey = (qint64(quint32(size.width())) << 32) | quint32(size.height());
+    cacheKey ^= qint64(quint32(color.rgba())) * Q_INT64_C(0x9E3779B97F4A7C15);
 
-    if (pixmapCache_.contains(cacheKey)) {
-        // 简单起见，暂不区分颜色缓存（实际应用需完善）
-    }
+    QPixmap cached = pixmapCache_.value(cacheKey);
+    if (!cached.isNull())
+        return cached;
 
-    return renderPixmap(size, mode, state);
+    cached = renderPixmap(size, mode, state);
+    pixmapCache_.insert(cacheKey, cached);
+    return cached;
 }
 
 QColor SvgIconEngine::colorForMode(QIcon::Mode mode, QIcon::State state) const
