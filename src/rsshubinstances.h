@@ -168,7 +168,9 @@ private:
     static const int FAIL_NOT_FOUND = -5; // HTTP 404
 
     static const int MAX_FAILURES_PER_MONTH = 5;
-    static const int MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    // 30 days in ms overflows a 32-bit int (2,592,000,000 > INT_MAX), so the
+    // constant must be 64-bit. It is compared against qint64 timestamps.
+    static const qint64 MONTH_MS = qint64(30) * 24 * 60 * 60 * 1000;
     /** Concurrent failures of the same instance within this window count as
      *  one failure (dedup). */
     static const int FAILURE_DEDUP_MS = 5 * 60 * 1000;
