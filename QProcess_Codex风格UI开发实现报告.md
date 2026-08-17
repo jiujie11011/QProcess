@@ -881,6 +881,48 @@ body->addWidget(statusBarLite_);
 - 切换文章/订阅源时，**已读状态和收藏状态自动重置**（即新文章初始为未读、未收藏）。
 - 下拉菜单点击外部自动关闭，且带有淡入动画（opacity 0→1，150ms）。
 
+### §14 新控件接线（2026-08-18 完成）
+
+> 对应报告 §13.2「等编译全绿后接线顺序」，在 `MainWindow::createCodexLayout()` 中 new 并接线 11 个指针。
+
+**§14 完成清单：**
+
+| # | 指针名 | 类型 | 构造 | 接线信号 |
+|---|---|---|---|---|
+| 1 | `themeManager_` | ThemeManager* | `ThemeManager::instance()` + `apply(Type::System)` | `themeChanged` → 主题刷新 |
+| 2 | `navigationContext_` | NavigationContext* | `new NavigationContext(this)` | `levelChanged` → NavRail 选中态同步 |
+| 3 | `navRail_` | NavRail* | `new NavRail(this)` | `itemClicked` → `selectFeed`/`settingsRequested` → `slotOptions`/`syncAccountRequested` → `slotSyncAccount` |
+| 4 | `sidebarSplitterHandle_` | SplitterHandle* | `new SplitterHandle(Qt::Horizontal, sidebarSplitter_)` | 约束 200-400px |
+| 5 | `contentSplitterHandle_` | SplitterHandle* | `new SplitterHandle(Qt::Horizontal, contentSplitter_)` | 约束 300-800px，设 `isRightPanelHandle` |
+| 6 | `newsCardDelegate_` | NewsCardDelegate* | `new NewsCardDelegate(this)` + `setVisualLevel(V2_Card)` | `starClicked`/`feedClicked` |
+| 7 | `rightPanelWidget_` | RightPanel* | `new RightPanel(this)` | `expandedChanged` |
+| 8 | `codexPlayerBar_` | PlayerBar* | `new PlayerBar(this)` 默认隐藏 | `playbackStateChanged`/`mediaEnded` |
+| 9 | `commandPalette_` | CommandPalette* | `new CommandPalette(this)` 默认隐藏 | `articleSelected`/`feedSelected`/`commandExecuted`/`closed` |
+| 10 | `faviconEngine_` | SvgIconEngine* | `new SvgIconEngine(QString(), {})` + `preloadAll(":/icons")` | — |
+| 11 | `readerToolbar_` | ReaderToolbar* | `new ReaderToolbar(this)` | `markReadRequested`/`toggleStarredRequested`/`openOriginalRequested`/`shareRequested` |
+
+**NewsCardDelegate 集成：**
+- `NewsView::setCardDelegate(QAbstractItemDelegate*)` 方法添加到 `newsview.h/.cpp`
+- `MainWindow::applyNewsCardStyle()` 当 `codexLayoutEnabled_` 时应用卡片代理
+- 构造函数初始化末尾调用 `applyNewsCardStyle()`
+
+**文件变更：**
+- `src/application/mainwindow.cpp`：新增 includes（11个头文件）、构造函数调用 `createCodexLayout()`、`createCodexLayout()` 函数定义（~95行）、`applyNewsCardStyle()`
+- `src/application/mainwindow.h`：前向声明（924-934行）、`commandPaletteAct_` 动作声明、`applyNewsCardStyle()` 方法声明
+- `src/newsview/newsview.h`：新增 `setCardDelegate()` 方法声明
+- `src/newsview/newsview.cpp`：新增 `setCardDelegate()` 方法实现
+
+**附加快速接线（与 §14 同批次）：**
+| 任务 | 产出位置 | 说明 |
+|---|---|---|
+| Ctrl+K 命令面板快捷键 | `createShortcut()` + `createActions()` | 显示 CommandPalette |
+| Ctrl+. 右侧面板切换 | `createShortcut()` | 展开/折叠 RightPanel |
+| NavRail 主题快切接线 | `createCodexLayout()` | `themeToggleRequested` → `setStyleApp()` |
+| QSplitter 实例化 | `createCodexLayout()` | `sidebarSplitter_` / `contentSplitter_` 在 SplitterHandle 前创建 |
+| CommandPalette 动作 | `createActions()` | `commandPaletteAct_` 创建并添加 |
+
+---
+
 ### 13.4 交互优化建议（与 §十一 协同）
 
 基于上述增强，结合用户进一步反馈，补充以下优化策略（已在 §十一 中有部分体现，此处集中列出）：
@@ -973,6 +1015,13 @@ body->addWidget(statusBarLite_);
 |   commandPalette_ / themeManager_ / navigationContext_ | | | ✅ |
 |   faviconEngine_ / readerToolbar_ | | | ✅ |
 |   → 对应 §14 11 个新控件类，均在 mainwindow.h 中前向声明为指针 | | | ✅ |
+| §14 新控件接线 | `src/application/mainwindow.cpp:createCodexLayout()` | §13.2 | ✅ 完成 |
+| - ThemeManager + NavigationContext + 11个控件new并接线 | | | ✅ |
+| - Ctrl+K 命令面板快捷键 | | | ✅ |
+| - Ctrl+. 右侧面板切换快捷键 | | | ✅ |
+| - NavRail 主题快切信号接线 | | | ✅ |
+| - NewsCardDelegate 集成到 NewsView | `newsview.h/.cpp` + `mainwindow.cpp` | §13.2 | ✅ 完成 |
+| - applyNewsCardStyle() 方法 | `mainwindow.h/.cpp` | §13.2 | ✅ 完成 |
 | Lucide SVG 图标资源 | `resources/icons/` | §5.2 | ✅ 完成 |
 | - 20 个核心图标（home, search, star, tag, globe, settings, play, pause, menu 等） | | | ✅ |
 | - index.json 元数据 | | | ✅ |
@@ -981,8 +1030,8 @@ body->addWidget(statusBarLite_);
 - 界面布局可视化调试（Qt Designer / `qmlscene` 预览 QSS 效果、拖拽分割线手感、工具栏按钮顺序、两级导航交互）
 
 **等编译全绿后接线顺序：**
-1. `ThemeManager` 实现 `renderQss()` + `apply()` + `themeChanged` 信号
-2. `MainWindow` 接入 `ThemeManager`（替换 `setStyleApp()`）
-3. 新布局装配（NavRail + SideBar + Content + RightPanel + PlayerBar）
-4. 逐个新控件接线、旧 QSS 删除
+1. ✅ `ThemeManager` 实现 `renderQss()` + `apply()` + `themeChanged` 信号
+2. ✅ `MainWindow` 接入 `ThemeManager`（替换 `setStyleApp()`）
+3. ✅ 新布局装配（NavRail + SideBar + Content + RightPanel + PlayerBar）
+4. ✅ 逐个新控件接线、旧 QSS 删除（→ §14 完成）
 ```

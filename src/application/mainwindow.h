@@ -220,6 +220,8 @@ public:
   QActionGroup *newsLabelGroup_;
   QActionGroup *shareGroup_;
 
+  QAction *commandPaletteAct_;
+
   QMenu *newsLabelMenu_;
   QMenu *shareMenu_;
   QMenu *newsSortByMenu_;
@@ -661,6 +663,9 @@ private slots:
 private:
   void closeEvent(QCloseEvent *event);
   bool eventFilter(QObject *obj, QEvent *event);
+  void applyNewsCardStyle();
+
+private slots:
   void changeEvent(QEvent *event);
 
   void createFeedsWidget();

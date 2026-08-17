@@ -37,6 +37,11 @@ NewsView::NewsView(QWidget * parent)
   setContextMenuPolicy(Qt::CustomContextMenu);
 }
 
+void NewsView::setCardDelegate(QAbstractItemDelegate* delegate)
+{
+  setItemDelegate(delegate);
+}
+
 /*virtual*/ void NewsView::mousePressEvent(QMouseEvent *event)
 {
   if (!indexAt(QEVENT_POS(event)).isValid()) return;

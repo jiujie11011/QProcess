@@ -32,6 +32,8 @@ class NewsView : public QTreeView
 public:
   NewsView(QWidget * parent = 0);
 
+  void setCardDelegate(QAbstractItemDelegate* delegate);
+
 signals:
   void signalSetItemRead(QModelIndex index, int read);
   void signalSetItemStar(QModelIndex index, int starred);

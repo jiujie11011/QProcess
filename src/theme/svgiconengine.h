@@ -51,7 +51,7 @@ public:
 
 private:
     QString svgPath_;
-    QString svgContent_;  // 解析后的 SVG XML（已替换 stroke/fill）
+    mutable QString svgContent_;  // 解析后的 SVG XML（已替换 stroke/fill），mutable 因 const 函数内延迟加载
     QHash<State, QColor> colorMap_;
     // QSize 哈希：Qt5 无 qHash(QSize)，Qt6 无 QSize::operator<（QMap 不可用）。
     // 统一用 (w<<32)|h 组合键，跨 Qt5/Qt6 均可哈希。
@@ -70,6 +70,7 @@ private:
 };
 
 // Qt5 无内建 enum class 哈希，需提供 qHash 重载（QHash<State, QColor> 依赖）
+// Qt6 已有通用 enum qHash 模板，此重载在 Qt6 下不参与重载决议（更特化）
 inline uint qHash(SvgIconEngine::State s, uint seed = 0) noexcept
 {
     return qHash(static_cast<int>(s), seed);

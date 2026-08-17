@@ -54,6 +54,8 @@ private:
     void filterResults(const QString& text);
     void selectCurrent();
 
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
     QLineEdit* input_;
     QListView* list_;
     QStringListModel* model_;

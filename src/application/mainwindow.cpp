@@ -45,6 +45,17 @@
 #include "settings.h"
 #include "rsshubinstances.h"
 
+#include "navrail.h"
+#include "splitterhandle.h"
+#include "newscarddelegate.h"
+#include "rightpanel.h"
+#include "playerbar.h"
+#include "commandpalette.h"
+#include "thememanager.h"
+#include "navigationcontext.h"
+#include "svgiconengine.h"
+#include "readertoolbar.h"
+
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
@@ -153,6 +164,8 @@ MainWindow::MainWindow(QWidget *parent)
 
   createTabBarWidget();
   createCentralWidget();
+
+  createCodexLayout();
 
   loadSettingsFeeds();
 
@@ -668,6 +681,15 @@ void MainWindow::createNewsTab(int index)
 
   newsModel_ = currentNewsTab->newsModel_;
   newsView_ = currentNewsTab->newsView_;
+
+  applyNewsCardStyle();
+}
+// ---------------------------------------------------------------------------
+void MainWindow::applyNewsCardStyle()
+{
+  if (codexLayoutEnabled_ && newsCardDelegate_ && newsView_) {
+    newsView_->setCardDelegate(newsCardDelegate_);
+  }
 }
 // ---------------------------------------------------------------------------
 void MainWindow::createStatusBar()
@@ -832,6 +854,117 @@ void MainWindow::createCentralWidget()
   mainLayout->addWidget(playerBarWidget_);
 
   setCentralWidget(centralWidget_);
+}
+
+void MainWindow::createCodexLayout()
+{
+  themeManager_ = ThemeManager::instance();
+  themeManager_->apply(ThemeManager::Type::System);
+  connect(themeManager_, &ThemeManager::themeChanged, this, [this](ThemeManager::Type type) {
+    Q_UNUSED(type);
+    if (codexLayoutEnabled_) {
+    }
+  });
+
+  navigationContext_ = new NavigationContext(this);
+
+  sidebarSplitter_ = new QSplitter(Qt::Horizontal, this);
+  sidebarSplitter_->setObjectName("sidebarSplitter_");
+  sidebarSplitter_->setHandleWidth(4);
+  sidebarSplitter_->setChildrenCollapsible(false);
+
+  contentSplitter_ = new QSplitter(Qt::Horizontal, this);
+  contentSplitter_->setObjectName("contentSplitter_");
+  contentSplitter_->setHandleWidth(4);
+  contentSplitter_->setChildrenCollapsible(false);
+
+  navRail_ = new NavRail(this);
+  navRail_->setObjectName("navRail_");
+  connect(navRail_, &NavRail::itemClicked, navigationContext_, &NavigationContext::selectFeed);
+  connect(navRail_, &NavRail::settingsRequested, this, &MainWindow::slotOptions);
+  connect(navRail_, &NavRail::syncAccountRequested, this, &MainWindow::slotSyncAccount);
+  connect(navRail_, &NavRail::themeToggleRequested, this, [this]() {
+    if (darkStyle_ && lightStyle_) {
+      QAction* current = darkStyle_->isChecked() ? darkStyle_ : lightStyle_;
+      QAction* other = darkStyle_->isChecked() ? lightStyle_ : darkStyle_;
+      other->setChecked(true);
+      setStyleApp(other);
+    }
+  });
+  connect(navigationContext_, &NavigationContext::levelChanged, this, [this](NavigationContext::Level level) {
+    if (level == NavigationContext::Level::FeedList) {
+      navRail_->setCurrentItem(NavRail::Item::AllArticles);
+    }
+  });
+
+  sidebarSplitterHandle_ = new SplitterHandle(Qt::Horizontal, sidebarSplitter_);
+  sidebarSplitterHandle_->setConstraints(200, 400);
+  sidebarSplitterHandle_->setObjectName("sidebarSplitterHandle_");
+
+  contentSplitterHandle_ = new SplitterHandle(Qt::Horizontal, contentSplitter_);
+  contentSplitterHandle_->setConstraints(300, 800);
+  contentSplitterHandle_->setRightPanelHandle(true);
+  contentSplitterHandle_->setObjectName("contentSplitterHandle_");
+
+  newsCardDelegate_ = new NewsCardDelegate(this);
+  newsCardDelegate_->setVisualLevel(NewsCardDelegate::VisualLevel::V2_Card);
+  connect(newsCardDelegate_, &NewsCardDelegate::starClicked, this, [this](const QString& articleId) {
+    Q_UNUSED(articleId);
+  });
+  connect(newsCardDelegate_, &NewsCardDelegate::feedClicked, this, [this](const QString& feedId) {
+    navigationContext_->selectFeed(feedId);
+  });
+
+  rightPanelWidget_ = new RightPanel(this);
+  rightPanelWidget_->setObjectName("rightPanelWidget_");
+  rightPanelWidget_->setWidthConstraints(200, 700);
+  rightPanelWidget_->setExpanded(true);
+  connect(rightPanelWidget_, &RightPanel::expandedChanged, this, [this](bool expanded) {
+    Q_UNUSED(expanded);
+  });
+
+  codexPlayerBar_ = new PlayerBar(this);
+  codexPlayerBar_->setObjectName("codexPlayerBar_");
+  codexPlayerBar_->setVisible(false);
+  connect(codexPlayerBar_, &PlayerBar::playbackStateChanged, this, [this](int state) {
+    Q_UNUSED(state);
+  });
+  connect(codexPlayerBar_, &PlayerBar::mediaEnded, this, [this]() {
+    codexPlayerBar_->setVisible(false);
+  });
+
+  commandPalette_ = new CommandPalette(this);
+  commandPalette_->setObjectName("commandPalette_");
+  commandPalette_->hide();
+  connect(commandPalette_, &CommandPalette::articleSelected, this, [this](const QString& articleId) {
+    Q_UNUSED(articleId);
+    commandPalette_->hidePalette();
+  });
+  connect(commandPalette_, &CommandPalette::feedSelected, this, [this](const QString& feedId) {
+    Q_UNUSED(feedId);
+    commandPalette_->hidePalette();
+  });
+  connect(commandPalette_, &CommandPalette::commandExecuted, this, [this](const QString& commandId) {
+    Q_UNUSED(commandId);
+    commandPalette_->hidePalette();
+  });
+  connect(commandPalette_, &CommandPalette::closed, this, [this]() {
+    commandPalette_->hidePalette();
+  });
+
+  faviconEngine_ = new SvgIconEngine(QString(), {});
+  SvgIconEngine::preloadAll(QStringLiteral(":/icons"));
+
+  readerToolbar_ = new ReaderToolbar(this);
+  readerToolbar_->setObjectName("readerToolbar_");
+  connect(readerToolbar_, &ReaderToolbar::markReadRequested, this, [this](bool read) {
+    Q_UNUSED(read);
+  });
+  connect(readerToolbar_, &ReaderToolbar::toggleStarredRequested, this, [this](bool starred) {
+    Q_UNUSED(starred);
+  });
+  connect(readerToolbar_, &ReaderToolbar::openOriginalRequested, this, &MainWindow::slotOpenCurrentNewsOriginal);
+  connect(readerToolbar_, &ReaderToolbar::shareRequested, this, &MainWindow::slotShareCurrentNews);
 }
 
 /** @brief Create the global podcast player bar (hidden until first play)
@@ -1813,6 +1946,10 @@ void MainWindow::createActions()
   connect(shareGroup_, SIGNAL(triggered(QAction*)),
           this, SLOT(slotShareNews(QAction*)));
 
+  commandPaletteAct_ = new QAction(this);
+  commandPaletteAct_->setObjectName("commandPaletteAct");
+  this->addAction(commandPaletteAct_);
+
 
   connect(markNewsRead_, SIGNAL(triggered()),
           this, SLOT(markNewsRead()));
@@ -1927,6 +2064,24 @@ void MainWindow::createShortcut()
 
   feedsWidgetVisibleAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_D));
   listActions_.append(feedsWidgetVisibleAct_);
+
+  commandPaletteAct_->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_K));
+  listActions_.append(commandPaletteAct_);
+  connect(commandPaletteAct_, &QAction::triggered, this, [this]() {
+    if (commandPalette_) {
+      commandPalette_->showPalette();
+    }
+  });
+
+  QAction* toggleRightPanelAct = new QAction(this);
+  toggleRightPanelAct->setObjectName("toggleRightPanelAct");
+  toggleRightPanelAct->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_Period));
+  listActions_.append(toggleRightPanelAct);
+  connect(toggleRightPanelAct, &QAction::triggered, this, [this]() {
+    if (rightPanelWidget_) {
+      rightPanelWidget_->setExpanded(!rightPanelWidget_->isExpanded());
+    }
+  });
 
   listActions_.append(placeToTrayAct_);
 

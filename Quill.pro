@@ -188,6 +188,8 @@ HEADERS += \
     src/newsview/readertoolbar.h \
     src/newsview/newscarddelegate.h \
     src/widgets/splitterhandle.h \
+    src/application/navrail.h \
+    src/widgets/commandpalette.h \
 
 SOURCES += \
     src/parseobject.cpp \
@@ -295,7 +297,9 @@ SOURCES += \
     src/application/navigationcontext.cpp \
     src/newsview/readertoolbar.cpp \
     src/newsview/newscarddelegate.cpp \
-    src/widgets/splitterhandle.cpp
+    src/widgets/splitterhandle.cpp \
+    src/application/navrail.cpp \
+    src/widgets/commandpalette.cpp
 
 INCLUDEPATH +=  $$PWD/src \
                 $$PWD/src/application \
