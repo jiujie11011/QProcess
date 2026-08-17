@@ -28,6 +28,7 @@
 
 #include <QNetworkReply>
 #include <QSslSocket>
+#include <QSslConfiguration>
 #include <QDebug>
 
 static QString fileNameForCert(const QSslCertificate &cert)
@@ -115,7 +116,13 @@ void NetworkManager::loadSettings()
 
   QSslSocket::setDefaultCaCertificates(QSslCertificate::fromPath(bundlePath));
 #else
+#if defined(QT6)
+  // Qt6 moved the default-CA certificate registry from QSslSocket statics to
+  // QSslConfiguration.
+  QSslConfiguration::setDefaultCaCertificates(QSslConfiguration::systemCaCertificates());
+#else
   QSslSocket::setDefaultCaCertificates(QSslSocket::systemCaCertificates());
+#endif
 #endif
 
   loadCertificates();
@@ -130,7 +137,11 @@ void NetworkManager::loadCertificates()
   settings.endGroup();
 
   // CA Certificates
+#if defined(QT6)
+  caCerts_ = QSslConfiguration::defaultCaCertificates();
+#else
   caCerts_ = QSslSocket::defaultCaCertificates();
+#endif
 
   foreach (const QString &path, certPaths_) {
 #ifdef Q_OS_WIN
@@ -150,8 +161,10 @@ void NetworkManager::loadCertificates()
     }
 #else
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Qt6: QSslCertificate gained its own PatternSyntax enum (RegExp/Wildcard);
+    // QRegExp is gone and QRegularExpression has no Wildcard value.
     caCerts_ += QSslCertificate::fromPath(path + "/*.crt", QSsl::Pem,
-                                          QRegularExpression::Wildcard);
+                                          QSslCertificate::Wildcard);
 #else
     caCerts_ += QSslCertificate::fromPath(path + "/*.crt", QSsl::Pem, QRegExp::Wildcard);
 #endif
@@ -174,13 +187,17 @@ void NetworkManager::loadCertificates()
 #else
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
   localCerts_ = QSslCertificate::fromPath(mainApp->dataDir() + "/certificates/*.crt",
-                                          QSsl::Pem, QRegularExpression::Wildcard);
+                                          QSsl::Pem, QSslCertificate::Wildcard);
 #else
   localCerts_ = QSslCertificate::fromPath(mainApp->dataDir() + "/certificates/*.crt", QSsl::Pem, QRegExp::Wildcard);
 #endif
 #endif
 
+#if defined(QT6)
+  QSslConfiguration::setDefaultCaCertificates(caCerts_ + localCerts_);
+#else
   QSslSocket::setDefaultCaCertificates(caCerts_ + localCerts_);
+#endif
 
 #if defined(Q_OS_WIN) || defined(Q_OS_OS2)
   new CaBundleUpdater(this, this);
@@ -366,7 +383,12 @@ bool NetworkManager::containsRejectedCerts(const QList<QSslCertificate> &certs)
 void NetworkManager::addLocalCertificate(const QSslCertificate &cert)
 {
   localCerts_.append(cert);
+#if defined(QT6)
+  // addDefaultCaCertificate() was removed in Qt6; re-set the merged list.
+  QSslConfiguration::setDefaultCaCertificates(QSslConfiguration::defaultCaCertificates() << cert);
+#else
   QSslSocket::addDefaultCaCertificate(cert);
+#endif
 
   QDir dir(mainApp->dataDir());
   if (!dir.exists("certificates")) {
@@ -390,9 +412,15 @@ void NetworkManager::removeLocalCertificate(const QSslCertificate &cert)
 {
   localCerts_.removeOne(cert);
 
+#if defined(QT6)
+  QList<QSslCertificate> certs = QSslConfiguration::defaultCaCertificates();
+  certs.removeOne(cert);
+  QSslConfiguration::setDefaultCaCertificates(certs);
+#else
   QList<QSslCertificate> certs = QSslSocket::defaultCaCertificates();
   certs.removeOne(cert);
   QSslSocket::setDefaultCaCertificates(certs);
+#endif
 
   // Delete cert file from profile
   bool deleted = false;

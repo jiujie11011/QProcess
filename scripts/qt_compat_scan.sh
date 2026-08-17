@@ -124,6 +124,9 @@ report "setRequestInterceptor (Qt6 改名 setUrlRequestInterceptor)" "$(scan_src
 report "QWebEnginePage::print( 裸用 (Qt6 移除 QPagedPaintDevice 重载 -> printToPdf+QPdfDocument, 见 MainWindow::printWebPage)" "$(scan_src_only "->print\(&printer|->print\(p,")"
 report "QUrl::topLevelDomain() 裸用 (Qt6 移除 public-suffix 支持 -> 按最后两段 host 近似)" "$(scan_src_only "topLevelDomain")"
 report "emit error(QNetworkReply::...) 裸用 (Qt6 移除 error 信号 -> errorOccurred)" "$(scan_src_only "emit\\s+error\\(QNetworkReply")"
+report "QEVENT_POS(event) 用于 QContextMenuEvent (Qt6 无 position(); 用 event->pos())" "$(scan_src_only "QEVENT_POS\\(event\\)")"
+report "QRegularExpression::Wildcard (Qt6 无此枚举 -> QSslCertificate::Wildcard)" "$(scan_src_only "QRegularExpression::Wildcard")"
+report "QSslSocket::(setDefault|default|system|addDefault)CaCertificates (Qt6 移到 QSslConfiguration)" "$(scan_src_only "QSslSocket::(setDefault|default|system|addDefault)CaCertificates")"
 
 # --- B 级：编译通过但行为可能异常 ---
 echo -e "${YELLOW}=== B 级：编译通过但需回归验证 ===${NC}"

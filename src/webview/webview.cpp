@@ -117,7 +117,9 @@ void WebView::disconnectObjects()
 
 void WebView::contextMenuEvent(QContextMenuEvent *event)
 {
-  emit showContextMenu(QEVENT_POS(event));
+  // QContextMenuEvent is not a QSinglePointEvent in Qt6, so it has no
+  // position(); pos() works on both Qt5 and Qt6.
+  emit showContextMenu(event->pos());
 }
 
 void WebView::mouseMoveEvent(QMouseEvent* event)
