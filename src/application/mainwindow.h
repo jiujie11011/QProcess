@@ -683,6 +683,7 @@ private slots:
   void createTabBarWidget();
   void createCentralWidget();
   void createPlayerBar();
+  void createCodexLayout();
   void loadSettingsFeeds();
   void retranslateStrings();
   void recountFeedCategories(const QList<int> &categoriesList);
