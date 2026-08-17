@@ -86,7 +86,7 @@ enum FeedReedType {
 
 class AdBlockIcon;
 
-// ---- Codex UI 新控件类前向声明（仅指针，不 #include 实现头）----
+// ---- Codex UI new control classes: forward declarations only (no impl headers) ----
 class NavRail;
 class SplitterHandle;
 class NewsCardDelegate;
@@ -914,7 +914,6 @@ private slots:
   QToolButton *playerCloseButton_;
 
   // Codex UI New Layout (Phase 2) - skeleton declarations only
-  // These will be connected after compilation is fixed
   QFrame *navRailFrame_;
   QWidget *sidebarShell_;
   QWidget *rightPanel_;
@@ -926,18 +925,17 @@ private slots:
   int rightPanelWidth_;
 
   // ---- New control class pointers (declared, NOT yet instantiated/wired) ----
-  // 等编译全绿后，在 createCodexLayout() 中 new 并接线
-  NavRail                *navRail_                 = nullptr;  // 左侧导航栏
-  SplitterHandle         *sidebarSplitterHandle_   = nullptr;  // 侧栏拖拽手柄
-  SplitterHandle         *contentSplitterHandle_   = nullptr;  // 内容区拖拽手柄
-  NewsCardDelegate       *newsCardDelegate_        = nullptr;  // 文章列表卡片代理
-  RightPanel             *rightPanelWidget_        = nullptr;  // 右侧可折叠面板
-  PlayerBar              *codexPlayerBar_          = nullptr;  // 底部播放条（新 UI；改名避免与 903 行旧字段冲突）
-  CommandPalette         *commandPalette_          = nullptr;  // 命令面板
-  ThemeManager           *themeManager_            = nullptr;  // 主题管理单例（可选持有指针）
-  NavigationContext      *navigationContext_       = nullptr;  // 导航上下文
-  SvgIconEngine          *faviconEngine_          = nullptr;  // 图标渲染引擎（可选持有）
-  ReaderToolbar          *readerToolbar_           = nullptr;  // 阅读区工具栏
+  NavRail                *navRail_                 = nullptr;  // left nav rail
+  SplitterHandle         *sidebarSplitterHandle_   = nullptr;  // sidebar drag handle
+  SplitterHandle         *contentSplitterHandle_   = nullptr;  // content drag handle
+  NewsCardDelegate       *newsCardDelegate_        = nullptr;  // news list card delegate
+  RightPanel             *rightPanelWidget_        = nullptr;  // right collapsible panel
+  PlayerBar              *codexPlayerBar_          = nullptr;  // bottom player bar (renamed to avoid clash with legacy field)
+  CommandPalette         *commandPalette_          = nullptr;  // command palette
+  ThemeManager           *themeManager_            = nullptr;  // theme manager singleton
+  NavigationContext      *navigationContext_       = nullptr;  // navigation context
+  SvgIconEngine          *faviconEngine_          = nullptr;  // icon rendering engine
+  ReaderToolbar          *readerToolbar_           = nullptr;  // reader toolbar
 
   bool soundNewNews_;
   QString soundNotifyPath_;

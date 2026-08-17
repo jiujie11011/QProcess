@@ -880,7 +880,27 @@ void MainWindow::createCodexLayout()
 
   navRail_ = new NavRail(this);
   navRail_->setObjectName("navRail_");
-  connect(navRail_, &NavRail::itemClicked, navigationContext_, &NavigationContext::selectFeed);
+  // itemClicked 携带 NavRail::Item 枚举，映射到 NavigationContext 的过滤模式
+  connect(navRail_, &NavRail::itemClicked, this, [this](NavRail::Item item) {
+    switch (item) {
+      case NavRail::Item::AllArticles:
+        navigationContext_->selectFilterMode(NavigationContext::FilterMode::All);
+        break;
+      case NavRail::Item::Unread:
+        navigationContext_->selectFilterMode(NavigationContext::FilterMode::Unread);
+        break;
+      case NavRail::Item::Starred:
+        navigationContext_->selectFilterMode(NavigationContext::FilterMode::Starred);
+        break;
+      case NavRail::Item::Tags:
+        navigationContext_->selectFilterMode(NavigationContext::FilterMode::Tag);
+        break;
+      case NavRail::Item::BrowserTabs:
+        break; // 浏览器标签视图暂未接线
+      default:
+        break;
+    }
+  });
   connect(navRail_, &NavRail::settingsRequested, this, &MainWindow::slotOptions);
   connect(navRail_, &NavRail::syncAccountRequested, this, &MainWindow::slotSyncAccount);
   connect(navRail_, &NavRail::themeToggleRequested, this, [this]() {
