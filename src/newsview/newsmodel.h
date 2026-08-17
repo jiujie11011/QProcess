@@ -70,6 +70,8 @@ signals:
   void signalSort(int column, int order);
 
 protected:
+  virtual bool canFetchMore(const QModelIndex &parent) const;
+  virtual void fetchMore(const QModelIndex &parent);
   bool selectWithLimit();
 
 private:

@@ -582,7 +582,7 @@ void NewsTabWidget::createWebWidget()
           this, &NewsTabWidget::slotLoadStarted);
   connect(webView_, &QWebEngineView::loadFinished,
           this, &NewsTabWidget::slotLoadFinished);
-  connect(webView_, &QWebEngineView::linkClicked,
+  connect(webView_->page(), &QWebEnginePage::linkClicked,
           this, &NewsTabWidget::slotLinkClicked);
   connect(webView_->page(), &QWebEnginePage::linkHovered,
           this, &NewsTabWidget::slotLinkHovered);

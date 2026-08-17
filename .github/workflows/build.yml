@@ -142,19 +142,35 @@ jobs:
             libxcb-shape0 \
             libxcb-xinerama0
 
-      - name: Install Qt 6 (with QtWebEngine and Qt5Compat)
+      - name: Install Qt 6 (with QtWebEngine, Qt5Compat and QtMultimedia)
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.5.3'
           host: 'linux'
           target: 'desktop'
           arch: 'gcc_64'
-          modules: 'qtwebengine qt5compat'
+          # qtwebengine does NOT pull in qtmultimedia on Qt6 (it did on Qt5),
+          # but QuiteRSS.pro lists `QT += multimedia`, so it must be installed
+          # explicitly or qmake fails with "Unknown module(s) in QT: multimedia".
+          modules: 'qtwebengine qt5compat qtmultimedia'
           cache: true
 
       - name: Run qmake
         run: |
-          qmake QuiteRSS.pro CONFIG+=release
+          set +e
+          qmake QuiteRSS.pro CONFIG+=release 2>&1 | tee qmake.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "::error::DBG_QT6_QMAKE status=$status log_lines=$(wc -l < qmake.log 2>/dev/null || echo 0)"
+            grep -nE 'Project ERROR|Unknown module|error|Error|cannot|fatal' qmake.log | head -40 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            tail -40 qmake.log | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+          fi
+          exit $status
 
       - name: Build
         run: |

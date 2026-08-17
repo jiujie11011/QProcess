@@ -365,6 +365,11 @@ public:
   QList<ClosedTabInfo> closedTabs_;
 
 public slots:
+  // Entry points invoked from NewsTabWidget via new-style connects; they must
+  // stay public so their addresses can be taken from other classes.
+  void findText();
+  void setTextTitle(const QString &text, NewsTabWidget *widget);
+
   void restoreFeedsOnStartUp();
   void addFeed();
   void addFolder();
@@ -545,7 +550,6 @@ private slots:
   void slotPageUpWebView();
   void slotPageDownWebView();
   void setCurrentTab(int index, bool updateCurrentTab = false);
-  void findText();
 
   void showNotification(bool bShowRecentNews=false);
   void deleteNotification();
@@ -583,8 +587,6 @@ private slots:
   void setLabelNews(QAction *action);
   void setDefaultLabelNews();
   void getLabelNews();
-
-  void setTextTitle(const QString &text, NewsTabWidget *widget);
 
   void lockMainToolbar(bool lock);
   void hideMainToolbar();

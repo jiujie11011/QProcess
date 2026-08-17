@@ -373,7 +373,17 @@ bool NewsModel::selectWithLimit()
   if (!sql.contains("ORDER BY", Qt::CaseInsensitive))
     sql += QString(" ORDER BY id DESC");
   sql += QString(" LIMIT %1").arg(loadedLimit_);
-  setQuery(sql, database());
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  // QSqlQueryModel::setQuery(QString, QSqlDatabase) was removed in Qt6.
+  QSqlQuery query(database());
+  query.setForwardOnly(true);
+  query.exec(sql);
+  QSqlQueryModel::setQuery(query);
+#else
+  // QSqlTableModel declares setQuery(const QSqlQuery&) which hides the
+  // two-argument overload inherited from QSqlQueryModel; qualify it.
+  QSqlQueryModel::setQuery(sql, database());
+#endif
   return !lastError().isValid();
 }
 
