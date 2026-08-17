@@ -9,7 +9,8 @@
 #include <QSplitterHandle>
 #include <QMouseEvent>
 #include <QPaintEvent>
-#include <QHoverEvent>
+#include <QEvent>
+#include <QColor>
 
 class SplitterHandle : public QSplitterHandle
 {
@@ -35,8 +36,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
-    void hoverEnterEvent(QHoverEvent* event) override;
-    void hoverLeaveEvent(QHoverEvent* event) override;
+    bool event(QEvent* event) override;
 
 private:
     int minPx_ = 200;

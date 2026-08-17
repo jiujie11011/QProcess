@@ -11,6 +11,8 @@
 #include <QDir>
 #include <QMutex>
 #include <QApplication>
+#include <QRegularExpression>
+#include <QStringList>
 
 static QHash<QString, QString> s_svgCache;
 static QMutex s_cacheMutex;
@@ -224,4 +226,3 @@ void SvgIconEngine::preloadAll(const QString& iconsDir)
     qDebug() << "[SvgIconEngine] 预加载完成，共" << s_svgCache.size() << "个图标";
 }
 
-#include "moc_svgiconengine.cpp"

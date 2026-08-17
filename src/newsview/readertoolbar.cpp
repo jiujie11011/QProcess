@@ -8,9 +8,11 @@
 #include <QIcon>
 #include <QAction>
 #include <QMenu>
-#include <QEnterEvent>
 #include <QEvent>
 #include <QDebug>
+#if defined(QT6)
+#include <QEnterEvent>
+#endif
 
 ReaderToolbar::ReaderToolbar(QWidget* parent)
     : QWidget(parent)
@@ -137,7 +139,11 @@ void ReaderToolbar::updateIcons()
     actMore_->setText("⋯");
 }
 
+#if defined(QT6)
 void ReaderToolbar::enterEvent(QEnterEvent* event)
+#else
+void ReaderToolbar::enterEvent(QEvent* event)
+#endif
 {
     if (!hoverExpand_) {
         // TODO: 悬停时展开动画（显示更多按钮、或全部按钮淡入）
@@ -153,4 +159,3 @@ void ReaderToolbar::leaveEvent(QEvent* event)
     QWidget::leaveEvent(event);
 }
 
-#include "moc_readertoolbar.cpp"

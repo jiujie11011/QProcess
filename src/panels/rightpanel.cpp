@@ -44,7 +44,7 @@ void RightPanel::setupUI()
     modeButtons_ = new QButtonGroup(this);
     modeButtons_->setExclusive(true);
 
-    auto makeModeBtn = [this](Mode mode, const QString& text, const QString& tooltip) {
+    auto makeModeBtn = [this, toolLayout](Mode mode, const QString& text, const QString& tooltip) {
         auto* btn = new QToolButton;
         btn->setCheckable(true);
         btn->setText(text);
@@ -132,7 +132,7 @@ void RightPanel::setupSummaryPage()
     QToolButton* btnCopy = new QToolButton;
     btnCopy->setText("复制");
     btnCopy->setCursor(Qt::PointingHandCursor);
-    connect(btnCopy, &QToolButton::clicked, this, [browser] {
+    connect(btnCopy, &QToolButton::clicked, this, [this, browser] {
         emit copyRequested(browser->toPlainText());
     });
     actions->addStretch();
@@ -295,4 +295,3 @@ void RightPanel::updatePage()
     }
 }
 
-#include "moc_rightpanel.cpp"

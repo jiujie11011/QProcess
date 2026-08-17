@@ -895,6 +895,18 @@ private:
   QLabel *playerTimeLabel_;
   QToolButton *playerCloseButton_;
 
+  // Codex UI New Layout (Phase 2) - skeleton declarations only
+  // These will be connected after compilation is fixed
+  QFrame *navRailFrame_;
+  QWidget *sidebarShell_;
+  QWidget *rightPanel_;
+  QSplitter *mainSplitterCodex_;
+  QSplitter *sidebarSplitter_;
+  QSplitter *contentSplitter_;
+  bool codexLayoutEnabled_;
+  int sidebarWidth_;
+  int rightPanelWidth_;
+
   bool soundNewNews_;
   QString soundNotifyPath_;
   bool playSoundNewNews_;

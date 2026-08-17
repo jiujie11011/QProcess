@@ -160,6 +160,12 @@ public:
   QComboBox *accentColorCombo_;
   QLineEdit *accentColorEdit_;
 
+  // Appearance settings (Codex UI)
+  QComboBox *themeModeCombo_;
+  QComboBox *fontSizeCombo_;
+  QComboBox *listDensityCombo_;
+  QCheckBox *reduceMotionCheck_;
+
   void selectAccentColor(const QString &color);
   QString accentColor();
 
@@ -419,6 +425,12 @@ private:
   QPushButton *rsshubRemoveButton_;
   QPushButton *rsshubCheckButton_;
   QPushButton *rsshubFetchButton_;
+
+  // appearance
+  void createAppearanceWidget();
+  void loadAppearanceSettings();
+  void saveAppearanceSettings();
+  QFrame *appearanceWidget_;
 
   // general
   void createGeneralWidget();

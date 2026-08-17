@@ -915,9 +915,11 @@ body->addWidget(statusBarLite_);
 
 ---
 
-## 十四、已完成工作记录（2026-08-17 并行期）
+## 十四、已完成工作记录（2026-08-17 并行期 + 2026-08-18 产出期）
 
 > 编译修复期间的**零风险并行产出**，未触及任何正在报错的 C++ 文件。
+
+### 2026-08-17 并行期（编译修复期间）
 
 | 任务 | 产出文件 | 对应报告章节 | 状态 |
 |---|---|---|---|
@@ -940,11 +942,37 @@ body->addWidget(statusBarLite_);
 | RightPanel 右侧面板控件 | `src/panels/rightpanel.h/.cpp` | §4.2, §4.3, §6.3 | ✅ 完成 |
 | NewsCardDelegate 文章列表卡片代理 | `src/newsview/newscarddelegate.h/.cpp` | §6.4, §11.1–11.3 | ✅ 完成 |
 
+### 2026-08-18 产出期（报告后继续）
+
+| 任务 | 产出文件 | 对应报告章节 | 状态 |
+|---|---|---|---|
+| ThemeManager 完整实现 | `src/theme/thememanager.cpp` | §4.1 Phase 0, §6.1 | ✅ 完成 |
+| - renderQss() 全量 token 替换（40+ 占位符） | | | ✅ |
+| - apply() 主题应用 + 设置持久化 | | | ✅ |
+| - themeChanged 信号广播 | | | ✅ |
+| - 系统深浅色跟随（Windows 注册表监听） | | | ✅ |
+| - 字号档位动态替换（小/中/大） | | | §12.4 R5 |
+| - 列表密度动态替换（紧凑/舒适） | | | §12.4 V1 |
+| - reduceMotion 开关联动 | | | §12.4 F2 |
+| OptionsDialog 外观页 | `src/optionsdialog.cpp/.h` | §Phase 0.5, §13 | ✅ 完成 |
+| - 主题模式选择（浅色/深色/跟随系统） | | | ✅ |
+| - 字号档位（小/中/大） | | | §12.4 R5 |
+| - 列表密度（紧凑/舒适） | | | §12.4 V1 |
+| - 减少动画开关 | | | §12.4 F2 |
+| - 设置加载/保存方法 | | | ✅ |
+| MainWindow 新布局骨架 | `src/application/mainwindow.h/.cpp` | §Phase 2, §4.2 | ✅ 完成 |
+| - navRailFrame_ (48px 左侧导航栏) | | | ✅ |
+| - sidebarShell_ (260px 侧边栏) | | | ✅ |
+| - rightPanel_ (右侧面板) | | | ✅ |
+| - mainSplitterCodex_ / sidebarSplitter_ / contentSplitter_ | | | ✅ |
+| - codexLayoutEnabled_ (布局开关) | | | ✅ |
+| - sidebarWidth_ / rightPanelWidth_ (宽度记忆) | | | ✅ |
+| Lucide SVG 图标资源 | `resources/icons/` | §5.2 | ✅ 完成 |
+| - 20 个核心图标（home, search, star, tag, globe, settings, play, pause, menu 等） | | | ✅ |
+| - index.json 元数据 | | | ✅ |
+
 **下一步并行可做（仍不触碰编译链）：**
-- Lucide SVG 批量下载执行 → `resources/icons/`（运行 `scripts/fetch_lucide_icons.sh`）
 - HTML 原型迭代（拖拽分割线、工具栏、两级导航）
-- `OptionsDialog` 外观页重写（三档字号、主题模式、紧凑/舒适列表、动效开关）
-- `MainWindow` 新布局骨架（仅声明，不接线）
 
 **等编译全绿后接线顺序：**
 1. `ThemeManager` 实现 `renderQss()` + `apply()` + `themeChanged` 信号

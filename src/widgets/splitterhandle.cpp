@@ -93,18 +93,21 @@ void SplitterHandle::mouseReleaseEvent(QMouseEvent* event)
     }
 }
 
-void SplitterHandle::hoverEnterEvent(QHoverEvent* event)
+bool SplitterHandle::event(QEvent* event)
 {
-    hovered_ = true;
-    update();
-    QSplitterHandle::hoverEnterEvent(event);
-}
-
-void SplitterHandle::hoverLeaveEvent(QHoverEvent* event)
-{
-    hovered_ = false;
-    update();
-    QSplitterHandle::hoverLeaveEvent(event);
+    switch (event->type()) {
+        case QEvent::HoverEnter:
+            hovered_ = true;
+            update();
+            break;
+        case QEvent::HoverLeave:
+            hovered_ = false;
+            update();
+            break;
+        default:
+            break;
+    }
+    return QSplitterHandle::event(event);
 }
 
 QColor SplitterHandle::handleColor() const
@@ -116,4 +119,3 @@ QColor SplitterHandle::handleColor() const
     return Qt::transparent;
 }
 
-#include "moc_splitterhandle.cpp"

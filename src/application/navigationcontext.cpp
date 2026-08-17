@@ -129,5 +129,3 @@ void NavigationContext::updateStarredCount(const QString& feedId, int count)
         emit starredCountChanged(feedId, count);
     }
 }
-
-#include "moc_navigationcontext.cpp"

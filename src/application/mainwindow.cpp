@@ -121,6 +121,15 @@ MainWindow::MainWindow(QWidget *parent)
   , updateDoneCount_(0)
   , updateFailedCount_(0)
   , updatePaused_(false)
+  , navRailFrame_(nullptr)
+  , sidebarShell_(nullptr)
+  , rightPanel_(nullptr)
+  , mainSplitterCodex_(nullptr)
+  , sidebarSplitter_(nullptr)
+  , contentSplitter_(nullptr)
+  , codexLayoutEnabled_(false)
+  , sidebarWidth_(260)
+  , rightPanelWidth_(300)
 {
   setObjectName("mainWindow");
   setWindowTitle("Quill");

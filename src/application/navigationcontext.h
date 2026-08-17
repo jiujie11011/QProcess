@@ -11,6 +11,9 @@
 #include <QString>
 #include <QVariant>
 #include <QVector>
+#include <QDateTime>
+#include <QStringList>
+#include <QHash>
 
 class NavigationContext : public QObject
 {

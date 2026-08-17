@@ -35,7 +35,7 @@ greaterThan(QT_MAJOR_VERSION, 4) {
   # Qt5 and Qt6 share the same modern module set (Qt6 WebEngine module is
   # "webenginewidgets" as well). HAVE_QT5 selects the modern code path; the
   # legacy Qt4/Phonon path only applies to Qt <= 4 builds.
-  QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia concurrent
+  QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia concurrent svg
   DEFINES += HAVE_QT5
   # qt6compat.h (force-included below) branches on these macros instead of
   # including <QtGlobal>: some translation units have no Qt include dirs in
@@ -179,6 +179,15 @@ HEADERS += \
     src/feedsview/feedsproxymodel.h \
     src/feedsview/groupbydateproxymodel.h \
     src/main/globals.h \
+    src/player/playerbar.h \
+    src/panels/rightpanel.h \
+    src/theme/thememanager.h \
+    src/theme/svgiconengine.h \
+    src/theme/tokens.h \
+    src/application/navigationcontext.h \
+    src/newsview/readertoolbar.h \
+    src/newsview/newscarddelegate.h \
+    src/widgets/splitterhandle.h \
 
 SOURCES += \
     src/parseobject.cpp \
@@ -277,7 +286,16 @@ SOURCES += \
     src/network/networkmanagerproxy.cpp \
     src/adblock/adblockmatcher.cpp \
     src/feedsview/feedsproxymodel.cpp \
-    src/feedsview/groupbydateproxymodel.cpp
+    src/feedsview/groupbydateproxymodel.cpp \
+    src/player/playerbar.cpp \
+    src/panels/rightpanel.cpp \
+    src/theme/thememanager.cpp \
+    src/theme/svgiconengine.cpp \
+    src/theme/tokens.cpp \
+    src/application/navigationcontext.cpp \
+    src/newsview/readertoolbar.cpp \
+    src/newsview/newscarddelegate.cpp \
+    src/widgets/splitterhandle.cpp
 
 INCLUDEPATH +=  $$PWD/src \
                 $$PWD/src/application \
@@ -298,6 +316,10 @@ INCLUDEPATH +=  $$PWD/src \
                 $$PWD/src/adblock \
                 $$PWD/src/network \
                 $$PWD/src/webview \
+                $$PWD/src/player \
+                $$PWD/src/panels \
+                $$PWD/src/widgets \
+                $$PWD/src/theme \
 
 CONFIG += debug_and_release
 CONFIG(debug, debug|release) {

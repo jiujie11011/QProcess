@@ -3,6 +3,9 @@
  * 版本：v1.4
  * ============================================================ */
 #include "playerbar.h"
+#if !defined(QT6)
+#include <QMediaContent>
+#endif
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -86,7 +89,11 @@ void PlayerBar::setupUI()
     QToolButton* btnStop = makeBtn("停止", "⏹");
 
     connect(btnPlay, &QToolButton::clicked, this, [this] {
+#if defined(QT6)
         if (player_->playbackState() == QMediaPlayer::PlayingState)
+#else
+        if (player_->state() == QMediaPlayer::PlayingState)
+#endif
             pause();
         else
             resume();
@@ -148,8 +155,14 @@ void PlayerBar::setupPlayer()
 {
     player_ = new QMediaPlayer(this);
     audioOutput_ = new QAudioOutput(this);
+#if defined(QT6)
     player_->setAudioOutput(audioOutput_);
+#else
+    // Qt5：QAudioOutput 不直接挂接 QMediaPlayer，音量经 player_->setVolume 生效
+    player_->setVolume(0.8);
+#endif
 
+#if defined(QT6)
     connect(player_, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState state) {
         emit playbackStateChanged(state);
         updateControls();
@@ -157,6 +170,15 @@ void PlayerBar::setupPlayer()
             emit mediaEnded();
         }
     });
+#else
+    connect(player_, SIGNAL(stateChanged(QMediaPlayer::State)), this, [this](QMediaPlayer::State state) {
+        emit playbackStateChanged(state);
+        updateControls();
+        if (state == QMediaPlayer::StoppedState && !userSeeking_) {
+            emit mediaEnded();
+        }
+    });
+#endif
 
     connect(player_, &QMediaPlayer::positionChanged, this, [this](qint64 pos) {
         if (!userSeeking_) {
@@ -170,18 +192,29 @@ void PlayerBar::setupPlayer()
         emit durationChanged(dur);
     });
 
+#if defined(QT6)
     connect(player_, &QMediaPlayer::errorOccurred, this, [this](QMediaPlayer::Error error, const QString& errorString) {
         Q_UNUSED(error);
         emit errorOccurred(errorString);
         stop();
     });
+#else
+    connect(player_, SIGNAL(error(QMediaPlayer::Error)), this, [this] {
+        emit errorOccurred(player_->errorString());
+        stop();
+    });
+#endif
 }
 
 void PlayerBar::play(const QUrl& url, MediaType type)
 {
     currentUrl_ = url;
     currentType_ = type;
+#if defined(QT6)
     player_->setSource(url);
+#else
+    player_->setMedia(QMediaContent(url));
+#endif
     player_->play();
     setVisible(true);
     updateControls();
@@ -219,5 +252,3 @@ void PlayerBar::updateControls()
 {
     // TODO: 更新播放/暂停按钮图标、标题/作者标签
 }
-
-#include "moc_playerbar.cpp"

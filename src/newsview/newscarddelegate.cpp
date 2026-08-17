@@ -7,6 +7,8 @@
 #include <QStyleOptionViewItem>
 #include <QApplication>
 #include <QFontMetrics>
+#include <QMouseEvent>
+#include <QVariant>
 #include <QDebug>
 
 NewsCardDelegate::NewsCardDelegate(QObject* parent)
@@ -330,7 +332,7 @@ void NewsCardDelegate::drawV3(QPainter* painter, const QRect& rect,
 
 bool NewsCardDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
                                    const QStyleOptionViewItem& option,
-                                   const QModelIndex& index) const
+                                   const QModelIndex& index)
 {
     if (event->type() == QEvent::MouseButtonRelease) {
         auto* me = static_cast<QMouseEvent*>(event);
@@ -346,7 +348,7 @@ bool NewsCardDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
                 if (!data.tags.isEmpty()) emit tagClicked(data.tags.first());
                 return true;
             case HitArea::Feed:
-                emit feedClicked(data.feedId());
+                emit feedClicked(data.feedId);
                 return true;
             default:
                 break;
@@ -376,4 +378,3 @@ NewsCardDelegate::HitArea NewsCardDelegate::hitTest(const QPoint& pos, const QRe
     return HitArea::None;
 }
 
-#include "moc_newscarddelegate.cpp"

@@ -12,6 +12,8 @@
 #include <QModelIndex>
 #include <QRect>
 #include <QSize>
+#include <QDateTime>
+#include <QStringList>
 
 class NewsCardDelegate : public QStyledItemDelegate
 {
@@ -28,6 +30,7 @@ public:
         QString id;
         QString title;
         QString summary;
+        QString feedId;
         QString feedTitle;
         QString feedIcon;      // Lucide 图标名
         QDateTime pubDate;
@@ -72,7 +75,7 @@ signals:
 protected:
     bool editorEvent(QEvent* event, QAbstractItemModel* model,
                      const QStyleOptionViewItem& option,
-                     const QModelIndex& index) const override;
+                     const QModelIndex& index) override;
 
 private:
     VisualLevel visualLevel_ = VisualLevel::V2_Card;

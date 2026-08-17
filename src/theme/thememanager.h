@@ -8,9 +8,10 @@
 
 #include <QObject>
 #include <QString>
+#include <QAbstractNativeEventFilter>
 #include "tokens.h"
 
-class ThemeManager : public QObject
+class ThemeManager : public QObject, public QAbstractNativeEventFilter
 {
     Q_OBJECT
 public:

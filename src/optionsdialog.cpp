@@ -78,6 +78,9 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   treeItem << "0" << tr("General");
   categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
   treeItem.clear();
+  treeItem << "16" << tr("Appearance");
+  categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
+  treeItem.clear();
   treeItem << "1" << tr("System Tray");
   categoriesTree_->addTopLevelItem(new QTreeWidgetItem(treeItem));
   treeItem.clear();
@@ -125,6 +128,8 @@ OptionsDialog::OptionsDialog(QWidget *parent)
 
   createGeneralWidget();
 
+  createAppearanceWidget();
+
   createTraySystemWidget();
 
   createNetworkConnectionsWidget();
@@ -159,6 +164,7 @@ OptionsDialog::OptionsDialog(QWidget *parent)
   contentStack_ = new QStackedWidget();
   contentStack_->setObjectName("contentStack_");
   contentStack_->addWidget(generalWidget_);
+  contentStack_->addWidget(appearanceWidget_);
   contentStack_->addWidget(traySystemWidget_);
   contentStack_->addWidget(networkConnectionsWidget_);
   contentStack_->addWidget(browserWidget_);
@@ -373,6 +379,87 @@ bool OptionsDialog::eventFilter(QObject *obj, QEvent *event)
   } else {
     return QDialog::eventFilter(obj, event);
   }
+}
+
+/** @brief Create widget "Appearance" - Codex UI Theme Settings
+ *----------------------------------------------------------------------------*/
+void OptionsDialog::createAppearanceWidget()
+{
+  appearanceWidget_ = new QFrame();
+
+  QLabel *themeModeLabel = new QLabel(tr("Theme:"));
+  themeModeCombo_ = new QComboBox();
+  themeModeCombo_->addItem(tr("Light"), 0);
+  themeModeCombo_->addItem(tr("Dark"), 1);
+  themeModeCombo_->addItem(tr("System (Follow OS)"), 2);
+  themeModeCombo_->setToolTip(tr("Choose application theme or follow system settings"));
+
+  QLabel *fontSizeLabel = new QLabel(tr("Font Size:"));
+  fontSizeCombo_ = new QComboBox();
+  fontSizeCombo_->addItem(tr("Small (Compact)"), 0);
+  fontSizeCombo_->addItem(tr("Medium (Comfortable)"), 1);
+  fontSizeCombo_->addItem(tr("Large"), 2);
+  fontSizeCombo_->setToolTip(tr("Adjust text size across the application"));
+
+  QLabel *listDensityLabel = new QLabel(tr("List Density:"));
+  listDensityCombo_ = new QComboBox();
+  listDensityCombo_->addItem(tr("Compact"), 0);
+  listDensityCombo_->addItem(tr("Comfortable"), 1);
+  listDensityCombo_->setToolTip(tr("Adjust row height in feed lists"));
+
+  reduceMotionCheck_ = new QCheckBox(tr("Reduce Motion"));
+  reduceMotionCheck_->setToolTip(tr("Disable animations and transitions for accessibility"));
+
+  QGroupBox *themeGroup = new QGroupBox(tr("Theme"));
+  QVBoxLayout *themeLayout = new QVBoxLayout();
+  themeLayout->addWidget(themeModeLabel);
+  themeLayout->addWidget(themeModeCombo_);
+  themeGroup->setLayout(themeLayout);
+
+  QGroupBox *displayGroup = new QGroupBox(tr("Display"));
+  QVBoxLayout *displayLayout = new QVBoxLayout();
+  displayLayout->addWidget(fontSizeLabel);
+  displayLayout->addWidget(fontSizeCombo_);
+  displayLayout->addWidget(listDensityLabel);
+  displayLayout->addWidget(listDensityCombo_);
+  displayLayout->addWidget(reduceMotionCheck_);
+  displayGroup->setLayout(displayLayout);
+
+  QVBoxLayout *mainLayout = new QVBoxLayout();
+  mainLayout->addWidget(themeGroup);
+  mainLayout->addWidget(displayGroup);
+  mainLayout->addStretch();
+
+  appearanceWidget_->setLayout(mainLayout);
+
+  loadAppearanceSettings();
+}
+
+void OptionsDialog::loadAppearanceSettings()
+{
+  QSettings settings;
+
+  int themeMode = settings.value("appearance/themeMode", 2).toInt();
+  themeModeCombo_->setCurrentIndex(themeMode);
+
+  int fontSize = settings.value("appearance/fontSize", 1).toInt();
+  fontSizeCombo_->setCurrentIndex(fontSize);
+
+  int density = settings.value("appearance/listDensity", 1).toInt();
+  listDensityCombo_->setCurrentIndex(density);
+
+  bool reduceMotion = settings.value("interface/reduceMotion", false).toBool();
+  reduceMotionCheck_->setChecked(reduceMotion);
+}
+
+void OptionsDialog::saveAppearanceSettings()
+{
+  QSettings settings;
+
+  settings.setValue("appearance/themeMode", themeModeCombo_->currentIndex());
+  settings.setValue("appearance/fontSize", fontSizeCombo_->currentIndex());
+  settings.setValue("appearance/listDensity", listDensityCombo_->currentIndex());
+  settings.setValue("interface/reduceMotion", reduceMotionCheck_->isChecked());
 }
 
 /** @brief Create windget "General"

@@ -10,6 +10,12 @@
 #include <QStackedWidget>
 #include <QToolButton>
 #include <QString>
+#include <QDateTime>
+#include <QStringList>
+
+class QLabel;
+class QScrollArea;
+class QButtonGroup;
 
 class RightPanel : public QFrame
 {
@@ -65,11 +71,11 @@ private:
     int maxWidth_ = 700;
 
     QStackedWidget* stack_;
-    QWidget* emptyPage_;
+    QLabel* emptyPage_;
     QWidget* summaryPage_;
-    QWidget* detailsPage_;
+    QScrollArea* detailsPage_;
     QWidget* diffPage_;
-    QWidget* terminalPage_;
+    QLabel* terminalPage_;
 
     // Toolbar（顶部标签栏）
     QWidget* toolbar_;

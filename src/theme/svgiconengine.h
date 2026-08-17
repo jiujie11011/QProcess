@@ -7,6 +7,7 @@
 #define SVGICONENGINE_H
 
 #include <QIconEngine>
+#include <QIcon>
 #include <QPainter>
 #include <QPixmap>
 #include <QString>

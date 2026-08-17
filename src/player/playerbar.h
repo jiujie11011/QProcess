@@ -12,6 +12,12 @@
 #include <QTimer>
 #include <QUrl>
 
+#if !defined(QT6)
+#include <QMediaContent>
+#endif
+
+class QSlider;
+
 class PlayerBar : public QWidget
 {
     Q_OBJECT
@@ -39,14 +45,24 @@ public:
     void setVolume(float volume); // 0.0-1.0
 
     // 是否正在播放
-    bool isPlaying() const { return player_->playbackState() == QMediaPlayer::PlayingState; }
+    bool isPlaying() const {
+#if defined(QT6)
+        return player_->playbackState() == QMediaPlayer::PlayingState;
+#else
+        return player_->state() == QMediaPlayer::PlayingState;
+#endif
+    }
 
     // 当前媒体信息
     QUrl currentUrl() const { return currentUrl_; }
     MediaType currentMediaType() const { return currentType_; }
 
 signals:
+#if defined(QT6)
     void playbackStateChanged(QMediaPlayer::PlaybackState state);
+#else
+    void playbackStateChanged(QMediaPlayer::State state);
+#endif
     void positionChanged(qint64 ms);
     void durationChanged(qint64 ms);
     void volumeChanged(float volume);
@@ -65,7 +81,7 @@ private:
 
     // UI 组件
     QWidget* trackInfo_;      // 标题/作者
-    QWidget* progressBar_;    // 进度条（可拖拽）
+    QSlider* progressBar_;    // 进度条（可拖拽）
     QWidget* controls_;       // 播放/暂停/停止/静音/音量
     QWidget* extra_;          // 倍速/播放列表/全屏等
 

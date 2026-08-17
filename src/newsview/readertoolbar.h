@@ -9,6 +9,10 @@
 #include <QWidget>
 #include <QAction>
 #include <QMenu>
+#include <QEvent>
+#if defined(QT6)
+#include <QEnterEvent>
+#endif
 
 class ReaderToolbar : public QWidget
 {
@@ -55,7 +59,11 @@ private:
     bool hoverExpand_ = false;
 
 protected:
+#if defined(QT6)
     void enterEvent(QEnterEvent* event) override;
+#else
+    void enterEvent(QEvent* event) override;
+#endif
     void leaveEvent(QEvent* event) override;
 };
 
