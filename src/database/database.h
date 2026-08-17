@@ -35,6 +35,7 @@ private:
   static void setPragma(QSqlDatabase &db);
   static void createTables(QSqlDatabase &db);
   static void createIndexes(QSqlDatabase &db);
+  static void createFtsTable(QSqlDatabase &db);
   static void prepareDatabase();
   static void createLabels(QSqlDatabase &db);
   static void addColumnsToFeedsTables(QSqlDatabase &db);

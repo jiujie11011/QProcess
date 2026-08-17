@@ -22,6 +22,7 @@
 #include "common.h"
 
 #include <QDebug>
+#include <QLocale>
 #include <QtSql>
 #include <qzregexp.h>
 
@@ -278,6 +279,16 @@ void RequestFeed::sendRequest(const QUrl &getUrl, int id, const QString &feedUrl
   request.setRawHeader("Cache-Control", "no-store");
   if (!head) {
     request.setRawHeader("Accept", "application/feed+json,application/atom+xml,application/rss+xml;q=0.9,application/json;q=0.8,application/xml;q=0.8,text/xml;q=0.7,*/*;q=0.6");
+
+    // Conditional GET (RFC 7232): ask the server to skip the body when the
+    // feed has not changed since the last successful fetch. The server then
+    // replies "304 Not Modified" and finished() short-circuits without
+    // downloading or parsing anything. date is the feed's last update time.
+    if (date.isValid()) {
+      const QString lastModified = QLocale::c().toString(
+            date.toUTC(), QLatin1String("ddd, dd MMM yyyy HH:mm:ss 'GMT'"));
+      request.setRawHeader("If-Modified-Since", lastModified.toLatin1());
+    }
   }
 
   qDebug() << objectName() << (head ? "::head" : "::get") << ":" << getUrl.toEncoded()
@@ -375,8 +386,18 @@ void RequestFeed::finished(QNetworkReply *reply)
         emit signalGet(replyUrl, feedId, feedUrl, feedDate, 0, proxyUrl);
       }
     } else {
-      QUrl redirectionTarget = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
-      if (redirectionTarget.isValid()) {
+      // Conditional GET: "304 Not Modified" means the feed content has not
+      // changed since If-Modified-Since. Skip the body download, the XML
+      // cleanup and the parse step; just finish the task as unchanged (empty
+      // data with a non-negative result keeps the feed status normal).
+      if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 304) {
+        qDebug() << "  304 Not Modified:" << feedUrl;
+        emit getUrlDone(feedsQueue_.count(), feedId, feedUrl, "",
+                        QByteArray(), feedDate, QString());
+        countTask(feedsQueue_.count());
+      } else {
+        QUrl redirectionTarget = reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
+        if (redirectionTarget.isValid()) {
         if (count < (numberRepeats_ + 3)) {
           if (headOk && (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 302)) {
             emit signalGet(replyUrl, feedId, feedUrl, feedDate, 0, proxyUrl);
@@ -462,6 +483,7 @@ void RequestFeed::finished(QNetworkReply *reply)
           emit getUrlDone(feedsQueue_.count(), feedId, feedUrl, "", data, replyLocalDate, codecName);
           countTask(feedsQueue_.count());
         }
+      }
       }
     }
   } else {

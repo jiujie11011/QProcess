@@ -26,7 +26,7 @@
 
 #include <sqlite3.h>
 
-const int versionDB = 22;
+const int versionDB = 23;
 
 const QString kCreateFeedsTableQuery(
     "CREATE TABLE feeds("
@@ -424,6 +424,12 @@ void Database::prepareDatabase()
           q.exec("ALTER TABLE news ADD COLUMN summary varchar");
         }
 
+        // Version 23: FTS5 full-text index + triggers + backfill. Best-effort:
+        // fails silently when the bundled SQLite lacks FTS5.
+        if (dbVersion < 23) {
+          createFtsTable(db);
+        }
+
         createIndexes(db);
 
         // Update appVersion anyway
@@ -500,6 +506,8 @@ void Database::createTables(QSqlDatabase &db)
   db.exec(kCreateExcludeAutoMarkTableQuery);
   // Version 19 tables
   db.exec(kCreateRecommendationsTableQuery);
+  // Version 23: FTS5 full-text index (best-effort, see createFtsTable)
+  createFtsTable(db);
 
   db.commit();
 }
@@ -517,6 +525,48 @@ void Database::createIndexes(QSqlDatabase &db)
   db.exec("CREATE INDEX IF NOT EXISTS idx_stats_date_type ON stats(date, type)");
 
   db.commit();
+}
+
+/** @brief Create the FTS5 full-text index over news title/content/description
+ *
+ * An external-content virtual table keeps the index in sync with news via
+ * INSERT/DELETE/UPDATE triggers. Every step is best-effort: when the bundled
+ * SQLite was compiled without FTS5 support the calls fail silently and the
+ * application keeps working with the LIKE-based search fallback. Backfill of
+ * existing rows only happens when the index has no data yet, so re-running
+ * after a crash is harmless.
+ *---------------------------------------------------------------------------*/
+void Database::createFtsTable(QSqlDatabase &db)
+{
+  QSqlQuery q(db);
+  q.setForwardOnly(true);
+
+  q.exec("CREATE VIRTUAL TABLE IF NOT EXISTS news_fts USING fts5("
+         "title, content, description, "
+         "content='news', content_rowid='id')");
+  if (q.lastError().type() != QSqlError::NoError)
+    return; // FTS5 unavailable in this SQLite build
+
+  q.exec("CREATE TRIGGER IF NOT EXISTS news_fts_ai AFTER INSERT ON news BEGIN "
+         "INSERT INTO news_fts(rowid, title, content, description) "
+         "VALUES (new.id, new.title, new.content, new.description); END");
+  q.exec("CREATE TRIGGER IF NOT EXISTS news_fts_ad AFTER DELETE ON news BEGIN "
+         "INSERT INTO news_fts(news_fts, rowid, title, content, description) "
+         "VALUES ('delete', old.id, old.title, old.content, old.description); END");
+  q.exec("CREATE TRIGGER IF NOT EXISTS news_fts_au AFTER UPDATE ON news BEGIN "
+         "INSERT INTO news_fts(news_fts, rowid, title, content, description) "
+         "VALUES ('delete', old.id, old.title, old.content, old.description); "
+         "INSERT INTO news_fts(rowid, title, content, description) "
+         "VALUES (new.id, new.title, new.content, new.description); END");
+
+  QSqlQuery qc(db);
+  qc.setForwardOnly(true);
+  qc.exec("SELECT count(*) FROM news_fts");
+  if (qc.next() && qc.value(0).toLongLong() == 0) {
+    // Backfill rows that predate the index.
+    q.exec("INSERT INTO news_fts(rowid, title, content, description) "
+           "SELECT id, title, content, description FROM news");
+  }
 }
 
 void Database::createLabels(QSqlDatabase &db)

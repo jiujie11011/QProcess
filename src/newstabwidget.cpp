@@ -18,6 +18,8 @@
 #include "newstabwidget.h"
 
 #include "mainapplication.h"
+#include "ftssearch.h"
+#include "htmlsanitizer.h"
 #include "adblockicon.h"
 #include "settings.h"
 #include "webpage.h"
@@ -1834,6 +1836,15 @@ void NewsTabWidget::updateWebView(QModelIndex index)
           content = cached;
       }
     }
+
+    // Security: strip scripts, event handlers and dangerous URL schemes from
+    // the untrusted article HTML before it is rendered by WebEngine. This
+    // runs after the fallback chain above so every source (translated
+    // content, fetched full text, offline cache, original feed content) is
+    // covered, while the lightbox/code-highlighter tags injected later stay
+    // untouched.
+    content = HtmlSanitizer::sanitize(content);
+
     if (!content.contains(QzRegExp("<html(.*)</html>", Qt::CaseInsensitive))) {
       QString description = newsModel_->dataField(index.row(), "description").toString();
       if (content.isEmpty() || (description.length() > content.length())) {
@@ -2451,6 +2462,10 @@ void NewsTabWidget::loadNewspaper(int refresh)
       if (content.isEmpty() || (description.length() > content.length())) {
         content = description;
       }
+
+      // Security: same sanitizer as the single-article view - strip scripts,
+      // event handlers and dangerous URL schemes from remote content.
+      content = HtmlSanitizer::sanitize(content);
 
       //      QTextDocumentFragment textDocument = QTextDocumentFragment::fromHtml(content);
       //      content = textDocument.toPlainText();
@@ -3226,9 +3241,29 @@ void NewsTabWidget::slotFindText(const QString &text)
         filterStr.append(
               QString(" AND UPPER(category) LIKE '%%1%'").arg(findText));
       } else if (objectName == "findContentAct") {
-        filterStr.append(
-              QString(" AND (UPPER(content) LIKE '%%1%' OR UPPER(description) LIKE '%%1%')").
-              arg(findText));
+        // FTS5 fast path for ASCII terms: the unicode61 tokenizer treats a run
+        // of CJK characters as a single token, so Chinese substrings would not
+        // match - those keep the LIKE fallback. matchTerm() returns a quoted
+        // phrase with no single quotes, safe to embed in this SQL string.
+        bool ftsAvailable = false;
+        if (FtsSearch::isAsciiOnly(text)) {
+          QSqlQuery qfts(db_);
+          qfts.setForwardOnly(true);
+          qfts.exec("SELECT count(*) FROM sqlite_master "
+                    "WHERE name='news_fts' AND type='table'");
+          if (qfts.next())
+            ftsAvailable = qfts.value(0).toInt() > 0;
+        }
+        if (ftsAvailable) {
+          filterStr.append(QString(
+                " AND EXISTS (SELECT 1 FROM news_fts WHERE news_fts MATCH '%1' "
+                "AND news_fts.rowid = news.id)").
+              arg(FtsSearch::matchTerm(findText)));
+        } else {
+          filterStr.append(
+                QString(" AND (UPPER(content) LIKE '%%1%' OR UPPER(description) LIKE '%%1%')").
+                arg(findText));
+        }
       } else if (objectName == "findLinkAct") {
         filterStr.append(
               QString(" AND link_href LIKE '%%1%'").

@@ -112,6 +112,8 @@ HEADERS += \
     src/webview/webview.h \
     src/database/database.h \
     src/common/common.h \
+    src/common/ftssearch.h \
+    src/common/htmlsanitizer.h \
     src/common/delegatewithoutfocus.h \
     src/importexport/jsonfeeds.h \
     src/importexport/feedurldetector.h \
@@ -228,6 +230,8 @@ SOURCES += \
     src/feedsmanagement/scriptfeedrunner.cpp \
     src/progress/progressservice.cpp \
     src/common/common.cpp \
+    src/common/ftssearch.cpp \
+    src/common/htmlsanitizer.cpp \
     src/common/delegatewithoutfocus.cpp \
     src/common/dialog.cpp \
     src/common/lineedit.cpp \

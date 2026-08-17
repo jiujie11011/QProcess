@@ -71,6 +71,13 @@ jobs:
           fi
           exit $status
 
+      - name: Build and run unit tests
+        run: |
+          mkdir -p build-tests && cd build-tests
+          qmake ../tests/tests.pro CONFIG+=release
+          make -j$(nproc)
+          ./tst_common
+
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -134,6 +141,18 @@ jobs:
             }
           }
           exit $status
+
+      - name: Build and run unit tests
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build-tests | Out-Null
+          Set-Location build-tests
+          qmake ..\tests\tests.pro "CONFIG+=release"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          nmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\tst_common.exe
+          exit $LASTEXITCODE
 
       - name: Deploy Qt runtime (windeployqt)
         shell: pwsh
