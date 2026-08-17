@@ -554,7 +554,9 @@ void UpdateObject::slotImportFeeds(QByteArray xmlData)
     xml.readNext();
     if (xml.isStartElement()) {
       // Search for "outline" only
-      if (xml.name() == "outline") {
+      // Note: QStringLiteral is required - Qt6 QStringView has no non-ambiguous
+      // operator== for const char* (QChar ctor ambiguity), Qt5 QStringRef does.
+      if (xml.name() == QStringLiteral("outline")) {
         qDebug() << outlineCount << "+:" << xml.prefix().toString()
                  << ":" << xml.name().toString();
 
@@ -628,7 +630,7 @@ void UpdateObject::slotImportFeeds(QByteArray xmlData)
         }
       }
     } else if (xml.isEndElement()) {
-      if (xml.name() == "outline") {
+      if (xml.name() == QStringLiteral("outline")) {
         parentIdsStack.pop();
         ++outlineCount;
       }

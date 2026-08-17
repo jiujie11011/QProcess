@@ -18,12 +18,26 @@
 #ifndef QT6COMPAT_H
 #define QT6COMPAT_H
 
-// NOTE: must be <QtGlobal>, NOT <QtCore/qglobal.h>. Qt5's qmake INCPATH only
-// lists module include dirs (-I.../include/QtCore, .../include/QtWidgets, ...)
-// and has no Qt root include dir, so the module-prefixed form fails to resolve
-// on Qt5 while the plain <QtGlobal> resolves from the QtCore module dir on both
-// toolkits.
-#include <QtGlobal>
+// Version detection: Quill.pro injects QT5/QT6 at qmake time. This header is
+// force-included into EVERY translation unit (-include / /FI), including the
+// 3rdparty C++ sources whose qmake INCPATH does not necessarily contain the Qt
+// include dirs. It therefore must NEVER #include a Qt header here -- even
+// <QtGlobal> is not reliably resolvable on every Qt5 translation unit
+// (Qt5 qmake INCPATH only lists module dirs like -I.../include/QtCore and has
+// no Qt root include dir, and the QtGlobal forwarding header is not shipped by
+// every Qt5 packaging, unlike Qt6 which always ships it).
+#if defined(QT6)
+#  define QUIL_QT6 1
+#elif defined(QT5) || defined(HAVE_QT5)
+#  define QUIL_QT6 0
+#else
+#  if defined(_MSC_VER)
+#    pragma message("qt6compat.h: neither QT5 nor QT6 was injected by qmake; assuming Qt5 semantics")
+#  else
+#    warning "qt6compat.h: neither QT5 nor QT6 was injected by qmake; assuming Qt5 semantics"
+#  endif
+#  define QUIL_QT6 0
+#endif
 
 // Qt 6 still ships `foreach`/Q_FOREACH (in qforeach.h, via QtGlobal) but
 // marks it deprecated, and for non-implicitly-shared containers (QJsonArray,
@@ -32,9 +46,7 @@
 // in many places, so override Qt's own macro on Qt 6 with a plain range-for
 // expansion (semantically identical to Qt5's foreach except it does NOT copy
 // the container, so containers must not be mutated while being iterated).
-// The header is force-included by Quill.pro (qmake -include / /FI), which is
-// why this file lives apart from common.h.
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QUIL_QT6
 #  ifdef foreach
 #    undef foreach
 #  endif
@@ -45,7 +57,7 @@
 // Many translation units rely on them without an explicit include (Qt5's
 // <QtCore> umbrella header used to pull them in). Re-import them globally
 // on Qt 6 so core5compat only has to be linked (already done in .pro).
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QUIL_QT6
 #include <QRegExp>
 #include <QTextCodec>
 #endif
@@ -54,7 +66,7 @@
 // This header is force-included for every translation unit (see Quill.pro),
 // so a small macro is enough to keep the many event->pos() call sites working
 // on both toolkits.
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QUIL_QT6
 #  define QEVENT_POS(e) ((e)->position().toPoint())
 #  define QEVENT_POSF(e) ((e)->position())
 #  define QEVENT_GLOBALPOS(e) ((e)->globalPosition().toPoint())
@@ -72,7 +84,7 @@
 // Semantics are identical (Qt5's child() is just a thin wrapper over it).
 // Callers must guarantee a valid model (they always do: they already called
 // model()->rowCount() on the same index).
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QUIL_QT6
 #  define QMODELINDEX_CHILD(idx, row, col) ((idx).model()->index((row), (col), (idx)))
 #else
 #  define QMODELINDEX_CHILD(idx, row, col) ((idx).child((row), (col)))
@@ -80,7 +92,7 @@
 
 // QWebEnginePage::createStandardContextMenu() was removed in Qt 6.2; the same
 // API now lives on QWebEngineView::createStandardContextMenu().
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QUIL_QT6
 #  define QWEBENGINE_STD_CONTEXTMENU(view) ((view)->createStandardContextMenu())
 #else
 #  define QWEBENGINE_STD_CONTEXTMENU(view) ((view)->page()->createStandardContextMenu())

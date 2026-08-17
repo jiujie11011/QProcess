@@ -37,6 +37,14 @@ greaterThan(QT_MAJOR_VERSION, 4) {
   # legacy Qt4/Phonon path only applies to Qt <= 4 builds.
   QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia concurrent
   DEFINES += HAVE_QT5
+  # qt6compat.h (force-included below) branches on these macros instead of
+  # including <QtGlobal>: some translation units have no Qt include dirs in
+  # their qmake INCPATH, so a Qt header include would break them.
+  greaterThan(QT_MAJOR_VERSION, 5) {
+    DEFINES += QT6
+  } else {
+    DEFINES += QT5
+  }
   # Force-include a small compat header so the QEVENT_POS() helper macro is
   # visible in every translation unit on BOTH Qt5 and Qt6 (and the legacy
   # `foreach` macro, removed in Qt6, keeps working everywhere as well).

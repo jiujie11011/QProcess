@@ -330,8 +330,15 @@ jobs:
             }
             exit 1
           }
-          .\release\tst_common.exe
-          exit $LASTEXITCODE
+          .\release\tst_common.exe 2>&1 | Tee-Object -FilePath test-run.log
+          $tr = $LASTEXITCODE
+          if ($tr -ne 0) {
+            Write-Output ("::error::DBG_TESTRUN exit=" + $tr)
+            Get-Content test-run.log -Tail 60 -Encoding UTF8 | ForEach-Object {
+              Write-Output ("::error::" + $_)
+            }
+          }
+          exit $tr
 
       - name: Deploy Qt runtime (windeployqt)
         shell: pwsh

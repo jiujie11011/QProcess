@@ -79,6 +79,7 @@ if [[ $STRICT -eq 1 ]]; then
   report "QModelIndex::child() (Qt6 移除 -> model()->index(row,col,parent), 用 QMODELINDEX_CHILD)" "$(scan_src_only "\.child\(")"
   report "QWebEnginePage::createStandardContextMenu() (Qt6 移除 -> QWebEngineView 同方法, 用 QWEBENGINE_STD_CONTEXTMENU)" "$(scan_src_only "createStandardContextMenu")"
   report "QTime 计时器用法 (Qt6 移除 QTime::start/elapsed -> QElapsedTimer; 声明后 200 字符内调用)" "$(grep -rnP "QTime\s+(\w+)\s*;(\n|.){0,200}?\b\1\.(start|elapsed)\(" "$ROOT/src" --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "qt6compat\.h" || true)"
+  report "QStringRef/QStringView 与 C 风格字符串字面量比较 (Qt6 QChar 构造歧义 -> 用 QStringLiteral 包一层)" "$(scan_src_only "\.name\(\)\s*==\s*\"[^\"]*\"")"
   echo ""
   if [[ $found -eq 1 ]]; then
     echo -e "${RED}严格模式发现必炸项, 请修复后再提交${NC}"
@@ -115,6 +116,7 @@ report "QSinglePointEvent::position() 裸用 (Qt6 新增; Qt5 是 pos() -> QEVEN
 report "QModelIndex::child() 裸用 (Qt6 移除 -> model()->index(row,col,parent), 用 QMODELINDEX_CHILD)" "$(scan_src_only "\.child\(")"
 report "QWebEnginePage::createStandardContextMenu() 裸用 (Qt6 移除 -> QWebEngineView 同方法, 用 QWEBENGINE_STD_CONTEXTMENU)" "$(scan_src_only "createStandardContextMenu")"
 report "QTime 计时器用法 (Qt6 移除 QTime::start/elapsed -> QElapsedTimer; 声明后 200 字符内调用)" "$(grep -rnP "QTime\s+(\w+)\s*;(\n|.){0,200}?\b\1\.(start|elapsed)\(" "$ROOT/src" --include="*.cpp" --include="*.h" 2>/dev/null | grep -v "qt6compat\.h" || true)"
+report "QStringRef/QStringView 与 C 风格字符串字面量比较 (Qt6 QChar 构造歧义 -> 用 QStringLiteral 包一层)" "$(scan_src_only "\.name\(\)\s*==\s*\"[^\"]*\"")"
 
 # --- B 级：编译通过但行为可能异常 ---
 echo -e "${YELLOW}=== B 级：编译通过但需回归验证 ===${NC}"
