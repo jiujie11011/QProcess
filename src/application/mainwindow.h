@@ -38,7 +38,11 @@
 #include <QPrintDialog>
 #include <QPrintPreviewDialog>
 #include <QPrinter>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QtMultimedia/QSoundEffect>
+#else
 #include <QSound>
+#endif
 
 #include "categoriestreewidget.h"
 #include "feedsmodel.h"

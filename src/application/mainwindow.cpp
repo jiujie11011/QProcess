@@ -7223,7 +7223,16 @@ void MainWindow::slotPlaySound(const QString &path)
 
   if (!playing) {
 #if defined(Q_OS_WIN) || defined(Q_OS_OS2)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Qt6 removed the static QSound::play(); use a static QSoundEffect instead
+    // (kept alive so the async playback is not cancelled on scope exit).
+    static QSoundEffect effect;
+    effect.setSource(QUrl::fromLocalFile(soundPath));
+    effect.setVolume(1.0);
+    effect.play();
+#else
     QSound::play(soundPath);
+#endif
 #else
     QProcess::startDetached(QString("play %1").arg(soundPath));
 #endif
