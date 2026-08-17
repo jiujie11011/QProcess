@@ -56,12 +56,9 @@ void PlayerBar::setupUI()
     trackLayout->setContentsMargins(0, 0, 0, 0);
     trackLayout->setSpacing(8);
 
+    // 注意：QLabel 在 Qt5/Qt6 均无 setElideMode；长标题交给布局伸缩
     QLabel* titleLabel = new QLabel("标题");
     titleLabel->setObjectName("playerTitle");
-#if defined(QT6)
-    // Qt6-only API；Qt5 无 setElideMode，长标题交给布局伸缩
-    titleLabel->setElideMode(Qt::ElideRight);
-#endif
     QLabel* artistLabel = new QLabel("作者/来源");
     artistLabel->setObjectName("playerArtist");
     trackLayout->addWidget(titleLabel);

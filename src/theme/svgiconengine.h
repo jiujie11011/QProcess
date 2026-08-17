@@ -13,6 +13,7 @@
 #include <QString>
 #include <QColor>
 #include <QHash>
+#include <QMap>
 
 class SvgIconEngine : public QIconEngine
 {
@@ -53,7 +54,8 @@ private:
     QString svgPath_;
     QString svgContent_;  // 解析后的 SVG XML（已替换 stroke/fill）
     QHash<State, QColor> colorMap_;
-    mutable QHash<QSize, QPixmap> pixmapCache_;
+    // Qt5 无 qHash(QSize) 重载，改用 QMap（依赖 operator<，不依赖哈希）
+    mutable QMap<QSize, QPixmap> pixmapCache_;
 
     // 将当前状态映射到颜色
     QColor colorForMode(QIcon::Mode mode, QIcon::State state) const;
