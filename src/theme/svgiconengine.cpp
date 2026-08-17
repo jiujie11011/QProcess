@@ -25,7 +25,7 @@ SvgIconEngine::SvgIconEngine(const QString& svgPath,
     // 延迟加载：首次 paint/pixmap 时读取
 }
 
-SvgIconEngine::~SvgIconEngine() = default;
+// 析构在头文件声明为 = default（MSVC 不允许重复定义）
 
 QIconEngine* SvgIconEngine::clone() const
 {
@@ -56,13 +56,12 @@ void SvgIconEngine::paint(QPainter* painter, const QRect& rect,
 QPixmap SvgIconEngine::pixmap(const QSize& size, QIcon::Mode mode,
                               QIcon::State state)
 {
-    // 缓存键包含颜色
+    // 缓存键包含颜色（Qt5/Qt6 通用的组合键，见头文件 pixmapCache_ 注释）
     QColor color = colorForMode(mode, state);
-    QSize keySize(size.width(), size.height());
-    // 简单缓存：按 size + color 缓存
-    QString cacheKey = QString("%1x%2_%3").arg(keySize.width()).arg(keySize.height()).arg(color.name());
+    qint64 cacheKey = (qint64(size.width()) << 32) | qint64(size.height());
+    cacheKey ^= qint64(color.rgba()) << 8;
 
-    if (pixmapCache_.contains(keySize)) {
+    if (pixmapCache_.contains(cacheKey)) {
         // 简单起见，暂不区分颜色缓存（实际应用需完善）
     }
 
@@ -113,7 +112,7 @@ QPixmap SvgIconEngine::renderPixmap(const QSize& size, QIcon::Mode mode,
     if (svgContent_.isEmpty() && !svgPath_.isEmpty()) {
         QFile f(svgPath_);
         if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            svgContent_ = f.readAll();
+            svgContent_ = QString::fromUtf8(f.readAll());
             f.close();
         }
     }
@@ -153,13 +152,24 @@ QString SvgIconEngine::recolorSvg(const QString& svg, const QColor& strokeColor,
         QString fillHex = fillColor.name(QColor::HexRgb);
         result.replace("fill=\"currentColor\"", QString("fill=\"%1\"").arg(fillHex));
         result.replace("fill='currentColor'", QString("fill='%1'").arg(fillHex));
+        // 注意：QString::replace(QRegularExpression, lambda) 是 Qt6-only 重载，
+        // Qt5 需手动遍历替换（仅替换非 none 的 fill）。
         QRegularExpression fillRe(R"(fill\s*=\s*["'][^"']*["'])");
-        // 不替换 fill="none"
-        result.replace(fillRe, [fillHex](const QRegularExpressionMatch& m) {
-            QString matched = m.captured(0);
-            if (matched.contains("none", Qt::CaseInsensitive)) return matched;
-            return QString("fill=\"%1\"").arg(fillHex);
-        });
+        QString out;
+        QRegularExpressionMatchIterator it = fillRe.globalMatch(result);
+        int lastPos = 0;
+        while (it.hasNext()) {
+            const QRegularExpressionMatch m = it.next();
+            out += result.mid(lastPos, m.capturedStart() - lastPos);
+            const QString matched = m.captured(0);
+            if (matched.contains("none", Qt::CaseInsensitive))
+                out += matched;
+            else
+                out += QString("fill=\"%1\"").arg(fillHex);
+            lastPos = m.capturedEnd();
+        }
+        out += result.mid(lastPos);
+        result = out;
     }
 
     return result;
@@ -181,7 +191,7 @@ QIcon SvgIconEngine::fromLucide(const QString& iconName, State state)
         QString path = QString(":/icons/%1.svg").arg(iconName);
         QFile f(path);
         if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            svgContent = f.readAll();
+            svgContent = QString::fromUtf8(f.readAll());
             f.close();
             s_cacheMutex.lock();
             s_svgCache[iconName] = svgContent;

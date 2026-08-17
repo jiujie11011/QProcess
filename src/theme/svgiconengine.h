@@ -13,7 +13,6 @@
 #include <QString>
 #include <QColor>
 #include <QHash>
-#include <QMap>
 
 class SvgIconEngine : public QIconEngine
 {
@@ -54,8 +53,9 @@ private:
     QString svgPath_;
     QString svgContent_;  // 解析后的 SVG XML（已替换 stroke/fill）
     QHash<State, QColor> colorMap_;
-    // Qt5 无 qHash(QSize) 重载，改用 QMap（依赖 operator<，不依赖哈希）
-    mutable QMap<QSize, QPixmap> pixmapCache_;
+    // QSize 哈希：Qt5 无 qHash(QSize)，Qt6 无 QSize::operator<（QMap 不可用）。
+    // 统一用 (w<<32)|h 组合键，跨 Qt5/Qt6 均可哈希。
+    mutable QHash<qint64, QPixmap> pixmapCache_;
 
     // 将当前状态映射到颜色
     QColor colorForMode(QIcon::Mode mode, QIcon::State state) const;
@@ -68,5 +68,11 @@ private:
     static QString recolorSvg(const QString& svg, const QColor& strokeColor,
                               const QColor& fillColor = Qt::transparent);
 };
+
+// Qt5 无内建 enum class 哈希，需提供 qHash 重载（QHash<State, QColor> 依赖）
+inline uint qHash(SvgIconEngine::State s, uint seed = 0) noexcept
+{
+    return qHash(static_cast<int>(s), seed);
+}
 
 #endif // SVGICONENGINE_H
