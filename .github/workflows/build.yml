@@ -73,7 +73,20 @@ jobs:
         run: |
           mkdir -p build-tests && cd build-tests
           qmake ../tests/tests.pro CONFIG+=release
-          make -j$(nproc)
+          set +e
+          make -j$(nproc) 2>&1 | tee test-build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ $status -ne 0 ]; then
+            echo "::error::DBG_TEST make_status=$status"
+            grep -nE 'error:|undefined reference|collect2:|fatal error' test-build.log | head -40 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            tail -40 test-build.log | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            exit $status
+          fi
           ./tst_common
 
       - name: Upload build log
@@ -147,8 +160,18 @@ jobs:
           Set-Location build-tests
           qmake ..\tests\tests.pro "CONFIG+=release"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          nmake
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          nmake *>&1 | Tee-Object -FilePath test-build.log
+          $status = $LASTEXITCODE
+          if ($status -ne 0) {
+            Write-Output "::error::DBG_TEST nmake_status=$status"
+            Select-String -Path test-build.log -Pattern 'error|LNK[0-9]+|fatal' | Select-Object -First 30 | ForEach-Object {
+              Write-Output ("::error::" + $_.Line)
+            }
+            Get-Content test-build.log -Tail 40 -Encoding UTF8 | ForEach-Object {
+              Write-Output ("::error::" + $_)
+            }
+            exit $status
+          }
           .\tst_common.exe
           exit $LASTEXITCODE
 
