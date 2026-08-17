@@ -46,7 +46,14 @@
 #else
 #ifdef QT_GUI_LIB
 #include <QApplication>
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+// QDesktopWidget was removed in Qt6; QGuiApplication::primaryScreen() is
+// available since Qt5 and works on both toolkits.
+#include <QGuiApplication>
+#include <QScreen>
+#else
 #include <QDesktopWidget>
+#endif
 #endif
 #endif
 
@@ -286,9 +293,18 @@ public:
     _screenResolution = geom;
 #else
 #ifdef QT_GUI_LIB
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+    QScreen* screen = QGuiApplication::primaryScreen();
+    QString geom = screen
+      ? QString::number(screen->geometry().width())
+          + "x" + QString::number(screen->geometry().height())
+      : QStringLiteral("0x0");
+    _screenResolution = geom;
+#else
     QString geom = QString::number(QApplication::desktop()->screenGeometry().width())
       + "x" + QString::number(QApplication::desktop()->screenGeometry().height());
     _screenResolution = geom;
+#endif
 #endif
 #endif
 #if GANALYTICS_DEBUG > 1

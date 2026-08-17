@@ -60,7 +60,13 @@ jobs:
           set -e
           if [ $status -ne 0 ]; then
             echo "::error::DBG make_status=$status log_lines=$(wc -l < build.log 2>/dev/null || echo 0)"
-            grep -nE 'error:|undefined reference|collect2:|fatal error|required from|In file included from|\.cpp:[0-9]+:[0-9]+:|\.h:[0-9]+:[0-9]+:' build.log | head -60 | while IFS= read -r l; do
+            # connect/static_assert error chain: -A8 pulls in the source line
+            # after "required from here" which is where the connect() lives.
+            grep -nE -A8 'static assertion failed|static_assert|required from|Signal and slot arguments' build.log | head -160 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            # other hard errors (warnings filtered out)
+            grep -nE 'error:|undefined reference|collect2:|fatal error' build.log | grep -viE 'deprecated|\[-W' | head -40 | while IFS= read -r l; do
               echo "::error::$l"
             done
             tail -60 build.log | while IFS= read -r l; do
@@ -181,10 +187,13 @@ jobs:
           set -e
           if [ $status -ne 0 ]; then
             echo "::error::DBG_QT6 make_status=$status log_lines=$(wc -l < build.log 2>/dev/null || echo 0)"
-            grep -nE 'error:|undefined reference|collect2:|fatal error' build.log | head -60 | while IFS= read -r l; do
+            grep -nE -A8 'static assertion failed|static_assert|required from|Signal and slot arguments' build.log | head -160 | while IFS= read -r l; do
               echo "::error::$l"
             done
-            tail -40 build.log | while IFS= read -r l; do
+            grep -nE 'error:|undefined reference|collect2:|fatal error' build.log | grep -viE 'deprecated|\[-W' | head -40 | while IFS= read -r l; do
+              echo "::error::$l"
+            done
+            tail -60 build.log | while IFS= read -r l; do
               echo "::error::$l"
             done
           fi
@@ -264,11 +273,15 @@ jobs:
           Get-Content build.log | Out-Host  # stream to console after
           if ($status -ne 0) {
             $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path build.log)))
-            Write-Output ("::error::B64_" + $b64.Substring(0, [Math]::Min(50000, $b64.Length)))
-            Select-String -Path build.log -Pattern 'error|LNK[0-9]+|fatal' | Select-Object -First 30 | ForEach-Object {
+            Write-Output ("::error::B64_" + $b64.Substring(0, [Math]::Min(60000, $b64.Length)))
+            # the .cpp being compiled when the connect static_assert fired
+            Select-String -Path build.log -Pattern 'cl.exe|cl .*\.cpp|\.cpp$' | Select-Object -Last 4 | ForEach-Object {
+              Write-Output ("::error::CLTARGET " + $_.Line.Substring(0, [Math]::Min(400, $_.Line.Length)))
+            }
+            Select-String -Path build.log -Pattern 'error C[0-9]+|LNK[0-9]+|fatal' | Select-Object -First 40 | ForEach-Object {
               Write-Output ("::error::" + $_.Line)
             }
-            Get-Content build.log -Tail 40 | ForEach-Object {
+            Get-Content build.log -Tail 60 | ForEach-Object {
               Write-Output ("::error::" + $_)
             }
           }
