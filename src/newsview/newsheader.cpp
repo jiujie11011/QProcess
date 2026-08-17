@@ -169,7 +169,7 @@ bool NewsHeader::eventFilter(QObject *obj, QEvent *event)
     if (QEVENT_POS(hoverEvent).x() >= width() - buttonColumnView_->width()) {
       if ((event->type() == QEvent::HoverMove) && !(QApplication::mouseButtons() & Qt::LeftButton)) {
         QHoverEvent* pe =
-            new QHoverEvent(QEvent::HoverLeave, QEVENT_POSF(hoverEvent), hoverEvent->oldPosF());
+            QHOVEREVENT_NEW(QEvent::HoverLeave, QEVENT_POSF(hoverEvent), hoverEvent->oldPosF());
         QApplication::sendEvent(this, pe);
       }
       return true;

@@ -253,7 +253,7 @@ void AdBlockIcon::mouseReleaseEvent(QMouseEvent* event)
 {
   if (event->button() == Qt::LeftButton && rect().contains(QEVENT_POS(event))) {
     if (event->modifiers() != Qt::ControlModifier) {
-      emit clicked(event->globalPosition().toPoint());
+      emit clicked(QEVENT_GLOBALPOS(event));
     }
   }
   else {

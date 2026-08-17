@@ -467,7 +467,7 @@ void AIAssistant::slotReplyFinished()
     if (reply->error() == QNetworkReply::NoError) {
       QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
       QJsonArray data = doc.object().value("data").toArray();
-      foreach (const QJsonValue &value, data) {
+      for (const QJsonValue &value : data) {
         const QString id = value.toObject().value("id").toString();
         if (!id.isEmpty())
           models.append(id);

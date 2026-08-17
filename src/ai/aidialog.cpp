@@ -114,7 +114,7 @@ void AIDialog::loadHistory()
 
   QList<QJsonObject> history = assistant_->loadHistory(
         context_.feedId, context_.newsId);
-  foreach (const QJsonObject &item, history) {
+  for (const QJsonObject &item : history) {
     QString role = item.value("role").toString();
     QString content = item.value("content").toString();
     appendMessage(role, content);
@@ -143,7 +143,7 @@ void AIDialog::loadRecommendations()
     return;
 
   chatView_->append(QString("<b>%1</b>").arg(tr("Related articles:")));
-  foreach (const QJsonValue &value, arr) {
+  for (const QJsonValue &value : arr) {
     QJsonObject item = value.toObject();
     QString title = item.value("title").toString();
     QString link = item.value("link").toString();

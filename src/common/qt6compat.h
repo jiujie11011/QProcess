@@ -20,14 +20,19 @@
 
 #include <QtCore/qglobal.h>
 
-// Qt 6 removed the `foreach` / Q_FOREACH macro from QtGlobal. The legacy
-// code base (ported from Qt4) relies on it in many places, so restore the
-// two-argument form for Qt 6 builds only. The header is force-included by
-// Quill.pro (qmake -include / /FI), which is why this file lives apart
-// from common.h. NOTE: this range-for based form does NOT copy the
-// container (Qt 5's foreach did), so containers must not be mutated while
-// being iterated.
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0) && !defined(foreach)
+// Qt 6 still ships `foreach`/Q_FOREACH (in qforeach.h, via QtGlobal) but
+// marks it deprecated, and for non-implicitly-shared containers (QJsonArray,
+// QJsonObject, ...) it emits -Wdeprecated-declarations warnings which break
+// -Werror builds. The legacy code base (ported from Qt4) relies on foreach
+// in many places, so override Qt's own macro on Qt 6 with a plain range-for
+// expansion (semantically identical to Qt5's foreach except it does NOT copy
+// the container, so containers must not be mutated while being iterated).
+// The header is force-included by Quill.pro (qmake -include / /FI), which is
+// why this file lives apart from common.h.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#  ifdef foreach
+#    undef foreach
+#  endif
 #  define foreach(variable, container) for (variable : container)
 #endif
 
@@ -47,9 +52,15 @@
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #  define QEVENT_POS(e) ((e)->position().toPoint())
 #  define QEVENT_POSF(e) ((e)->position())
+#  define QEVENT_GLOBALPOS(e) ((e)->globalPosition().toPoint())
+#  define QHOVEREVENT_NEW(type, pos, oldPos) \
+     new QHoverEvent((type), (pos), (pos), (oldPos))
 #else
 #  define QEVENT_POS(e) ((e)->pos())
 #  define QEVENT_POSF(e) ((e)->posF())
+#  define QEVENT_GLOBALPOS(e) ((e)->globalPos())
+#  define QHOVEREVENT_NEW(type, pos, oldPos) \
+     new QHoverEvent((type), (pos), (oldPos))
 #endif
 
 #endif // QT6COMPAT_H

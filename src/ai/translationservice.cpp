@@ -200,7 +200,7 @@ void TranslationService::slotReplyFinished()
     QJsonArray arr = doc.array();
     if (arr.isEmpty()) return;
     QJsonArray sentences = arr.at(0).toArray();
-    foreach (const QJsonValue &v, sentences) {
+    for (const QJsonValue &v : sentences) {
       if (v.isArray() && v.toArray().count() > 0)
         translated += v.toArray().at(0).toString();
     }
@@ -216,7 +216,7 @@ void TranslationService::slotReplyFinished()
       return;
     }
     QJsonArray trans = obj.value("trans_result").toArray();
-    foreach (const QJsonValue &v, trans) {
+    for (const QJsonValue &v : trans) {
       translated += v.toObject().value("dst").toString();
       translated += "\n";
     }

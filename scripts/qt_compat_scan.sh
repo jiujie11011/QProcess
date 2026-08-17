@@ -56,21 +56,32 @@ report() {
   fi
 }
 
+# 排 qt6compat.h 自身的宏定义(合法), 只查源码中的裸用
+scan_src_only() {
+  local pattern="$1"
+  scan "$pattern" | grep -v "qt6compat\.h" || true
+}
+
 # --- 严格模式清单: 当前已确认 0 残留, 任何新增命中都代表"未做兼容处理"的回归 ---
 if [[ $STRICT -eq 1 ]]; then
-  echo -e "${YELLOW}=== 严格模式: Qt6 必炸项回归扫描 ===${NC}"
+  echo -e "${YELLOW}=== 严格模式: Qt5/Qt6 必炸项回归扫描 ===${NC}"
+  echo -e "${YELLOW}--- Qt6 移除的 API (Qt6 编译必炸) ---${NC}"
   report "QPalette::background/foreground (Qt6 移除 -> window()/windowText())" "$(scan "palette\(\)\.(background|foreground)\(\)")"
   report "qSort (Qt6 移除 -> std::sort)" "$(scan "\bqSort\(")"
   report "QTreeWidget::isItemHidden (Qt6 移除)" "$(scan "isItemHidden")"
   report "QTreeWidgetItem::setTextColor / setBackgroundColor (Qt6 移除)" "$(scan "setTextColor|setBackgroundColor")"
   report "多字节字面量 -> QChar 歧义 (如 c == '。')" "$(scan "c\s*==\s*'[\x80-\xff]")"
   report "QDateTime 单参数构造 (Qt6 移除; 空构造 QDateTime() 为合法, 不误报)" "$(scan "QDateTime\s*\([^,()]*[A-Za-z_][^,()]*\)")"
+  echo -e "${YELLOW}--- Qt6 新增 API 裸用 (Qt5 编译必炸, 必须走 qt6compat.h 宏) ---${NC}"
+  report "QMouseEvent::globalPosition() (Qt6 新增; Qt5 是 globalPos() -> 用 QEVENT_GLOBALPOS)" "$(scan_src_only "\.globalPosition\(")"
+  report "QSinglePointEvent::position() (Qt6 新增; Qt5 是 pos() -> 用 QEVENT_POS)" "$(scan_src_only "\.position\(\)\.toPoint\(\)")"
+  report "QScreen::devicePixelRatio() 前置 QWindow (Qt6 新增形态; Qt5 是 QWidget::devicePixelRatio)" "$(scan_src_only "\.devicePixelRatio\(\)")"
   echo ""
   if [[ $found -eq 1 ]]; then
     echo -e "${RED}严格模式发现必炸项, 请修复后再提交${NC}"
     exit 1
   fi
-  echo -e "${GREEN}严格模式通过: 未发现 Qt6 必炸 API 回归${NC}"
+  echo -e "${GREEN}严格模式通过: 未发现 Qt5/Qt6 必炸 API 回归${NC}"
   exit 0
 fi
 
@@ -96,6 +107,8 @@ report "QSound::play 静态方法 (Qt6 移除)" "$(scan "QSound::play")"
 report "QMediaPlayer::state() (Qt6 改名 playbackState())" "$(scan "\bstate\(\)")"
 report "QString::SkipEmptyParts (Qt6 改名 Qt::SkipEmptyParts)" "$(scan "SkipEmptyParts")"
 report "QWebEngineCertificateError API 变化" "$(scan "QWebEngineCertificateError")"
+report "QMouseEvent::globalPosition() 裸用 (Qt6 新增; Qt5 是 globalPos() -> QEVENT_GLOBALPOS)" "$(scan_src_only "\.globalPosition\(")"
+report "QSinglePointEvent::position() 裸用 (Qt6 新增; Qt5 是 pos() -> QEVENT_POS)" "$(scan_src_only "\.position\(\)\.toPoint\(\)")"
 
 # --- B 级：编译通过但行为可能异常 ---
 echo -e "${YELLOW}=== B 级：编译通过但需回归验证 ===${NC}"
