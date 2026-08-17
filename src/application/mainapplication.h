@@ -71,6 +71,10 @@ public:
   bool isSaveDataLastFeed() const;
   void sqlQueryExec(const QString &query);
 
+  /** Detects whether the OS is currently in dark mode (Windows theme
+   *  registry; palette-based fallback on other platforms). */
+  static bool systemDarkMode();
+
   MainWindow *mainWindow();
   NetworkManager *networkManager();
   CookieJar *cookieJar();
@@ -119,9 +123,6 @@ private:
   void loadSettings();
   void setStyleApplication();
 
-  /** Detects whether the OS is currently in dark mode (Windows theme
-   *  registry; palette-based fallback on other platforms). */
-  static bool systemDarkMode();
   void showSplashScreen();
   void closeSplashScreen();
   void setProgressSplashScreen(int value);

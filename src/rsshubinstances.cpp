@@ -487,7 +487,9 @@ QSet<QString> &RssHubInstances::frozenInstancesSet()
   // std::call_once makes the lazy load safe even if the GUI thread and the
   // feed-update thread first touch this state concurrently.
   static std::once_flag flag;
-  std::call_once(flag, [&set]() {
+  // MSVC rejects a simple capture of a static-storage variable (C3495), so
+  // use the default reference capture instead.
+  std::call_once(flag, [&]() {
     // Startup freeze: restore the frozen instances persisted by a previous
     // run so that instances over the monthly failure threshold stay disabled
     // after an application restart.
@@ -509,7 +511,8 @@ QHash<QString, QList<qint64>> &RssHubInstances::failureTimestamps()
   // std::call_once makes the lazy load safe even if the GUI thread and the
   // feed-update thread first touch this state concurrently.
   static std::once_flag flag;
-  std::call_once(flag, [&map]() {
+  // See frozenInstancesSet(): MSVC rejects simple captures of statics (C3495).
+  std::call_once(flag, [&]() {
     // Restore the persisted rolling failure window so that failures counted
     // in a previous run still contribute to the monthly threshold.
     QSettings settings;

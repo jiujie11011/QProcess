@@ -27,7 +27,7 @@
 #include <QFileInfo>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QzRegExp>
+#include <qzregexp.h>
 
 namespace {
 const char *kCachedContentName = "cachedContent";
