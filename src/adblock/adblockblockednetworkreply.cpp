@@ -93,7 +93,13 @@ qint64 AdBlockBlockedNetworkReply::readData(char* data, qint64 maxSize)
 
 void AdBlockBlockedNetworkReply::delayedFinished()
 {
+#if defined(QT6)
+  // Qt6 removed the error(NetworkError) signal (the name now collides with the
+  // error() const getter); errorOccurred() carries the same payload (Qt5.15+).
+  emit errorOccurred(QNetworkReply::ContentAccessDenied);
+#else
   emit error(QNetworkReply::ContentAccessDenied);
+#endif
   emit finished();
 }
 

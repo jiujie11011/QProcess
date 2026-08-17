@@ -72,12 +72,20 @@ QString HtmlSanitizer::sanitize(const QString &html)
 
   // 3. Dangerous URL schemes. Replace the whole attribute value with a safe
   //    fragment so the surrounding markup stays intact.
-  // Capture the surrounding quote (if any) so the replacement keeps the
-  // original quote style:  src='vbscript:...'  ->  src='#'  (not src="#").
-  QzRegExp jsUrl("(href|src|action|xlink:href|background)\\s*=\\s*([\"']?)\\s*"
-                 "(javascript|vbscript|data:text/html)\\s*:[^\"'>\\s]*",
-                 Qt::CaseInsensitive);
-  result.replace(jsUrl, "\\1=\\2#\\2");
+  //    Quoted form first (href="javascript:..." / src='vbscript:...'): the
+  //    back-reference \2 must match the *closing* quote too, otherwise the
+  //    replacement leaves a dangling quote behind (href="#""> instead of
+  //    href="#">). The captured quote is echoed so the original quote style
+  //    is preserved:  src='vbscript:...'  ->  src='#'  (not src="#").
+  QzRegExp jsUrlQuoted("(href|src|action|xlink:href|background)\\s*=\\s*([\"'])\\s*"
+                       "(javascript|vbscript|data:text/html)\\s*:[^\"'>\\s]*\\2",
+                       Qt::CaseInsensitive);
+  result.replace(jsUrlQuoted, "\\1=\\2#\\2");
+  //    Bare form (href=javascript:...): no quote to preserve.
+  QzRegExp jsUrlBare("(href|src|action|xlink:href|background)\\s*=\\s*"
+                     "(javascript|vbscript|data:text/html)\\s*:[^\"'>\\s]*",
+                     Qt::CaseInsensitive);
+  result.replace(jsUrlBare, "\\1=\"#\"");
 
   return result;
 }
