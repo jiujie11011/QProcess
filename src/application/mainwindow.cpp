@@ -8635,7 +8635,7 @@ void MainWindow::slotPrint(QWebEnginePage *page)
       printWebPage(currentNewsTab->webView_->page(), &printer);
     });
   else
-    connect(printDlg, &QDialog::accepted, page, [&printer, page]() {
+    connect(printDlg, &QDialog::accepted, page, [this, &printer, page]() {
       printWebPage(page, &printer);
     });
   printDlg->exec();
@@ -8658,7 +8658,7 @@ void MainWindow::slotPrintPreview(QWebEnginePage *page)
       printWebPage(currentNewsTab->webView_->page(), p);
     });
   else
-    connect(prevDlg, &QPrintPreviewDialog::paintRequested, page, [page](QPrinter *p) {
+    connect(prevDlg, &QPrintPreviewDialog::paintRequested, page, [this, page](QPrinter *p) {
       printWebPage(page, p);
     });
   prevDlg->exec();
