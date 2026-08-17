@@ -37,18 +37,22 @@ greaterThan(QT_MAJOR_VERSION, 4) {
   # legacy Qt4/Phonon path only applies to Qt <= 4 builds.
   QT += widgets webenginewidgets webchannel network xml printsupport sql multimedia concurrent
   DEFINES += HAVE_QT5
+  # Force-include a small compat header so the QEVENT_POS() helper macro is
+  # visible in every translation unit on BOTH Qt5 and Qt6 (and the legacy
+  # `foreach` macro, removed in Qt6, keeps working everywhere as well).
+  unix {
+    QMAKE_CXXFLAGS += -include "$$PWD/src/common/qt6compat.h"
+  }
+  win32-msvc* {
+    QMAKE_CXXFLAGS += /FI"$$PWD/src/common/qt6compat.h"
+  }
+  win32-g++ {
+    QMAKE_CXXFLAGS += -include "$$PWD/src/common/qt6compat.h"
+  }
   greaterThan(QT_MAJOR_VERSION, 5) {
     # Qt6: QRegExp/QTextCodec moved to Qt5Compat, C++17 is mandatory.
     QT += core5compat
     CONFIG += c++17
-    # Force-include a small compat header so the legacy `foreach` macro
-    # (removed from Qt6) keeps working in every translation unit.
-    unix {
-      QMAKE_CXXFLAGS += -include "$$PWD/src/common/qt6compat.h"
-    }
-    win32-msvc* {
-      QMAKE_CXXFLAGS += /FI"$$PWD/src/common/qt6compat.h"
-    }
   }
 } else {
   QT += core gui network xml webengine sql concurrent

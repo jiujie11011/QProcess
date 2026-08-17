@@ -117,7 +117,7 @@ void WebView::disconnectObjects()
 
 void WebView::contextMenuEvent(QContextMenuEvent *event)
 {
-  emit showContextMenu(event->pos());
+  emit showContextMenu(QEVENT_POS(event));
 }
 
 void WebView::mouseMoveEvent(QMouseEvent* event)

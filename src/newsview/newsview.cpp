@@ -39,10 +39,10 @@ NewsView::NewsView(QWidget * parent)
 
 /*virtual*/ void NewsView::mousePressEvent(QMouseEvent *event)
 {
-  if (!indexAt(event->pos()).isValid()) return;
-  indexClicked_ = indexAt(event->pos());
+  if (!indexAt(QEVENT_POS(event)).isValid()) return;
+  indexClicked_ = indexAt(QEVENT_POS(event));
 
-  QModelIndex index = indexAt(event->pos());
+  QModelIndex index = indexAt(QEVENT_POS(event));
   QSqlTableModel *model_ = (QSqlTableModel*)model();
   if (event->buttons() & Qt::LeftButton) {
     if (index.column() == model_->fieldIndex("starred")) {
@@ -85,7 +85,7 @@ NewsView::NewsView(QWidget * parent)
 
 /*virtual*/ void NewsView::mouseMoveEvent(QMouseEvent *event)
 {
-  QModelIndex index = indexAt(event->pos());
+  QModelIndex index = indexAt(QEVENT_POS(event));
   if (index.isValid()) {
     emit signalHoverRowChanged(index.row());
   } else {
@@ -135,10 +135,10 @@ NewsView::NewsView(QWidget * parent)
 
 /*virtual*/ void NewsView::mouseDoubleClickEvent(QMouseEvent *event)
 {
-  if (!indexAt(event->pos()).isValid()) return;
+  if (!indexAt(QEVENT_POS(event)).isValid()) return;
 
-  if (indexClicked_ == indexAt(event->pos()))
-    emit signalDoubleClicked(indexAt(event->pos()));
+  if (indexClicked_ == indexAt(QEVENT_POS(event)))
+    emit signalDoubleClicked(indexAt(QEVENT_POS(event)));
   else
     mousePressEvent(event);
 }

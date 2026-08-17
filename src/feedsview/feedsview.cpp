@@ -739,15 +739,15 @@ void FeedsView::updateCurrentIndex(const QModelIndex &index)
 // ----------------------------------------------------------------------------
 void FeedsView::handleDrop(QDropEvent *e)
 {
-  QModelIndex dropIndex = indexAt(e->pos());
+  QModelIndex dropIndex = indexAt(QEVENT_POS(e));
 
   QModelIndex indexWhere = dropIndex;
 
   int how = 0;
   QRect rectText = visualRect(dropIndex);
-  if (qAbs(rectText.top() - e->pos().y()) < 3) {
+  if (qAbs(rectText.top() - QEVENT_POS(e).y()) < 3) {
     how = 0;
-  } else if (qAbs(rectText.bottom() - e->pos().y()) < 3) {
+  } else if (qAbs(rectText.bottom() - QEVENT_POS(e).y()) < 3) {
     how = 1;
   } else {
     if (isFolder(dropIndex)) {

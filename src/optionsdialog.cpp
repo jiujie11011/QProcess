@@ -3458,7 +3458,7 @@ void OptionsDialog::applyPass()
   db_.transaction();
   QSqlQuery q;
   for (int i = 0; i < passTree_->topLevelItemCount(); i++) {
-    if (passTree_->isItemHidden(passTree_->topLevelItem(i))) {
+    if (passTree_->topLevelItem(i)->isHidden()) {
       QString id = passTree_->topLevelItem(i)->text(0);
       q.exec(QString("DELETE FROM passwords WHERE id=='%1'").arg(id));
     }

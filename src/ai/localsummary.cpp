@@ -20,6 +20,7 @@
 #include <QHash>
 #include <QSet>
 #include <QtAlgorithms>
+#include <algorithm>
 #include <QtMath>
 
 namespace {
@@ -164,7 +165,7 @@ QString LocalSummarizer::summarize(const QString &text, int sentenceCount)
     for (int i = 0; i < sentenceCount && i < total; ++i)
       picked.append(i);
   }
-  qSort(picked);
+  std::sort(picked.begin(), picked.end());
 
   QStringList result;
   foreach (int idx, picked)
