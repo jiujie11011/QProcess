@@ -445,10 +445,11 @@ exit $status
 - **Qt6 兼容（已完成收尾）**：新增 `src/common/qt6compat.h`（`foreach` 兼容头 + Qt6 隐式依赖 `QRegExp`/`QTextCodec`，qmake 强制注入）；`common.h` 六组桌面/编码辅助函数；5 个文件去 `QApplication::desktop()`；10 文件 `SkipEmptyParts`→`Qt::SkipEmptyParts`；3 处 `QFontMetrics::width`→`horizontalAdvance`；`QuiteRSS.pro` 统一 Qt5/Qt6 模块清单；本轮再修 `endl`→`Qt::endl`、`QSslCertificate` 通配符、`QTextCodec::setCodec`、`QUrl::fromPercentEncoding`、Qt6 媒体播放（`setSource`/`PlaybackState`/`errorOccurred`、无 playlist 分支）。**CI：`build.yml` 新增 `build-linux-qt6` job**（Qt 6.5.3 + `qtwebengine qt5compat`），与 Qt5 并行验证。
 - **测试闭环（本轮修复）**：`tests/tests.pro` 的 `tst_common` 此前两平台退出码 2，已定位为 QTest 运行时断言失败而非编译失败——`HtmlSanitizer` 两处真实 bug：`removeAll` 的 `setPatternOptions` 整体覆盖丢大小写选项（大写 `<SCRIPT>` 不剥离）、`jsUrl` 替换不保留引号风格（`src='#'` 变 `src="#"`）。已修复，测试无需改动。
 - **数据管理与安全（本轮新增）**：拦截词（`blockedwordsdialog.*` + DB v24 `blockedWords` 表 + `NewsModel::setFilter` 统一注入，LIKE 通配符/引号转义，非破坏性隐藏）；数据备份/恢复（`Database::backupToFile/restoreFromFile` 基于 `sqlite3_backup`，WAL 安全在线快照、恢复前安全副本、恢复后跑迁移重载模型，菜单「备份数据…/恢复数据…」）；C.7 无 RSS 站点抓取核实（XPath/脚本抓取链路完整，向导失败提示引导切换类型）。
+- **全局一键暂停（本轮新增）**：`pauseUpdatesAct_`（checkable，图标 `SP_MediaPause/Play` 随状态切换）——订阅菜单、托盘菜单、主工具栏默认布局三入口；`slotGetFeedsTimer` 开头门控：暂停时直接 return 冻结全部倒计时（全局 + 每源），**手动刷新（单源/全部）不受影响**；INI `pauseUpdates` 持久化，重启保持暂停。
 
 ### 待办
 
-- 提交 + 触发 CI：双 job 全绿验证（Qt5/Qt6 + 单元测试）。
+- 提交 + 触发 CI：`09bcf0d` 触发三 job 失败（网络受限无法拉取日志）；经全量静态审查 + 独立子代理复核未发现 Qt5 硬错误，但定位并修复了 Qt6 阻塞点（见下）。修复已写入工作区（含 pauseUpdates），**尚未提交**（上次提交因 PowerShell 中文引号编码失败，需用英文 message 或 `git commit -F` 提交），提交后待 CI 复跑验证。
 - 可选：全项目 1000+ 处旧式 connect 迁移（暂缓）。
 
 ### 错误教训
@@ -459,3 +460,6 @@ exit $status
 - Qt6 阻塞面广：`foreach`/`QRegExp`/`QTextCodec`/`endl`/`QDesktopWidget` 等，`foreach` 走兼容头统一注入。
 - **QTest 退出码 = 失败测试函数数**：CI 报"测试退出码 2"时先怀疑运行时断言失败（`QTest::qExec` 返回失败数）而非编译失败；本次两平台退出码 2 = `HtmlSanitizer` 两个失败用例。
 - **`QRegularExpression::setPatternOptions` 是整体覆盖**：追加选项必须 `patternOptions() | 新选项`，覆盖会静默丢失构造期设置（如 `CaseInsensitiveOption`）。
+- **`HAVE_QT5` 宏 ≠ "Qt5 专用"**：`.pro` 用 `greaterThan(QT_MAJOR_VERSION, 4)` 统一为 Qt5/Qt6 定义 `HAVE_QT5`，`#ifdef HAVE_QT5` 分支在 Qt6 下也会编译。Qt6 移除/改名 API（`QMediaPlayer::state()`→`playbackState()`）必须用 `#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6,0,0))` 双重条件。
+- **条件编译必须覆盖所有引用方**：`3rdparty/qftp` 原来仅 Qt5 包含，但 `downloaditem.h` 在 `HAVE_QT5` 下无条件 `#include "qftp.h"`，Qt6 下头文件直接找不到。调整 `.pro` 排除模块时必须同步检查下游引用。
+- **`QStringConverter::Utf8` 依赖 `<QStringConverter>`**：Qt6 下即使 `<QTextStream>` 传递包含可编译，也应显式 include 以保证可移植性。

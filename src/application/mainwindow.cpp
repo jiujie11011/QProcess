@@ -112,6 +112,7 @@ MainWindow::MainWindow(QWidget *parent)
   , updateRunningCount_(0)
   , updateDoneCount_(0)
   , updateFailedCount_(0)
+  , updatePaused_(false)
 {
   setObjectName("mainWindow");
   setWindowTitle("QuiteRSS");
@@ -923,9 +924,16 @@ void MainWindow::playPodcast(const QUrl &url, const QString &title)
 
 void MainWindow::slotPlayerTogglePlay()
 {
-#ifdef HAVE_QT5
+#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
   if (!podcastPlayer_) return;
   if (podcastPlayer_->state() == QMediaPlayer::PlayingState)
+    podcastPlayer_->pause();
+  else
+    podcastPlayer_->play();
+#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  // Qt6: QMediaPlayer::state() was renamed playbackState().
+  if (!podcastPlayer_) return;
+  if (podcastPlayer_->playbackState() == QMediaPlayer::PlayingState)
     podcastPlayer_->pause();
   else
     podcastPlayer_->play();
@@ -970,9 +978,16 @@ void MainWindow::slotPlayerSliderMoved(int position)
 
 void MainWindow::slotPlayerStateChanged()
 {
-#ifdef HAVE_QT5
+#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
   if (!podcastPlayer_) return;
   if (podcastPlayer_->state() == QMediaPlayer::PlayingState)
+    playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
+  else
+    playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
+#elif QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  // Qt6: QMediaPlayer::state() was renamed playbackState().
+  if (!podcastPlayer_) return;
+  if (podcastPlayer_->playbackState() == QMediaPlayer::PlayingState)
     playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
   else
     playerPlayButton_->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
@@ -1092,6 +1107,13 @@ void MainWindow::createActions()
   blockedWordsAct_->setIcon(QIcon(":/images/filterOff"));
   this->addAction(blockedWordsAct_);
   connect(blockedWordsAct_, SIGNAL(triggered()), this, SLOT(showBlockedWordsDlg()));
+
+  pauseUpdatesAct_ = new QAction(this);
+  pauseUpdatesAct_->setObjectName("pauseUpdatesAct");
+  pauseUpdatesAct_->setCheckable(true);
+  pauseUpdatesAct_->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
+  this->addAction(pauseUpdatesAct_);
+  connect(pauseUpdatesAct_, SIGNAL(triggered()), this, SLOT(slotTogglePauseUpdates()));
 
   showMenuBarAct_ = new QAction(this);
   showMenuBarAct_->setCheckable(true);
@@ -2115,6 +2137,7 @@ void MainWindow::createMenu()
   feedMenu_ = new QMenu(this);
   feedMenu_->addAction(updateFeedAct_);
   feedMenu_->addAction(updateAllFeedsAct_);
+  feedMenu_->addAction(pauseUpdatesAct_);
   feedMenu_->addSeparator();
   feedMenu_->addAction(markFeedRead_);
   feedMenu_->addAction(markAllFeedsRead_);
@@ -2387,6 +2410,12 @@ void MainWindow::loadSettings()
   updateFeedsEnable_ = settings.value("autoUpdatefeeds", false).toBool();
   updateFeedsInterval_ = settings.value("autoUpdatefeedsTime", 10).toInt();
   updateFeedsIntervalType_ = settings.value("autoUpdatefeedsInterval", 0).toInt();
+  updatePaused_ = settings.value("pauseUpdates", false).toBool();
+  if (pauseUpdatesAct_) {
+    pauseUpdatesAct_->setChecked(updatePaused_);
+    pauseUpdatesAct_->setIcon(style()->standardIcon(
+        updatePaused_ ? QStyle::SP_MediaPlay : QStyle::SP_MediaPause));
+  }
 
   openingFeedAction_ = settings.value("openingFeedAction", 0).toInt();
   openNewsWebViewOn_ = settings.value("openNewsWebViewOn", true).toBool();
@@ -2537,7 +2566,7 @@ void MainWindow::loadSettings()
   statusBarToggle_->setChecked(settings.value("statusBarShow", true).toBool());
 
   QString str = settings.value("mainToolBar",
-                               "newAct,Separator,updateFeedAct,updateAllFeedsAct,"
+                               "newAct,Separator,updateFeedAct,updateAllFeedsAct,pauseUpdatesAct,"
                                "Separator,markFeedRead,Separator,autoLoadImagesToggle").toString();
 
   foreach (QString actionStr, str.split(",", Qt::SkipEmptyParts)) {
@@ -2785,6 +2814,7 @@ void MainWindow::saveSettings()
   settings.setValue("autoUpdatefeeds", updateFeedsEnable_);
   settings.setValue("autoUpdatefeedsTime", updateFeedsInterval_);
   settings.setValue("autoUpdatefeedsInterval", updateFeedsIntervalType_);
+  settings.setValue("pauseUpdates", updatePaused_);
 
   settings.setValue("openingFeedAction", openingFeedAction_);
   settings.setValue("openNewsWebViewOn", openNewsWebViewOn_);
@@ -5094,6 +5124,7 @@ void MainWindow::createTrayMenu()
   trayMenu_->addAction(showWindowAct_);
   trayMenu_->addAction(addFeedTrayAct_);
   trayMenu_->addAction(updateAllFeedsAct_);
+  trayMenu_->addAction(pauseUpdatesAct_);
   trayMenu_->addAction(markAllFeedsRead_);
   showRecentNotifyAct_ = new QAction(this);
   showRecentNotifyAct_->setObjectName("showRecentNotifyAct");
@@ -5172,6 +5203,11 @@ void MainWindow::updateIntelligentRefreshInterval(int feedId)
 // ----------------------------------------------------------------------------
 void MainWindow::slotGetFeedsTimer()
 {
+  // Global one-click pause: freeze all auto-update countdowns. Manual
+  // refreshes (updateAllFeedsAct_, per-feed update) are unaffected.
+  if (updatePaused_)
+    return;
+
   if (updateFeedsEnable_) {
     updateTimeCount_++;
     if (updateTimeCount_ >= updateIntervalSec_) {
@@ -5194,6 +5230,18 @@ void MainWindow::slotGetFeedsTimer()
       emit signalGetFeedTimer(feedId);
     }
   }
+}
+// ----------------------------------------------------------------------------
+void MainWindow::slotTogglePauseUpdates()
+{
+  updatePaused_ = pauseUpdatesAct_->isChecked();
+  pauseUpdatesAct_->setIcon(style()->standardIcon(
+      updatePaused_ ? QStyle::SP_MediaPlay : QStyle::SP_MediaPause));
+  pauseUpdatesAct_->setText(updatePaused_ ? tr("Resume Updates") : tr("Pause Updates"));
+  if (statusBar())
+    statusBar()->showMessage(updatePaused_ ? tr("Automatic feed updates paused")
+                                           : tr("Automatic feed updates resumed"),
+                             3000);
 }
 /** @brief Process update feed action
  *---------------------------------------------------------------------------*/
@@ -6061,6 +6109,7 @@ void MainWindow::retranslateStrings()
   backupDataAct_->setText(tr("&Backup Data..."));
   restoreDataAct_->setText(tr("&Restore Data..."));
   blockedWordsAct_->setText(tr("&Blocked Words..."));
+  pauseUpdatesAct_->setText(updatePaused_ ? tr("Resume Updates") : tr("Pause Updates"));
   showMenuBarAct_->setText(tr("S&how Menu Bar"));
 
   exitAct_->setText(tr("E&xit"));

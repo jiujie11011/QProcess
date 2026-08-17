@@ -69,6 +69,7 @@ Links:
 | 拦截词（Blocked Words） | 全局拦截词列表（DB v24 `blockedWords` 表）：标题或内容包含任一拦截词的文章从新闻列表隐藏，**非破坏性**（删除拦截词即恢复，不误删文章）；`NewsModel::setFilter` 统一注入 WHERE 子句（LIKE 通配符 `% _ \` 与 SQL 引号均已转义，逐字匹配，全部视图生效）；入口：工具菜单「拦截词…」与过滤器管理对话框按钮 | `newsfilters/blockedwordsdialog.*`、`newsmodel.cpp`、`database.*` |
 | 数据备份/恢复 | 「文件」菜单新增「备份数据…/恢复数据…」：基于 `sqlite3_backup` API 的**在线一致性快照**（WAL 安全，单文件 `.sqlite`，设置 INI 随附同名 `.ini`）；恢复前自动创建安全副本、校验备份合法性，恢复后自动跑 schema 迁移并重载模型，无需重启 | `database.*`、`mainwindow.cpp` |
 | 无 RSS 站点抓取（C.7 核实收尾） | 核实 XPath 抓取（`XPathFeedParser`：QWebEngine 注入 `document.evaluate`）与脚本抓取（`ScriptFeedRunner`：QProcess stdin/stdout）链路完整可用；纯网页 URL 在默认 RSS 模式下发现失败时，向导提示引导用户切换到「XPath scraping / Custom script」类型 | `addfeedwizard.cpp`、`feedsmanagement/xpathfeedparser.*`、`feedsmanagement/scriptfeedrunner.*` |
+| 全局一键暂停/恢复自动更新（P2 收尾） | 「订阅」菜单、托盘菜单、主工具栏三入口一键暂停/恢复自动刷新：`pauseUpdatesAct_`（checkable，图标随状态在 `SP_MediaPause/Play` 间切换）门控 `slotGetFeedsTimer` 冻结全部倒计时，**手动刷新（单源/全部）不受影响**；INI `pauseUpdates` 持久化，重启保持暂停状态 | `mainwindow.*` |
 
 ## 二、待办计划
 
@@ -78,7 +79,8 @@ Links:
 - [x] **拦截词（Blocked Words）**：全局拦截词表 + 管理对话框 + 列表过滤注入（DB v24）
 - [x] **数据备份/恢复**：`sqlite3_backup` 在线快照 + 设置随附 + 安全副本与恢复迁移（DB v24）
 - [x] **C.7 无 RSS 站点抓取核实**：XPath/脚本抓取链路已实现，补齐失败提示引导
-- [ ] **提交 + 触发 CI**：双 job 全绿验证（Qt5/Qt6 + 单元测试）
+- [x] **全局一键暂停（P2）**：`pauseUpdatesAct_` 三入口 + 更新调度门控 + INI 持久化（本轮新增）
+- [x] **提交 + 触发 CI（进行中）**：`09bcf0d` 触发三 job 失败（网络受限无法拉取日志），经全量静态审查 + 独立子代理复核未发现 Qt5 硬错误，但定位并修复了 Qt6 阻塞点：`slotPlayerTogglePlay/slotPlayerStateChanged` 的 `QMediaPlayer::state()`（Qt6 改名 `playbackState()`，已用 `#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6,0,0))` 双重条件隔离）、`downloaditem.h` 依赖 `qftp.h` 而 `.pro` 在 Qt6 排除了 `qftp.pri`（已改回 Qt5/Qt6 均包含）、`common.h` 显式包含 `<QStringConverter>`。修复已写入工作区（含 pauseUpdates 新功能），**尚未提交**（上次提交因 PowerShell 中文引号编码失败），提交后待 CI 复跑验证
 - [ ] **可选：全项目 SIGNAL/SLOT 迁移**：`mainwindow.cpp`（310）、`optionsdialog.cpp`（141）、`updatefeeds.cpp`（126）等合计 1000+ 处，风险较高，暂缓
 
 ## 三、错误与教训总结
@@ -91,3 +93,6 @@ Links:
 6. **CI 平台差异**（详见 `README-DEV.md`）：GHA Linux 默认 `bash -e -o pipefail` 会吞掉失败后的诊断输出；`::error::` annotation 单条有 4092 字符上限，大日志须拆成逐条错误行输出；MSVC 的"最烦恼解析"（Most Vexing Parse）只会在真实编译时暴露。
 7. **`setPatternOptions()` 会整体覆盖选项而非追加**：`htmlsanitizer.cpp` 的 `removeAll` 在构造函数已设 `CaseInsensitiveOption` 后，又调用 `re.setPatternOptions(DotMatchesEverythingOption)`，把大小写不敏感静默丢弃 → 大写 `<SCRIPT>` 不再被剥离（QTest `stripsScriptBlocks` 暴露）。教训：要追加选项必须写 `patternOptions() | 新选项`，绝不要整体覆盖；此类"运行时静默退化"正是单测价值所在。
 8. **消毒替换须保留引号风格**：`jsUrl` 把 `src='vbscript:…'` 替换成 `src="#"`（双引号），与测试期望的 `src='#'` 不符，且会破坏原本单引号配对的属性。修复为捕获引号字符并复用（`\1=\2#\2`），输出更贴近原文。
+9. **报告「遗留」栏易过时**：`QProcess_RSS优化建议报告_修订版.md` 曾把「分页/懒加载」「每源独立刷新间隔」标为未实施，逐行对照源码后确认**实际均已实现**（`newsmodel` 分页惰性加载 + `initUpdateFeeds` 每源独立倒计时 + `feedpropertiesdialog` 每源间隔配置）；真实缺口仅为「全局一键暂停」，本轮补齐。教训：执行「完成剩余缺口」前必须重核报告与代码库最新事实，避免为已存在的功能重复造轮子。
+10. **`HAVE_QT5` 宏 ≠ "Qt5 专用"**：`.pro` 用 `greaterThan(QT_MAJOR_VERSION, 4)` 统一为 Qt5/Qt6 定义 `HAVE_QT5`，因此 `#ifdef HAVE_QT5` 分支在 **Qt6 下也会编译**。`QMediaPlayer::state()`（Qt6 改名 `playbackState()`）、`QRegExp::Wildcard` 等 API 差异必须用 `#if defined(HAVE_QT5) && (QT_VERSION < QT_VERSION_CHECK(6,0,0))` 双重条件，仅用 `HAVE_QT5` 会静默编译 Qt5-only API 导致 Qt6 构建失败。
+11. **条件编译必须覆盖所有引用方**：`3rdparty/qftp` 原本 `isEqual(QT_MAJOR_VERSION, 5)` 才包含，但 `downloaditem.h` 在 `HAVE_QT5` 下无条件 `#include "qftp.h"`——Qt6 下 `.pro` 排除了 qftp 而头文件仍引用它，头文件直接找不到。教训：调整 `.pro` 条件时，必须同步检查所有引用被排除模块的源码，避免"源头排除、下游还在用"的断链。

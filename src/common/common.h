@@ -23,6 +23,9 @@
 #include <QRect>
 #include <QApplication>
 #include <QTextStream>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#include <QStringConverter>  // QTextStream::setEncoding / QStringConverter::Utf8
+#endif
 
 #define TRACKING_ID "UA-99877778-1"
 

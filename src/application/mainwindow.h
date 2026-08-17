@@ -489,6 +489,7 @@ private slots:
   void slotFeedsFilter();
   void slotNewsFilter();
   void slotGetFeedsTimer();
+  void slotTogglePauseUpdates();
   void updateIntelligentRefreshInterval(int feedId);
   void slotShowUpdateAppDlg();
   void showContextMenuToolBar(const QPoint &pos);
@@ -793,6 +794,7 @@ private:
   QAction *backupDataAct_;
   QAction *restoreDataAct_;
   QAction *blockedWordsAct_;
+  QAction *pauseUpdatesAct_;
   QAction *showMenuBarAct_;
 
   QMenu *fileMenu_;
@@ -840,6 +842,7 @@ private:
   int updateIntervalSec_;
   int updateTimeCount_;
   bool updateFeedsEnable_;
+  bool updatePaused_;
   int  updateFeedsInterval_;
   int  updateFeedsIntervalType_;
   QList<int> feedIdList_;

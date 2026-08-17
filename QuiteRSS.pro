@@ -302,7 +302,9 @@ isEmpty(SYSTEMQTSA) {
 } else {
   CONFIG += qtsingleapplication
 }
-isEqual(QT_MAJOR_VERSION, 5) {
+greaterThan(QT_MAJOR_VERSION, 4) {
+  # QFtp moved out of Qt in Qt5 and was removed in Qt6; this bundled copy
+  # compiles under both (Qt6 resolves QRegExp via the qt6compat.h force-include).
   include(3rdparty/qftp/qftp.pri)
 }
 include(3rdparty/sqlite.pri)

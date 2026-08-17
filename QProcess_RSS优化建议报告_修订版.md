@@ -13,7 +13,8 @@
 |------|------|------|
 | ✅ 已实现 / 已过时 | 8 项 | WAL 与索引、后台线程抓取、URL 自动发现、Google Reader 同步、阅读进度保存、离线图片缓存、Reader Mode（全文抓取）、键盘优先 |
 | 🔧 本轮已实施 | 4 项 | 自动化测试（QTest）、条件 GET（304 短路）、FTS5 全文检索基础设施、HTML 消毒 |
-| ⚠️ 遗留待排期 | 3 项 | SIGNAL/SLOT 字符串宏迁移、Qt6 + QtWebKit 移除、WebSub/每源刷新间隔等增量增强 |
+| 🔧 第二轮已实施 | 6 项 | Qt6 CI 矩阵、单测失败根因修复、拦截词、数据备份/恢复、全局一键暂停、C.7 无源提示引导 |
+| ⚠️ 遗留待排期 | 2 项 | SIGNAL/SLOT 字符串宏迁移、Qt6 + QtWebKit 移除（增量：WebSub 低优先）|
 
 ---
 
@@ -22,8 +23,8 @@
 | 维度 | 现状（2026-08 核实） |
 |------|----------------------|
 | 本质 | QuiteRSS（2011–2020 Qt/C++）改造分支 |
-| 技术基线 | Qt 5.15（MSVC + GCC 双 CI 构建通过）；SQLite 存储（DB 版本已到 22，WAL 已开启） |
-| 工程闭环 | ✅ 已有 GitHub Actions 双平台构建（Linux make / Windows nmake），最近一次构建已修复全部编译错误并验证通过 |
+| 技术基线 | Qt 5.15 + Qt 6.5 双线（CI 三 job：Windows MSVC / Linux Qt5 / Linux Qt6）；SQLite 存储（DB 版本已到 24，WAL 已开启） |
+| 工程闭环 | ✅ GitHub Actions 三 job 构建 + QTest 单元测试闭环（`tst_common` 两平台通过） |
 | 已实现功能 | 订阅/分组、未读/星标/标签、XPath/脚本订阅、OPML、JSON Feed、AI 摘要/标签/翻译/去重、本地 TF-IDF+TextRank 总结器、RSSHub 实例故障自愈、**离线图片缓存、全文抓取、全局播客播放器、定时自动清理、键盘导航、图片 lightbox、阅读进度记忆、通知静默时段** |
 | 关键风险（仍成立） | 旧式 `SIGNAL/SLOT` 字符串宏大量残留（68 文件，仅 mainwindow 310 处）；全库无自动化测试 |
 
@@ -87,18 +88,29 @@
 
 ---
 
+## 三·补、第二轮实施内容（2026-08-17）
+
+在上一轮（QTest/条件 GET/FTS5/HTML 消毒）基础上继续收尾：
+
+1. **Qt6 CI 矩阵**：`build.yml` 新增 `build-linux-qt6` job（Qt 6.5.3 + `qtwebengine qt5compat`），与 Qt5（Linux/Windows）三 job 并行验证；同步收尾 `endl`/`QSslCertificate`/`QTextCodec::setCodec`/`QUrl::fromPercentEncoding`/Qt6 媒体播放等剩余兼容项。
+2. **单测失败根因修复**：`tst_common` 两平台退出码 2 定位为 QTest 运行时断言失败（非编译失败）——`HtmlSanitizer` 两处真实 bug（`setPatternOptions` 整体覆盖丢失大小写选项、`jsUrl` 替换不保留引号），已修复。
+3. **拦截词**：见下遗留表 P2（DB v24，非破坏性隐藏）。
+4. **数据备份/恢复**：见下遗留表 P2（`sqlite3_backup` 在线快照）。
+5. **全局一键暂停**：见下遗留表 P2（更新调度门控 + 三入口）。
+6. **C.7 收尾**：XPath/脚本抓取链路核实完整，纯网页无源时向导提示引导切换类型。
+
 ## 四、遗留建议（未实施，按价值/风险排序）
 
 | 优先级 | 项目 | 工作量 | 风险 | 说明 |
 |--------|------|--------|------|------|
 | P0 | SIGNAL/SLOT 字符串宏 → 函数指针 connect | 大（全库 60+ 文件） | 中 | 一次性机械替换易引入疏漏，建议按文件分批，每次构建验证；收益是把运行期静默失败变为编译期错误 |
-| P1 | 分页/游标加载 + 正文懒加载 | 中 | 中 | 当前列表查询一次性取全量，文章过万后内存/响应变差；需改 newsmodel 查询与 model 填充 |
-| P1 | Qt6 + QtWebEngine（按需）/移除 QtWebKit | 大 | 高 | 技术债清偿，建议小步增量：先保证 Qt6 编译，再替换 WebKit 调用；XPath 改纯 C++ XML 解析 |
-| P2 | 每源独立刷新间隔 + 全局一键暂停 | 中 | 低 | RSS Guard 已验证的实用特性；feeds 表已有 updateInterval 字段 |
-| P2 | 拦截词（blocked words） | 小 | 低 | 复用现有过滤器体系，加一条「隐藏包含词」规则类型 |
-| P2 | 数据备份/恢复（JSON/SQLite） | 中 | 低 | RSS Guard 亮点功能，降低迁移焦虑 |
-| P3 | WebSub 秒级推送 | 大 | 高 | 需要公网端点，桌面端收益有限，优先级低 |
-| P3 | Qt 官方 QTest 覆盖率扩展 | 中 | 低 | 逐步为解析器、过滤器 SQL 构造补测试 |
+| P1 | 分页/游标加载 + 正文懒加载 | — | — | ✅ **已实现**（本轮核实）：`NewsModel` 500 条分页 select，`canFetchMore/fetchMore` 滚动惰性加载，无 ORDER BY 时默认 `id DESC`，批量操作前 `fetchAll()` |
+| P1 | Qt6 + QtWebEngine（按需）/移除 QtWebKit | 大 | 高 | 🔧 **已启动**：Qt6 CI 矩阵（6.5.3 + qtwebengine + qt5compat）与兼容层收尾完成；剩余 WebKit 调用替换、XPath 改纯 C++ XML 解析待续 |
+| P2 | 每源独立刷新间隔 + 全局一键暂停 | — | — | ✅ 每源独立刷新间隔**已实现**（`initUpdateFeeds` 按 feed 读 `updateIntervalEnable/Interval/Type` 建独立倒计时 + 智能刷新调整）；🔧 全局一键暂停**本轮已实施**（`pauseUpdatesAct_`：feed/托盘/工具栏三入口，`slotGetFeedsTimer` 门控冻结倒计时，手动刷新不受影响，INI `pauseUpdates` 持久化） |
+| P2 | 拦截词（blocked words） | — | — | 🔧 **本轮已实施**：DB v24 `blockedWords` 表 + `BlockedWordsDialog` + `NewsModel::setFilter` 统一注入 WHERE（LIKE 通配符/引号转义），非破坏性隐藏 |
+| P2 | 数据备份/恢复（JSON/SQLite） | — | — | 🔧 **本轮已实施**：`Database::backupToFile/restoreFromFile` 基于 `sqlite3_backup`（WAL 安全在线快照），恢复前安全副本、恢复后跑迁移，无需重启 |
+| P3 | WebSub 秒级推送 | 大 | 高 | 未实施，需要公网端点，桌面端收益有限，维持低优先 |
+| P3 | Qt 官方 QTest 覆盖率扩展 | 中 | 低 | 未实施，逐步为解析器、过滤器 SQL 构造补测试 |
 
 > 不建议方向（与定位不符，维持原报告结论）：重写为 Go/Web 服务、账号体系+云端存储为主、推荐算法。
 
