@@ -52,7 +52,7 @@ NewsHeader::NewsHeader(NewsModel *model, QWidget *parent)
   connect(buttonColumnView_, SIGNAL(clicked()), this, SLOT(slotButtonColumnView()));
 
   QHBoxLayout *buttonLayout = new QHBoxLayout();
-  buttonLayout->setMargin(0);
+  buttonLayout->setContentsMargins(0, 0, 0, 0);
   buttonLayout->addWidget(buttonColumnView_, 0, Qt::AlignRight|Qt::AlignVCenter);
   setLayout(buttonLayout);
 

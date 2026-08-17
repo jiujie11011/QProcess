@@ -38,7 +38,7 @@ RSSDetectionWidget::RSSDetectionWidget(WebView* view, QWidget* parent)
   setMidLineWidth(2);
 
   gridLayout_ = new QGridLayout(this);
-  gridLayout_->setMargin(5);
+  gridLayout_->setContentsMargins(5, 5, 5, 5);
   gridLayout_->setSpacing(5);
 
   QString js = R"(

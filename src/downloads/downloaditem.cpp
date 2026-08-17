@@ -88,7 +88,7 @@ DownloadItem::DownloadItem(QListWidgetItem *item,
   progressBar_->setValue(0);
 
   QHBoxLayout *progressLayout = new QHBoxLayout();
-  progressLayout->setMargin(0);
+  progressLayout->setContentsMargins(0, 0, 0, 0);
   progressLayout->addWidget(progressBar_);
   progressLayout->addStretch();
 
@@ -100,7 +100,7 @@ DownloadItem::DownloadItem(QListWidgetItem *item,
   downloadInfo_->setText(tr("Remaining time unavailable"));
 
   QVBoxLayout *mainLayout = new QVBoxLayout();
-  mainLayout->setMargin(5);
+  mainLayout->setContentsMargins(5, 5, 5, 5);
   mainLayout->setSpacing(5);
   mainLayout->addWidget(fileNameLabel_);
   mainLayout->addWidget(downloadInfo_);

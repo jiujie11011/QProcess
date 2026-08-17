@@ -44,7 +44,7 @@ BlockedWordsDialog::BlockedWordsDialog(QWidget *parent)
   connect(wordEdit_, SIGNAL(returnPressed()), this, SLOT(addWord()));
 
   QHBoxLayout *addLayout = new QHBoxLayout();
-  addLayout->setMargin(0);
+  addLayout->setContentsMargins(0, 0, 0, 0);
   addLayout->addWidget(wordEdit_, 1);
   addLayout->addWidget(addButton);
 
@@ -54,7 +54,7 @@ BlockedWordsDialog::BlockedWordsDialog(QWidget *parent)
   connect(clearButton, SIGNAL(clicked()), this, SLOT(clearWords()));
 
   QHBoxLayout *editLayout = new QHBoxLayout();
-  editLayout->setMargin(0);
+  editLayout->setContentsMargins(0, 0, 0, 0);
   editLayout->addWidget(removeButton);
   editLayout->addWidget(clearButton);
   editLayout->addStretch();

@@ -48,7 +48,7 @@ ItemCondition::ItemCondition(QWidget * parent)
 
   QHBoxLayout *buttonsLayout = new QHBoxLayout();
   buttonsLayout->setAlignment(Qt::AlignCenter);
-  buttonsLayout->setMargin(0);
+  buttonsLayout->setContentsMargins(0, 0, 0, 0);
   buttonsLayout->setSpacing(5);
   buttonsLayout->addWidget(comboBox1_);
   buttonsLayout->addWidget(comboBox2_);

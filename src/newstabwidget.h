@@ -198,7 +198,9 @@ private slots:
   void webHomePage();
   void openPageInExternalBrowser();
   void slotLinkClicked(QUrl url);
-  void slotLinkHovered(const QString &link, const QString &str1="", const QString &str2="");
+  // QWebEnginePage::linkHovered carries 1 arg on Qt5 and 3 on Qt6; the slot
+  // only uses the URL, so keep a single argument for cross-version connects.
+  void slotLinkHovered(const QString &link);
   void slotSetValue(int value);
   void slotLoadStarted();
   void slotLoadFinished(bool);

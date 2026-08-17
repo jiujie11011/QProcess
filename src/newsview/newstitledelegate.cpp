@@ -42,7 +42,7 @@ void NewsTitleDelegate::paint(QPainter *painter,
   if (boldFont.bold())
     titleFont.setBold(true);
 
-  QColor titleColor = index.data(Qt::TextColorRole).value<QColor>();
+  QColor titleColor = index.data(Qt::ForegroundRole).value<QColor>();
   if (!titleColor.isValid())
     titleColor = opt.palette.color(QPalette::Text);
   if (selected)

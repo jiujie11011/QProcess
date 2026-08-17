@@ -51,7 +51,7 @@ OptionsDialog::OptionsDialog(QWidget *parent)
         QString("#contentLabel_ {border-bottom: 1px solid %1;}").
         arg(qApp->palette().color(QPalette::Dark).name()));
   contentLabel_->setMinimumHeight(36);
-  contentLabel_->setMargin(4);
+  contentLabel_->setContentsMargins(4, 4, 4, 4);
   QFont fontContentLabel = contentLabel_->font();
   fontContentLabel.setBold(true);
   fontContentLabel.setPointSize(fontContentLabel.pointSize()+2);
@@ -341,8 +341,8 @@ bool OptionsDialog::eventFilter(QObject *obj, QEvent *event)
           if (!shortcutStr.isEmpty()) {
             for (int i = 0; i < treeItems.count(); i++) {
               if ((treeItems.count() == 2) || (treeItems.at(i)->row() == row)) {
-                treeItems.at(i)->setData(shortcutModel_->item(0, 1)->data(Qt::TextColorRole),
-                                         Qt::TextColorRole);
+                treeItems.at(i)->setData(shortcutModel_->item(0, 1)->data(Qt::ForegroundRole),
+                                         Qt::ForegroundRole);
               }
             }
           }
@@ -360,7 +360,7 @@ bool OptionsDialog::eventFilter(QObject *obj, QEvent *event)
                                           shortcutModel_->item(treeItems.at(i)->row(), 0)->text()
                                           + "'");
               }
-              treeItems.at(i)->setData(QColor(Qt::red), Qt::TextColorRole);
+              treeItems.at(i)->setData(QColor(Qt::red), Qt::ForegroundRole);
             }
           } else {
             warningShortcut_->clear();
@@ -540,7 +540,7 @@ void OptionsDialog::createNetworkConnectionsWidget()
   editPassword_->setEchoMode(QLineEdit::Password);
 
   QHBoxLayout *addrPortLayout = new QHBoxLayout();
-  addrPortLayout->setMargin(0);
+  addrPortLayout->setContentsMargins(0, 0, 0, 0);
   addrPortLayout->addWidget(typeProxy_);
   addrPortLayout->addWidget(new QLabel(tr("Proxy server:")));
   addrPortLayout->addWidget(editHost_);
@@ -551,7 +551,7 @@ void OptionsDialog::createNetworkConnectionsWidget()
   addrPortWidget->setLayout(addrPortLayout);
 
   QHBoxLayout *userPasswordLayout = new QHBoxLayout();
-  userPasswordLayout->setMargin(0);
+  userPasswordLayout->setContentsMargins(0, 0, 0, 0);
   userPasswordLayout->addWidget(new QLabel(tr("Username:")));
   userPasswordLayout->addWidget(editUser_);
   userPasswordLayout->addWidget(new QLabel(tr("Password:")));
@@ -561,7 +561,7 @@ void OptionsDialog::createNetworkConnectionsWidget()
   userPasswordWidget->setLayout(userPasswordLayout);
 
   QVBoxLayout *manualLayout = new QVBoxLayout();
-  manualLayout->setMargin(0);
+  manualLayout->setContentsMargins(0, 0, 0, 0);
   manualLayout->addWidget(addrPortWidget);
   manualLayout->addWidget(userPasswordWidget);
   manualLayout->addStretch();
@@ -671,7 +671,7 @@ void OptionsDialog::createBrowserWidget()
   userStyleBrowserLayout->addWidget(userStyleBrowserButton, 0, 1, Qt::AlignRight);
 
   QVBoxLayout *browserLayoutV = new QVBoxLayout();
-  browserLayoutV->setMargin(10);
+  browserLayoutV->setContentsMargins(10, 10, 10, 10);
   browserLayoutV->addWidget(new QLabel(tr("Browser selection:")));
   browserLayoutV->addLayout(browserSelectionLayout);
   browserLayoutV->addWidget(new QLabel(tr("External browser:")));
@@ -757,7 +757,7 @@ void OptionsDialog::createBrowserWidget()
   cookiesBox->addButton(blockCookies_);
 
   QVBoxLayout *historyMainLayout = new QVBoxLayout();
-  historyMainLayout->setMargin(10);
+  historyMainLayout->setContentsMargins(10, 10, 10, 10);
   historyMainLayout->addLayout(historyLayout1);
   historyMainLayout->addWidget(diskCacheOn_);
   historyMainLayout->addSpacing(10);
@@ -798,7 +798,7 @@ void OptionsDialog::createBrowserWidget()
   click2FlashLayout1->addStretch(1);
 
   QHBoxLayout *click2FlashLayout2 = new QHBoxLayout();
-  click2FlashLayout2->setMargin(0);
+  click2FlashLayout2->setContentsMargins(0, 0, 0, 0);
   click2FlashLayout2->addWidget(c2fWhitelist_, 1);
   click2FlashLayout2->addLayout(click2FlashLayout1);
 
@@ -810,7 +810,7 @@ void OptionsDialog::createBrowserWidget()
           c2fWhitelistWidget, SLOT(setEnabled(bool)));
 
   QVBoxLayout *click2FlashLayout = new QVBoxLayout();
-  click2FlashLayout->setMargin(10);
+  click2FlashLayout->setContentsMargins(10, 10, 10, 10);
   click2FlashLayout->addWidget(c2fInfo);
   click2FlashLayout->addWidget(c2fEnabled_);
   click2FlashLayout->addWidget(c2fWhitelistWidget, 1);
@@ -839,7 +839,7 @@ void OptionsDialog::createBrowserWidget()
   downLocationLayout->addWidget(askDownloadLocation_, 1, 0);
 
   QVBoxLayout *downloadsLayout = new QVBoxLayout();
-  downloadsLayout->setMargin(10);
+  downloadsLayout->setContentsMargins(10, 10, 10, 10);
   downloadsLayout->addWidget(new QLabel(tr("Download location:")));
   downloadsLayout->addLayout(downLocationLayout);
   downloadsLayout->addStretch();
@@ -879,7 +879,7 @@ void OptionsDialog::createFeedsWidget()
           updateIntervalType_, SLOT(setEnabled(bool)));
 
   QHBoxLayout *updateFeedsLayout = new QHBoxLayout();
-  updateFeedsLayout->setMargin(0);
+  updateFeedsLayout->setContentsMargins(0, 0, 0, 0);
   updateFeedsLayout->addWidget(updateFeedsEnable_);
   updateFeedsLayout->addWidget(updateFeedsInterval_);
   updateFeedsLayout->addWidget(updateIntervalType_);
@@ -909,7 +909,7 @@ void OptionsDialog::createFeedsWidget()
   avoidedOldNewsDate_->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
   avoidedOldNewsDate_->setHorizontalHeaderFormat(QCalendarWidget::SingleLetterDayNames);
   QHBoxLayout *avoidedOldNewsDateLayout = new QHBoxLayout();
-  avoidedOldNewsDateLayout->setMargin(5);
+  avoidedOldNewsDateLayout->setContentsMargins(5, 5, 5, 5);
   avoidedOldNewsDateLayout->addWidget(avoidedOldNewsDate_);
   avoidedOldNewsDateLayout->addStretch();
 
@@ -959,7 +959,7 @@ void OptionsDialog::createFeedsWidget()
   formatTime_->setItemData(3, "hh:mm:ss AP");
 
   QHBoxLayout *formatDateLayout = new QHBoxLayout();
-  formatDateLayout->setMargin(0);
+  formatDateLayout->setContentsMargins(0, 0, 0, 0);
   formatDateLayout->addWidget(new QLabel(tr("Display format for date:")));
   formatDateLayout->addWidget(formatDate_);
   formatDateLayout->addSpacing(10);
@@ -987,7 +987,7 @@ void OptionsDialog::createFeedsWidget()
   mainNewsFilter_->setItemData(7, "filterNewsLastWeek_");
 
   QHBoxLayout *mainNewsFilterLayout = new QHBoxLayout();
-  mainNewsFilterLayout->setMargin(0);
+  mainNewsFilterLayout->setContentsMargins(0, 0, 0, 0);
   mainNewsFilterLayout->addWidget(new QLabel(tr("Default news filter:")));
   mainNewsFilterLayout->addWidget(mainNewsFilter_);
   mainNewsFilterLayout->addStretch();
@@ -1016,7 +1016,7 @@ void OptionsDialog::createFeedsWidget()
   connect(formatDate_, SIGNAL(currentIndexChanged(int)),
           this, SLOT(slotCustomDateFormatChanged(int)));
   QHBoxLayout *customDateLayout = new QHBoxLayout();
-  customDateLayout->setMargin(0);
+  customDateLayout->setContentsMargins(0, 0, 0, 0);
   customDateLayout->addWidget(customDateFormat_);
   customDateLayout->addStretch();
 
@@ -1031,7 +1031,7 @@ void OptionsDialog::createFeedsWidget()
 
   // S-6: reader font size / line height
   QHBoxLayout *readerFontLayout = new QHBoxLayout();
-  readerFontLayout->setMargin(0);
+  readerFontLayout->setContentsMargins(0, 0, 0, 0);
   readerFontLayout->addWidget(new QLabel(tr("Reader font size:")));
   readerFontSize_ = new QSpinBox();
   readerFontSize_->setRange(0, 40);
@@ -1092,7 +1092,7 @@ void OptionsDialog::createFeedsWidget()
         connect(markCurNewsRead_, SIGNAL(toggled(bool)),
           markNewsReadTime_, SLOT(setEnabled(bool)));
 
-        curLayout->setMargin(0);
+        curLayout->setContentsMargins(0, 0, 0, 0);
         curLayout->addWidget(markCurNewsRead_);
         curLayout->addWidget(markNewsReadTime_);
         curLayout->addWidget(new QLabel(tr("seconds")));
@@ -1236,7 +1236,7 @@ void OptionsDialog::createLabelsWidget()
   buttonsLayout->addStretch();
 
   QHBoxLayout *labelsLayout = new QHBoxLayout();
-  labelsLayout->setMargin(0);
+  labelsLayout->setContentsMargins(0, 0, 0, 0);
   labelsLayout->addWidget(labelsTree_);
   labelsLayout->addLayout(buttonsLayout);
 
@@ -1366,7 +1366,7 @@ void OptionsDialog::createNotifierWidget()
   quietHoursLayout->addStretch(1);
 
   QVBoxLayout *notificationLayoutV = new QVBoxLayout();
-  notificationLayoutV->setMargin(10);
+  notificationLayoutV->setContentsMargins(10, 10, 10, 10);
   notificationLayoutV->addLayout(notifierLayout1);
   notificationLayoutV->addWidget(fullscreenModeNotify_);
   notificationLayoutV->addWidget(showNotifyInactiveApp_);
@@ -1407,7 +1407,7 @@ void OptionsDialog::createNotifierWidget()
   soundNotifyLayoutH->addWidget(playSoundNotifer_);
 
   QVBoxLayout *soundNotifyLayout = new QVBoxLayout(soundNotifyBox_);
-  soundNotifyLayout->setMargin(10);
+  soundNotifyLayout->setContentsMargins(10, 10, 10, 10);
   soundNotifyLayout->addLayout(soundNotifyLayoutH);
   soundNotifyLayout->addStretch(1);
 
@@ -1503,7 +1503,7 @@ void OptionsDialog::createPasswordsWidget()
   passButtonLayout->addStretch(1);
 
   QHBoxLayout *passLayout = new QHBoxLayout();
-  passLayout->setMargin(0);
+  passLayout->setContentsMargins(0, 0, 0, 0);
   passLayout->addWidget(passTree_);
   passLayout->addLayout(passButtonLayout);
 
@@ -1791,7 +1791,7 @@ void OptionsDialog::createLanguageWidget()
   linkTranslators->setOpenExternalLinks(true);
 
   QVBoxLayout *languageLayout = new QVBoxLayout();
-  languageLayout->setMargin(0);
+  languageLayout->setContentsMargins(0, 0, 0, 0);
   languageLayout->addWidget(new QLabel(tr("Choose language:")));
   languageLayout->addWidget(languageFileList_);
   languageLayout->addWidget(linkTranslators);
@@ -1966,7 +1966,7 @@ void OptionsDialog::createFontsColorsWidget()
   accentColorEdit_->setMaxLength(7);
   accentColorEdit_->setFixedWidth(110);
   QHBoxLayout *accentLayout = new QHBoxLayout();
-  accentLayout->setMargin(0);
+  accentLayout->setContentsMargins(0, 0, 0, 0);
   accentLayout->addWidget(new QLabel(tr("Accent color:")));
   accentLayout->addWidget(accentColorCombo_);
   accentLayout->addWidget(new QLabel(tr("Custom hex:")));
@@ -2094,7 +2094,7 @@ void OptionsDialog::createShortcutWidget()
   warningShortcut_ = new QLabel();
 
   QVBoxLayout *shortcutLayout = new QVBoxLayout();
-  shortcutLayout->setMargin(0);
+  shortcutLayout->setContentsMargins(0, 0, 0, 0);
   shortcutLayout->addWidget(filterShortcut_);
   shortcutLayout->addWidget(shortcutTree_, 1);
   shortcutLayout->addWidget(warningShortcut_);
@@ -2782,7 +2782,7 @@ void OptionsDialog::loadActionShortcut(QList<QAction *> actions, QStringList *li
     treeItems = shortcutModel_->findItems(str, Qt::MatchFixedString, 2);
     if ((treeItems.count() > 1) && !str.isEmpty()) {
       for (int i = 0; i < treeItems.count(); i++) {
-        treeItems.at(i)->setData(QColor(Qt::red), Qt::TextColorRole);
+        treeItems.at(i)->setData(QColor(Qt::red), Qt::ForegroundRole);
       }
     }
   }
@@ -2835,8 +2835,8 @@ void OptionsDialog::slotClearShortcut()
   if ((treeItems.count() > 1) && !str.isEmpty()) {
     for (int i = 0; i < treeItems.count(); i++) {
       if ((treeItems.count() == 2) || (treeItems.at(i)->row() == row)) {
-        treeItems.at(i)->setData(shortcutModel_->item(0, 1)->data(Qt::TextColorRole),
-                                 Qt::TextColorRole);
+        treeItems.at(i)->setData(shortcutModel_->item(0, 1)->data(Qt::ForegroundRole),
+                                 Qt::ForegroundRole);
       }
     }
   }
@@ -2861,8 +2861,8 @@ void OptionsDialog::slotResetShortcut()
   if (!str.isEmpty()) {
     for (int i = 0; i < treeItems.count(); i++) {
       if ((treeItems.count() == 2) || (treeItems.at(i)->row() == row)) {
-        treeItems.at(i)->setData(shortcutModel_->item(0, 1)->data(Qt::TextColorRole),
-                                 Qt::TextColorRole);
+        treeItems.at(i)->setData(shortcutModel_->item(0, 1)->data(Qt::ForegroundRole),
+                                 Qt::ForegroundRole);
       }
     }
   }
@@ -2883,7 +2883,7 @@ void OptionsDialog::slotResetShortcut()
                                   "'");
       }
       if (treeItems.count() > 1) {
-        treeItems.at(i)->setData(QColor(Qt::red), Qt::TextColorRole);
+        treeItems.at(i)->setData(QColor(Qt::red), Qt::ForegroundRole);
       }
     }
   }
