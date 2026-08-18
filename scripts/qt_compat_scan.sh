@@ -162,6 +162,7 @@ if [[ $STRICT -eq 1 ]]; then
   report "QTreeWidgetItem::setTextColor / setBackgroundColor (Qt6 移除)" "$(scan "setTextColor|setBackgroundColor")"
   report "多字节字面量 -> QChar 歧义 (如 c == '。')" "$(scan "c\s*==\s*'[\x80-\xff]")"
   report "QDateTime 单参数构造 (Qt6 移除; 空构造 QDateTime() 为合法, 不误报)" "$(scan "QDateTime\s*\([^,()]*[A-Za-z_][^,()]*\)")"
+  report "QString::xxx(QRegExp) 成员重载 (Qt6 整体移除, Qt5Compat 也不提供; 3rdparty 守卫内保留不误报)" "$(scan_src_only "\.(remove|replace|indexOf|lastIndexOf|split|count|section|contains)\(\s*QRegExp")"
   echo -e "${YELLOW}--- Qt6 新增 API 裸用 (Qt5 编译必炸, 必须走 qt6compat.h 宏) ---${NC}"
   report "QMouseEvent::globalPosition() (Qt6 新增; Qt5 是 globalPos() -> 用 QEVENT_GLOBALPOS)" "$(scan_src_only "\.globalPosition\(")"
   report "QSinglePointEvent::position() (Qt6 新增; Qt5 是 pos() -> 用 QEVENT_POS)" "$(scan_src_only "\.position\(\)\.toPoint\(\)")"
@@ -202,6 +203,7 @@ report "QTreeWidget::isItemHidden (Qt6 移除)" "$(scan "isItemHidden")"
 report "QStyleOptionViewItemV4 (Qt4 遗留)" "$(scan "V4\b")"
 report "foreach 宏 (Qt6 移除 -> range-for, qt6compat.h 已兜底)" "$(scan "\bforeach\s*\(")"
 report "QRegExp / QTextCodec (Qt6 移至 Qt5Compat, qt6compat.h 已全局引入)" "$(scan "\bQRegExp\b|\bQTextCodec\b")"
+report "QString::xxx(QRegExp) 成员重载 (Qt6 整体移除, Qt5Compat 也不提供 -> 必须改 QRegularExpression)" "$(scan "\.(remove|replace|indexOf|lastIndexOf|split|count|section|contains)\(\s*QRegExp")"
 report "QMediaPlaylist (Qt6 移除)" "$(scan "QMediaPlaylist")"
 report "QSound::play 静态方法 (Qt6 移除)" "$(scan "QSound::play")"
 report "QMediaPlayer::state() (Qt6 改名 playbackState())" "$(scan "\bstate\(\)")"
@@ -237,6 +239,13 @@ report "macOS 部署目标过低 (Qt6 需 >= 10.13)" "$(scan "QMAKE_MACOSX_DEPLO
 report "C++ 标准 (Qt6 要求 C++17)" "$(scan "CONFIG\s*\+=\s*c\+\+1[47]" "." --include="*.pro" --include="*.pri")"
 report "core5compat 依赖 (长期过渡债)" "$(scan "qt5compat")"
 report "qmake vs CMake (Qt6 推荐 CMake)" "$(scan "\.pro\b" "." --include="*.pro" --include="*.pri")"
+
+# --- MSVC / POSIX 移植检查 (Windows 编译必看; 命中的守卫内保留需人工确认) ---
+echo -e "${YELLOW}=== MSVC / POSIX 移植 (build-windows 关注点) ===${NC}"
+report "POSIX 头 (MSVC 无 unistd.h / sys/*.h; 必须包在 Q_OS_WIN 守卫内)" "$(scan "#include\s*[<\"](unistd|sys/(time|select|socket|stat|types))\.h")"
+report "POSIX 函数/类型 (MSVC 无 strcasecmp->_stricmp / ssize_t / gettimeofday / usleep; 需条件编译)" "$(scan "\b(strcasecmp|strncasecmp|ssize_t|gettimeofday|usleep|srandom|strtok_r)\b")"
+report "GCC 特有属性/内建 (MSVC 不认 __attribute__/__builtin_ -> 报 C2065/C4231)" "$(scan "__attribute__\s*\(|__builtin_")"
+report "长整型字面量后缀 L/UL 与 MSVC 32 位 long 差异 (对比 Windows x64 无此问题)" "$(scan "\b[0-9]+UL\b")"
 
 # --- 第三方依赖 ---
 echo -e "${YELLOW}=== 第三方依赖风险 ===${NC}"

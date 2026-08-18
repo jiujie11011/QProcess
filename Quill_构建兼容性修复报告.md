@@ -502,7 +502,22 @@ QStyleOptionViewItemV4      V4                             已确认安全（Qt4
 | `TestThemeManager`（新增） | 默认 System、明暗 tokens 差异（含 accent）、apply 持久化到 QSettings、refresh 稳定性、System 安全解析 |
 | `TestNewsCardDelegate`（新增） | **feedId 字段级往返（点名回归点）**、全字段往返、空数据默认值、视觉层级访问器、sizeHint 非负 |
 
-### 11.5 自检结果
+### 11.5 CI #92–#96 排障记录（第三轮：让 Qt5/Qt6/Windows 三路全绿）
+
+> 11.1–11.4 落库后 CI 连续 #89–#91 失败，根因逐个击破；#92 起进入修复-验证循环。
+> 每次修复均先在本地用 Git Bash 复现（`scripts/qt_compat_scan.sh --strict .`）确认无误再推送。
+
+| 提交 | 触发 CI | 失败点 | 根因 | 修复 |
+|---|---|---|---|---|
+| `1f0c0c8` | #92 | build-linux / build-windows / build-linux-qt6 / compat-scan | ①`playerbar.cpp:61` `QLabel::setElideMode`——**Qt5/Qt6 的 QLabel 都无此方法**（编译期假想 API）；②`playerbar.cpp:120` mute lambda 裸用 `audioOutput_`（Qt6-only 成员）；③`feedurldetector.cpp:96` `setRedirectPolicy` 在 Qt 6 中**不存在**（Qt 6 只留 `RedirectPolicyAttribute` 属性）；④compat-scan 误报：`sed 's|//.*||'` 清空注释后残留 `file:line:` 前缀，`grep -v "^\s*$"` 拦不住 | ①删除 setElideMode 调用（布局伸缩兜底）；②mute lambda 拆 Qt5（`player_->setVolume(0..100)`）/Qt6（`audioOutput_`）双分支；③Qt6 改 `setAttribute(RedirectPolicyAttribute, NoLessSafeRedirectPolicy)`；④scan 增 `grep -vE ':[0-9]+:[[:space:]]*$'`，awk 增 `$3 ~ /[^[:space:]]/` 双保险 |
+| `f011d92` | #93 | build-linux / build-windows / build-linux-qt6 | ①`svgiconengine.h` `QHash<QSize,QPixmap>`——Qt5 无 `qHash(QSize)`（Qt6 才有）；②上一轮把 QSize 改 QMap 后 **Qt6 又缺 `QSize::operator<`**（两版互补缺失） | 统一用 `qint64` 组合键 `(w<<32)|h`，跨 Qt5/Qt6 均可哈希；`pixmap()` 缓存键同步改为组合键 |
+| `f3bb1ab` | #94 | build-linux / build-windows / build-linux-qt6 | ①`svgiconengine.cpp` 析构在头文件 `=default` 与 cpp 重复定义（MSVC C2084）；②`QString = QByteArray` 无匹配（C2678）；③`QString::replace(QRegularExpression, lambda)` 是 **Qt6-only 重载**（C2665）；④`QHash<enum class State, QColor>` Qt5 无枚举哈希；⑤`renderPixmap` 是 const 方法却写 `svgContent_` | ①删 cpp 析构定义；②两处 `f.readAll()` 改 `QString::fromUtf8`；③手动 `QRegularExpressionMatchIterator` 遍历替换；④补 `inline uint qHash(SvgIconEngine::State, uint=0)`；⑤`svgContent_` 标 `mutable` |
+| `a77617a` | #96 | build-linux / build-windows / build-linux-qt6 | `mainwindow.cpp:859` `createCodexLayout` 定义存在但头文件缺声明（`no declaration matches`） | `mainwindow.h` 在 `createPlayerBar()` 后补声明 |
+| `39b5269` | #95 | （接线代码首次全量进 CI） | `ThemeManager::nativeEventFilter` 签名 Qt5 用 `long*`、**Qt6 用 `qintptr*`**，`override` 不匹配致类变抽象 | 声明与实现处均 `#if defined(QT6)` 双签名 |
+
+**验证手段**：`compat-scan --strict` 已在本地 Git Bash 全绿；QTest 三套件随 CI `tst_common` 步骤执行；最终裁决以 CI 各 job 结论为准。
+
+### 11.6 自检结果（更新）
 
 - `read_lints`：全 workspace 0 诊断；
 - qrc 一致性：106 条全部存在（PowerShell 逐条校验）；
@@ -516,3 +531,91 @@ QStyleOptionViewItemV4      V4                             已确认安全（Qt4
 2. **图标名与代码的正式接线**：`SvgIconEngine::fromLucide` 目前 0 调用方（全部在 TODO 中），图标资源已就位但 UI 尚未消费。
 3. **ThemeManager 与旧 `setStyleApplication` 的 %ACCENT% 混合算法**：新 tokens 的 accentSoft 混合与旧逻辑需在真机对照，避免暗色块色偏。
 4. **Qt6 运行时回归**：高 DPI（AA_EnableHighDpiScaling 变 no-op）、QSettings/QTextStream UTF-8 对旧 ini 的兼容、WebEngine lightbox/阅读进度全链路、通知音（Qt6 Linux 走 FFmpeg）——需实机截图/实播验证。
+
+---
+
+## 十二、第四波：CI run #103–#106 排障记录与经验沉淀（2026-08-18）
+
+> 背景：上一波（第十一节）新增 8 组编译修复后 CI 长期处于"三平台历史遗留失败"状态。
+> 本轮在本地 WSL（Qt 5.15.18）把 Qt5 单平台调绿后，通过空提交触发全量 CI，
+> 逐个击破 **Qt6-only API** 与 **CI 环境特有行为**两类本地无法复现的问题。
+
+### 12.1 排障流水
+
+| 提交 | 触发 CI | 失败点 | 根因 | 修复 |
+|---|---|---|---|---|
+| `5299327` | （#103 未创建 run） | — | push 后 GitHub 未创建 run（历史遗留：#103 编号被消耗但列表无记录） | 空提交 `e4b8dfe` 重新触发 → #104 |
+| `e4b8dfe` | #104 | build-linux-qt6 / build-windows | ①`qtlocalpeer.cpp` Qt6 下 `QString::remove(QRegExp)` 不存在；②build.yml 的 `$PSScriptRoot` 在 Actions `run:` 步骤指向 `_work/_temp`，找不到 `Quill.exe` | 见 12.2 修复 3 / 修复 4 |
+| `ef53e27` | #105 | 编译中（验证 Qt6 QRegExp 修复） | — | — |
+| `a48ab00` | #106 | 编译中（验证 Windows 路径修复） | — | — |
+
+**#104 结果分布**（对照本地验证覆盖度）：
+
+| Job | 环境 | 结果 | 本地能否复现 |
+|---|---|---|---|
+| `compat-scan` | 无 Qt 静态扫描 | ✅ | ✅ 可 |
+| `build-linux` | GCC + Qt 5.15.2 | ✅ | ✅ 可（WSL 5.15.18 同类） |
+| `build-linux-qt6` | GCC + Qt 6.5.3 | ❌ `QRegExp` | ❌ 本地无 Qt6 |
+| `build-windows` | MSVC + Qt 5.15.2 | ❌ `$PSScriptRoot` | ❌ CI 运行时行为 |
+
+### 12.2 四类修复明细
+
+**修复 1：`playerbar.h` — `#include <QAudioOutput>` 放错位置（Qt6 编译回归）**
+- 现象：`cannot convert 'PlayerBar::QAudioOutput*' to 'QAudioOutput*'`。
+- 根因：`#include <QAudioOutput>` 被插在类声明中间，编译器把 `QAudioOutput` 解析成 `PlayerBar` 的**嵌套类型**。
+- 修复：include 移到文件顶部 include 区（`#if defined(QT6)` 守卫内）。
+- 经验：**任何 `#include` 必须位于文件顶部的 include 区，绝不可放在类声明体内**，否则会被解析为嵌套类型，报错极具误导性。
+
+**修复 2：`newscarddelegate.cpp` — `sizeHint()` 返回 0/负尺寸（本地+CI 双复现的真实 bug）**
+- 现象：`TestNewsCardDelegate::sizeHintNeverNegative` 失败（`s.width() > 0` 为 FALSE），导致 build-linux / build-windows 的 `DBG_TESTRUN exit=1`。
+- 根因：`sizeHint()` 两处返回非正宽度——①空数据分支 `QStyledItemDelegate::sizeHint` 对空项返回 `(0,0)`；②有数据分支 `option.rect.width()` 在默认构造的 `QStyleOptionViewItem` 下是 0。
+- 修复：两分支都 `qMax(1, ...)` 钳制到 ≥1。
+- 经验：**`sizeHint` 是视图布局的地基，任何分支都不允许返回 0/负**。该 case 的教训是"单元测试能抓到真实 bug"——先跑测试、后修测试还是先修实现，路径要分清。
+
+**修复 3：`qtlocalpeer.cpp` — Qt6 下 `QString::remove(QRegExp)` 不存在（build-linux-qt6）**
+- 现象：`qtlocalpeer.cpp:81` 编译失败。
+- 根因：Qt6 把 `QRegExp` 移出 QtCore 只是第一层；**`QString` 接受 `QRegExp` 的成员重载（`remove/replace/indexOf/split` 等）在 Qt6 中整体移除**，连 Qt5Compat 也不提供。qftp / qtlocalpeer 等老第三方代码是重灾区。
+- 修复：`#if QUIL_QT6` 分支改用 `QRegularExpression`，Qt5 保留 `QRegExp`。
+- 经验：**"Qt6 里 QRegExp 有 Qt5Compat 兜底" 只对 QRegExp 类本身成立，`QString::xxx(QRegExp)` 成员重载是另一回事**。遇到"已经 include 了 Qt5Compat 还报错"时，优先怀疑成员重载。
+
+**修复 4：build.yml — `$PSScriptRoot` 在 Actions `run:` 步骤里不是仓库根（build-windows）**
+- 现象：Deploy 步骤 `windeployqt` 报找不到 `Quill.exe`。
+- 根因：GitHub Actions 的 `run:` 步骤是**内联 PowerShell 脚本**，`$PSScriptRoot` 解析为 runner 的 `_work/_temp` 脚本目录，**不是 checkout 仓库根**（本地终端里该变量才是脚本所在目录）。
+- 修复：`$PSScriptRoot` → `$env:GITHUB_WORKSPACE`（两处：windeployqt + OpenSSL 拷贝）。
+- 经验：**CI 内联脚本中定位仓库根，一律用 `$env:GITHUB_WORKSPACE` / `${{ github.workspace }}`，不要用 `$PSScriptRoot`/`$PWD`/相对路径**。这类错误本地永远复现不了，只能在 CI 上炸。
+
+### 12.3 为什么"本地能编译，推送就报错"？（用户疑问复盘）
+
+| 环境 | 编译器 | Qt 版本 | 本地能否验证 |
+|---|---|---|---|
+| `build-linux` | GCC | 5.15.2 | ✅ 本地 WSL 同类（5.15.18） |
+| `build-linux-qt6` | GCC | 6.5.3 | ❌ 本地无 Qt6 |
+| `build-windows` | MSVC | 5.15.2 | ❌ 本地无 Windows Qt |
+
+- 本地只有一个环境（Linux + Qt5 + GCC），CI 是 **4 环境矩阵**（Qt5/Qt6 × GCC/MSVC）。
+- #104 恰好验证了这条规律：**`build-linux`（本地同类）通过，挂掉的正好是本地覆盖不到的两个环境**。
+- 结论：本地"能编译"只是最低门槛；**只要代码涉及 Qt5/Qt6 双版本或跨平台，CI 矩阵就是唯一权威**。任何本地无法覆盖的环境（Qt6、MSVC、CI 运行时行为）都应视为"未验证"，而非"没问题"。
+
+### 12.4 扫描清单增量（并入第 6.2 / 10.4 节）
+
+| Qt6 已移除/高危 API | grep 模式 | 状态 |
+|---|---|---|
+| `QString::xxx(QRegExp)` 成员重载 | `\.(remove|replace|indexOf|lastIndexOf|split|count|section|contains)\(\s*QRegExp` | ✅ 本轮修复（qtlocalpeer），**已入扫描脚本全量+strict** |
+| `$PSScriptRoot`（CI 内联脚本） | `PSScriptRoot` | ✅ 本轮修复（build.yml），**新增 CI 检查项** |
+| `#include` 位于类声明体内 | 代码审查项（grep 无法可靠匹配） | ⚠️ 纳入人工审查 checklist |
+
+**MSVC/POSIX 移植检查（新增，全量模式）**——`scripts/qt_compat_scan.sh` 新增小节，覆盖 `build-windows` 关注点：
+
+| 检查项 | grep 模式 | 当前命中（守卫内合法保留） |
+|---|---|---|
+| POSIX 头 | `#include <unistd.h> / <sys/*.h>` | `common.cpp:26`（`#else` 非 WIN 守卫） |
+| POSIX 函数/类型 | `strcasecmp/ssize_t/gettimeofday/usleep/strtok_r` | 0 |
+| GCC 特有属性 | `__attribute__( / __builtin_` | 0 |
+| 长整型字面量 | `\d+UL` | 0 |
+
+> 注：POSIX 项为守卫内保留，放在全量模式人工确认；strict 模式不含（不满足"0 残留"条件）。
+
+**教训沉淀（每次报错必须补进本报告，形成闭环）**：
+1. 本地环境覆盖不了的（Qt6 / MSVC / CI 运行时），推送前标注"未验证"；
+2. 每轮修复后必须确认**条件编译宏在目标编译单元里真的生效**（如 `QUIL_QT6` 靠 `Quill.pro` 的 `QMAKE_CXXFLAGS -include` 全局生效，qtlocalpeer 未显式 include qt6compat.h 也能拿到宏）；
+3. 空提交（`git commit --allow-empty`）是"push 未触发 run"时的可靠重试手段。
