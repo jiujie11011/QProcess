@@ -66,6 +66,7 @@ private:
 
     QMediaPlayer* player_;
 #if defined(QT6)
+#  include <QAudioOutput>
     QAudioOutput* audioOutput_;
 #else
     // Qt5: no QAudioOutput object; volume controlled via QMediaPlayer::setVolume

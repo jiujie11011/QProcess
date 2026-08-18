@@ -102,11 +102,11 @@
 // Multimedia (QMediaPlayer / QAudioOutput) - Qt5 vs Qt6
 // Qt5: QMediaPlayer::setMedia(), state(), setVolume(0-100), QMediaPlaylist
 // Qt6: QMediaPlayer::setSource(), setAudioOutput(), playbackState(), QAudioOutput
+// NOTE: translation units using these macros must #include <QMediaPlayer>
+// (and <QAudioOutput> on Qt6) themselves -- mainwindow.h / playerbar.h do.
+// This header must NEVER #include a Qt header (see note at the top).
 // ============================================================
 #if QUIL_QT6
-// Qt6 multimedia
-#  include <QAudioOutput>
-#  include <QMediaPlayer>
 #  define QMEDIAPLAYER_SET_SOURCE(player, url) ((player)->setSource(url))
 #  define QMEDIAPLAYER_SET_AUDIO_OUTPUT(player, output) ((player)->setAudioOutput(output))
 #  define QMEDIAPLAYER_PLAYBACK_STATE(player) ((player)->playbackState())
@@ -117,8 +117,6 @@
 #  define QMEDIAPLAYER_DURATION(player) ((player)->duration())
 #else
 // Qt5 multimedia
-#  include <QMediaPlayer>
-#  include <QMediaPlaylist>
 #  define QMEDIAPLAYER_SET_SOURCE(player, url) ((player)->setMedia(url))
 #  define QMEDIAPLAYER_SET_AUDIO_OUTPUT(player, output) ((void)0)
 #  define QMEDIAPLAYER_PLAYBACK_STATE(player) ((player)->state())

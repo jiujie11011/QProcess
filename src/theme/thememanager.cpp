@@ -135,7 +135,9 @@ bool ThemeManager::nativeEventFilter(const QByteArray& eventType, void* message,
     Q_UNUSED(message);
     Q_UNUSED(result);
 #endif
-    return QAbstractNativeEventFilter::nativeEventFilter(eventType, message, result);
+    // QAbstractNativeEventFilter::nativeEventFilter is pure virtual in both
+    // Qt5 and Qt6 -- return false for unhandled events (standard practice).
+    return false;
 }
 
 QString ThemeManager::renderQss(const QString& templatePath) const

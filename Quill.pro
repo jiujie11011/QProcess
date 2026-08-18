@@ -49,13 +49,14 @@ greaterThan(QT_MAJOR_VERSION, 4) {
   # visible in every translation unit on BOTH Qt5 and Qt6 (and the legacy
   # `foreach` macro, removed in Qt6, keeps working everywhere as well).
   unix {
-    QMAKE_CXXFLAGS += -include "$$PWD/src/common/qt6compat.h"
+    # \" keeps the quotes in the generated Makefile so paths with spaces work.
+    QMAKE_CXXFLAGS += -include \"$$PWD/src/common/qt6compat.h\"
   }
   win32-msvc* {
-    QMAKE_CXXFLAGS += /FI"$$PWD/src/common/qt6compat.h"
+    QMAKE_CXXFLAGS += /FI\"$$PWD/src/common/qt6compat.h\"
   }
   win32-g++ {
-    QMAKE_CXXFLAGS += -include "$$PWD/src/common/qt6compat.h"
+    QMAKE_CXXFLAGS += -include \"$$PWD/src/common/qt6compat.h\"
   }
   greaterThan(QT_MAJOR_VERSION, 5) {
     # Qt6: QRegExp/QTextCodec moved to Qt5Compat, C++17 is mandatory.
