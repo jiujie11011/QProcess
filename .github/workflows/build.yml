@@ -351,8 +351,10 @@ jobs:
       - name: Deploy Qt runtime (windeployqt)
         shell: pwsh
         run: |
-          # Use absolute path to avoid any working-directory confusion.
-          $workspace = $PSScriptRoot
+          # Use the checkout root: $PSScriptRoot in a `run:` step points at the
+          # runner's _temp dir, NOT the repository. Only GITHUB_WORKSPACE is
+          # guaranteed to be the checkout root.
+          $workspace = $env:GITHUB_WORKSPACE
           # MSVC debug_and_release appends a release\ subdir to DESTDIR, so the
           # exe lands in release\target\release\, not release\target\.
           $exe = Join-Path $workspace "release\target\release\Quill.exe"
@@ -383,7 +385,7 @@ jobs:
           # with "TLS initialization failed" without these DLLs. Provision
           # them next to Quill.exe.
           $ErrorActionPreference = 'Stop'
-          $workspace = $PSScriptRoot
+          $workspace = $env:GITHUB_WORKSPACE
           # Same debug_and_release subdir as windeployqt above.
           $targetDir = Join-Path $workspace "release\target\release"
           $sslLib = Join-Path $targetDir "libssl-1_1-x64.dll"
