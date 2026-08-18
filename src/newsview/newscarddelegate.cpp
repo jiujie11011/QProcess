@@ -38,9 +38,16 @@ QSize NewsCardDelegate::sizeHint(const QStyleOptionViewItem& option,
                                  const QModelIndex& index) const
 {
     ArticleData data = articleData(index);
-    if (data.id.isEmpty()) return QStyledItemDelegate::sizeHint(option, index);
+    if (data.id.isEmpty()) {
+        // Unset item: never return 0/negative -- views rely on a positive
+        // sizeHint for layout (see TestNewsCardDelegate::sizeHintNeverNegative).
+        const QSize base = QStyledItemDelegate::sizeHint(option, index);
+        return QSize(qMax(1, base.width()), qMax(1, base.height()));
+    }
 
-    int width = option.rect.width();
+    // option.rect may be empty (e.g. default-constructed QStyleOptionViewItem
+    // in tests or early layout passes); clamp to a sane minimum.
+    int width = qMax(1, option.rect.width());
     int height = 0;
 
     switch (visualLevel_) {

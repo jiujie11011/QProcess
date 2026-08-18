@@ -12,6 +12,10 @@
 #include <QUrl>
 #include "qt6compat.h"
 
+#if defined(QT6)
+#  include <QAudioOutput>
+#endif
+
 class QSlider;
 
 class PlayerBar : public QWidget
@@ -66,7 +70,6 @@ private:
 
     QMediaPlayer* player_;
 #if defined(QT6)
-#  include <QAudioOutput>
     QAudioOutput* audioOutput_;
 #else
     // Qt5: no QAudioOutput object; volume controlled via QMediaPlayer::setVolume
